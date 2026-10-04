@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Design decisions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&amp;display=swap">
+<style>
+body{margin:0}
+td,th{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid #D0D7DE}
+th{font-weight:600;font-size:13px;color:#59636E;letter-spacing:0.04em;text-transform:uppercase}
+code{font-family:'JetBrains Mono',monospace;font-size:13px;background:#EFF2F5;padding:1px 5px;border-radius:4px}
+</style>
+</helmet>
+<div style="width: 1280px; min-height: 2600px; box-sizing: border-box; padding: 56px; background: #FFFFFF; color: #000000; font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 36px">
+<header style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #59636E">NeonMeter · design decisions, approved 2026-10-03, as shipped in 1.0.0</div>
+<h1 style="margin: 0; font-size: 36px; font-weight: 600">What the band shows, and how it moves</h1>
+<p style="margin: 0; color: #3A3F45; max-width: 960px">In the terminal the band is one <code>Client</code> of monospace cells; on the desktop the hooks module draws the text and smooth vector bars under a glowing halo. One builder serves both.</p>
+</header>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 600">Layout: edge to edge</h2>
+<table style="border-collapse: collapse; width: 100%">
+<tr><th>Rule</th><th>Decision</th></tr>
+<tr><td>Width</td><td>The row is exactly <code>bodyColumns</code> wide: first cell to last cell, no leading space, nothing empty on the right.</td></tr>
+<tr><td>With bars</td><td>Text is fixed; the bars share the free cells evenly (the leftover cells go to the first bars). Percent, reset and token fields are padded to fixed widths so the bars do not jump as numbers change. The last segment is not padded.</td></tr>
+<tr><td>Without bars</td><td>Segments spread apart: the free cells become equal gaps with a centered <code>·</code>.</td></tr>
+<tr><td>Tiers by fit, not fixed breakpoints</td><td><strong>full</strong> while every bar gets 8 or more cells; else <strong>compact</strong> while every bar gets 4 or more; else <strong>narrow</strong> (numbers spread, gaps of at least 3); else <strong>micro</strong> (truncate-end). With three bars that switches at 96 / 65 / 36 columns (full from 96, compact from 65, narrow from 36); with context alone, full holds down to 31.</td></tr>
+<tr><td>Order</td><td>5-hour, Weekly, Spend (only when the gateway reports one; never a bar), Context.</td></tr>
+</table>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 600">Text</h2>
+<table style="border-collapse: collapse; width: 100%">
+<tr><th>Tier</th><th>Labels</th><th>Reset</th><th>Tokens</th><th>Percent</th></tr>
+<tr><td>full</td><td><code>5-hour</code> <code>Weekly</code> <code>Spend</code> <code>Context</code></td><td><code>in 2h13m</code>, Weekly <code>Thu 14:05</code></td><td><code>104k/200k</code></td><td><strong>range color, bold, pulsing</strong></td></tr>
+<tr><td>compact</td><td><code>5h</code> <code>7d</code> <code>$</code> <code>Ctx</code></td><td><code>2h13m</code>, Weekly <code>3d4h</code></td><td><code>104k/200k</code></td><td><strong>range color, bold, pulsing</strong></td></tr>
+<tr><td>narrow</td><td>same as compact</td><td>countdown</td><td>none</td><td><strong>range color, bold, pulsing</strong></td></tr>
+<tr><td>micro</td><td>same as compact</td><td>none</td><td>none</td><td><strong>range color, bold, pulsing</strong></td></tr>
+</table>
+<p style="margin: 0; color: #3A3F45">Labels capitalize the first letter only. All other text is the theme's text color: white on dark, black on light (theme key <code>text</code>). Separators <code>│</code> and <code>·</code> are the text color at reduced strength. Every percent carries its range color and pulses with its bar, on every tier.</p>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 600">Color ranges</h2>
+<table style="border-collapse: collapse; width: 100%">
+<tr><th>Range</th><th>Name</th><th>Dark theme (neon)</th><th>Light theme</th><th>16-color fallback</th></tr>
+<tr><td>0 to 49</td><td>dodgerblue</td><td><code>#1E90FF</code> (5.8:1)</td><td><code>#1874D2</code> (4.7:1)</td><td><code>blueBright</code></td></tr>
+<tr><td>50 to 59</td><td>lime green</td><td><code>#39FF14</code> (14.0:1)</td><td><code>#32A800</code> (3.1:1)</td><td><code>greenBright</code></td></tr>
+<tr><td>60 to 69</td><td>darker green</td><td><code>#00D45A</code> (9.5:1)</td><td><code>#139A43</code> (3.7:1)</td><td><code>green</code></td></tr>
+<tr><td>70 to 79</td><td>yellow</td><td><code>#FFF01F</code> (16.0:1)</td><td><code>#A89200</code> (3.1:1)</td><td><code>yellowBright</code></td></tr>
+<tr><td>80 to 89</td><td>orangered</td><td><code>#FF5F1F</code> (6.2:1)</td><td><code>#E84A00</code> (3.9:1)</td><td><code>redBright</code></td></tr>
+<tr><td>90 and up</td><td>red</td><td><code>#FF073A</code> (4.8:1)</td><td><code>#E8001F</code> (4.7:1)</td><td><code>red</code></td></tr>
+</table>
+<p style="margin: 0; color: #3A3F45">Ratios are against <code>#0D1117</code> and <code>#FFFFFF</code>. Context uses the same ranges. Empty cells: <code>#21262D</code> dark, <code>#EBEDF0</code> light (GitHub's empty-day squares). Loading cells: <code>#6E7681</code> / <code>#8C959F</code>. Raw hex goes straight into <code>Text.color</code>; a 256-color terminal approximates it.</p>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 600">Bars and the pulse</h2>
+<table style="border-collapse: collapse; width: 100%">
+<tr><th>Item</th><th>Decision</th></tr>
+<tr><td>Cell glyph</td><td><code>━</code> for filled and empty terminal cells, so a bar reads as one continuous line (the <code>glyph</code> option takes any single-width character). Filled = round(percent / 100 x length), at least 1 when above 0, capped at length.</td></tr>
+<tr><td>Coloring</td><td><strong>ramp</strong> (default): the filled part runs through every range from the first up to the percent's, in equal stretches, so the bar always ends in the percent's color and shows every range below it: 85% runs blue, lime, green, yellow, orangered. <strong>level</strong> (<code>barColoring: "level"</code>): every filled cell takes the percent's range color.</td></tr>
+<tr><td>Desktop</td><td>Full labels and fields as text; each bar a smooth bar with rounded ends (<code>desktopBars: "bars"</code>, the default) or a row of dots, drawn as vectors. Every filled bar, dot and percent sits on a halo of its own color that widens with the pulse (<code>glow</code>).</td></tr>
+<tr><td>Pulse (preview)</td><td>A status-light pulse: 0.8 s, ease-in-out, infinite, glow 6px/2px at rest to 12px/5px at the peak, in the cell's own color. Applies to filled cells and to every percent.</td></tr>
+<tr><td>Pulse (what cells can do)</td><td>A terminal has no glow. The band is one <code>Client</code> whose own timer on the surface frame clock steps 8 frames per cycle: each live cell and percent blends toward white, up to 45% at the peak, and back. No host round trip per frame. On the desktop the pulse is an animation inside each drawing.</td></tr>
+<tr><td>Stale</td><td>A reading is stale when a fetch fails or it is older than 2 x <code>pollSeconds</code>. Window bars and percents freeze (no pulse) at 45% strength; <code>stale 5m</code> italic after the last window on full and compact, showing the reading's age in whole minutes (<code>1m</code>, <code>2m</code> ... <code>59m</code>, <code>1h</code>, <code>1h05m</code>, then <code>1d2h</code>), <code>~</code> before each window percent on narrow and micro. Context keeps pulsing. The pulse never pauses for any other reason.</td></tr>
+<tr><td>First load</td><td>Window bars are all grey loading cells, pulsing; the percent shows <code>…</code>.</td></tr>
+<tr><td>No subscription</td><td>Context alone, stretched across the whole row.</td></tr>
+<tr><td>Before the first response</td><td>Context bar all empty cells, percent <code>--</code>.</td></tr>
+<tr><td><code>isWorking</code> / <code>hasSurvey</code></td><td>No change / yield with <code>next(e)</code>.</td></tr>
+<tr><td>Refresh Button</td><td>None.</td></tr>
+<tr><td>Idle</td><td>The pulse runs whenever a reading is live; it stops only for stale data.</td></tr>
+</table>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 12px">
+<h2 style="margin: 0; font-size: 22px; font-weight: 600">Theme and settings</h2>
+<table style="border-collapse: collapse; width: 100%">
+<tr><th>Item</th><th>Decision</th></tr>
+<tr><td>Following the theme</td><td>The mod reads Claude Code's own <code>theme</code> row with <code>$.config.list()</code> at session start and re-reads it when a <code>config.set</code> on <code>theme</code> passes, so a theme switch re-picks the ramp live. A value naming light picks the light ramp, one naming dark the dark ramp.</td></tr>
+<tr><td>When the theme cannot be read</td><td><code>theme: "auto"</code> (the default) falls back to dark; <code>dark</code> or <code>light</code> forces one. The desktop follows the app's own appearance under <code>desktopTheme: "auto"</code>.</td></tr>
+<tr><td>Toasts</td><td><strong>None.</strong> The band is the only surface.</td></tr>
+<tr><td><code>userConfig</code></td><td><code>desktopBars</code> bars, <code>barColoring</code> ramp, <code>segments</code> all four, <code>glow</code> true, <code>pulse</code> true, <code>pulseMs</code> 800, <code>pollSeconds</code> 60, <code>rotateSeconds</code> 5, <code>theme</code> auto, <code>desktopTheme</code> auto, <code>ranges</code> 50,60,70,80,90, <code>colorsDark</code>, <code>colorsLight</code>, <code>glyph</code> ━.</td></tr>
+</table>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2600}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

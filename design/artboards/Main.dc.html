@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Band playground</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&amp;display=swap">
+<style>
+body{margin:0}
+input[type=range]{width:100%;accent-color:#1E90FF}
+input[type=checkbox]{width:18px;height:18px;accent-color:#1E90FF;margin:0}
+@keyframes pulse-glow{0%,100%{text-shadow:0 0 6px currentColor,0 0 2px currentColor}50%{text-shadow:0 0 12px currentColor,0 0 5px currentColor}}
+.pulse{animation:pulse-glow .8s ease-in-out infinite}
+@keyframes pulse-cell{0%,100%{background-color:transparent;filter:brightness(1)}50%{background-color:color-mix(in srgb,currentColor 30%,transparent);filter:brightness(1.3)}}
+.cellpulse{animation:pulse-cell .8s steps(4) infinite}
+.barglow{box-shadow:0 0 6px 1px currentColor;animation:bar-glow .8s ease-in-out infinite}@keyframes bar-glow{0%,100%{box-shadow:0 0 6px 1px currentColor}50%{box-shadow:0 0 12px 3px currentColor}}.barrest{box-shadow:0 0 6px 1px currentColor}
+</style>
+</helmet>
+<div style="width: 1600px; height: 980px; box-sizing: border-box; padding: 48px 56px; background: {{page}}; color: {{text}}; font-family: 'IBM Plex Sans', sans-serif; display: flex; flex-direction: column; gap: 28px">
+<header style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: {{muted}}">NeonMeter · playground</div>
+<h1 style="margin: 0; font-size: 34px; font-weight: 600">Drag the numbers, watch the band</h1>
+<p style="margin: 0; color: {{muted}}; font-size: 15px; line-height: 1.5; max-width: 980px">Runs the builder the plugin ships: fit-based tiers, edge-to-edge stretch, the six-color ramp across the fill and the pulse. The terminal row is monospace cells; the desktop draws smooth bars under a glowing halo. Switch "Cell-exact pulse" on to see what a terminal can actually draw.</p>
+</header>
+<div style="display: flex; gap: 40px; flex: 1; min-height: 0">
+<form style="width: 330px; flex-shrink: 0; display: flex; flex-direction: column; gap: 15px; background: {{panel}}; border: 1px solid {{border}}; border-radius: 14px; padding: 22px; box-sizing: border-box">
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px"><span style="display: flex; justify-content: space-between"><span>bodyColumns</span><span style="font-family: 'JetBrains Mono', monospace">{{cols}}</span></span><input type="range" min="30" max="140" value="{{cols}}" onChange="{{setCols}}"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px"><span style="display: flex; justify-content: space-between"><span>5-hour used</span><span style="font-family: 'JetBrains Mono', monospace">{{p5}}%</span></span><input type="range" min="0" max="100" value="{{p5}}" onChange="{{setP5}}"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px"><span style="display: flex; justify-content: space-between"><span>Weekly used</span><span style="font-family: 'JetBrains Mono', monospace">{{p7}}%</span></span><input type="range" min="0" max="100" value="{{p7}}" onChange="{{setP7}}"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px"><span style="display: flex; justify-content: space-between"><span>Context fill</span><span style="font-family: 'JetBrains Mono', monospace">{{pc}}%</span></span><input type="range" min="0" max="100" value="{{pc}}" onChange="{{setPc}}"></label>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; font-size: 14px; padding-top: 4px">
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{light}}" onChange="{{setLight}}">Light theme</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{ramp}}" onChange="{{setRamp}}">Ramp coloring (default)</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{cells}}" onChange="{{setCells}}">Cell-exact pulse</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{auth}}" onChange="{{setAuth}}">Subscription</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{showContext}}" onChange="{{setShowContext}}">showContext</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{loading}}" onChange="{{setLoading}}">First load</label>
+<label style="display: flex; align-items: center; gap: 8px"><input type="checkbox" checked="{{stale}}" onChange="{{setStale}}">Stale (5m)</label>
+</div>
+</form>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+<div style="font-size: 14px; color: {{muted}}">Tier: <strong style="color: {{text}}">{{tier}}</strong> · full while every bar gets 8+ cells, compact while 4+, then narrow (numbers, spread apart), then micro</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; color: {{muted}}">Terminal</div>
+<div style="width: fit-content; background: {{bg}}; border: 1px solid {{border}}; border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 20px">
+<div style="white-space: pre; width: {{colsW}}; min-height: 20px; overflow: hidden"><sc-for list="{{spans}}" as="sp"><span class="{{sp.cls}}" style="color: {{sp.color}}; opacity: {{sp.op}}; font-weight: {{sp.fw}}; font-style: {{sp.fs}}">{{sp.text}}</span></sc-for></div>
+<div style="width: {{colsW}}; box-sizing: border-box; border: 1px solid {{border}}; border-radius: 6px; padding: 6px 10px; white-space: pre">&gt; </div>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 13px; color: {{muted}}">Desktop</div>
+<div style="width: fit-content; background: {{bg}}; border: 1px solid {{border}}; border-radius: 14px; overflow: hidden">
+<div style="padding: 8px 14px; border-bottom: 1px solid {{border}}; background: {{panel}}"><div style="display: flex; align-items: center; gap: 8px; width: {{colsW}}; min-height: 20px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; line-height: 20px; white-space: nowrap"><sc-for list="{{desk}}" as="d"><span style="color: {{d.text}}; opacity: 0.4">{{d.sep}}</span><span style="color: {{d.text}}">{{d.label}}</span><sc-if value="{{d.hasBar}}"><span style="flex: 1; min-width: 40px; height: 7px; border-radius: 4px; background: {{d.track}}; position: relative"><span class="{{d.barCls}}" style="position: absolute; left: 0; top: 0; bottom: 0; width: {{d.width}}; min-width: {{d.minw}}; border-radius: 4px; background: {{d.fill}}; color: {{d.glow}}; opacity: {{d.op}}"></span></span></sc-if><span class="{{d.pctCls}}" style="color: {{d.pctColor}}; opacity: {{d.op}}; font-weight: 700">{{d.pct}}</span><span style="color: {{d.text}}">{{d.extra}}</span></sc-for></div></div>
+<div style="padding: 14px 16px; font-size: 15px; color: {{muted}}">Reply to Claude…</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1600,"height":980}}'>
+var THEMES = {
+  dark: { bg: '#0D1117', panel: '#161B22', text: '#FFFFFF', track: '#21262D', neutral: '#6E7681', border: '#30363D', muted: '#9198A1',
+    ramp: ['#1E90FF', '#39FF14', '#00D45A', '#FFF01F', '#FF5F1F', '#FF073A'] },
+  light: { bg: '#FFFFFF', panel: '#F6F8FA', text: '#000000', track: '#EBEDF0', neutral: '#8C959F', border: '#D0D7DE', muted: '#59636E',
+    ramp: ['#1874D2', '#32A800', '#139A43', '#A89200', '#E84A00', '#E8001F'] }
+};
+var RANGES = [
+  { name: 'dodgerblue', from: 0, to: 50 }, { name: 'lime green', from: 50, to: 60 }, { name: 'darker green', from: 60, to: 70 },
+  { name: 'yellow', from: 70, to: 80 }, { name: 'orangered', from: 80, to: 90 }, { name: 'red', from: 90, to: 100 }
+];
+var LABELS = {
+  full: { five_hour: '5-hour', seven_day: 'Weekly', spend_limit: 'Spend', ctx: 'Context' },
+  short: { five_hour: '5h', seven_day: '7d', spend_limit: '$', ctx: 'Ctx' }
+};
+var CELL = '━';
+function rampIndex(p) { return p >= 90 ? 5 : p >= 80 ? 4 : p >= 70 ? 3 : p >= 60 ? 2 : p >= 50 ? 1 : 0; }
+function rep(c, n) { var s = ''; for (var i = 0; i < n; i++) s += c; return s; }
+function padL(s, n) { while (s.length < n) s = ' ' + s; return s; }
+function padR(s, n) { while (s.length < n) s = s + ' '; return s; }
+function fmtDur(min) {
+  if (min < 60) return min + 'm';
+  var h = Math.floor(min / 60), m = min % 60;
+  if (h < 24) return h + 'h' + (m < 10 ? '0' : '') + m + 'm';
+  return Math.floor(h / 24) + 'd' + (h % 24) + 'h';
+}
+function fmtAge(min) {
+  var m = Math.max(1, Math.floor(min));
+  if (m < 60) return m + 'm';
+  var h = Math.floor(m / 60), r = m % 60;
+  if (h < 24) return h + 'h' + (r ? (r < 10 ? '0' : '') + r + 'm' : '');
+  return Math.floor(h / 24) + 'd' + (h % 24) + 'h';
+}
+function fmtTok(n) { return n >= 1000000 ? (Math.round(n / 100000) / 10) + 'M' : Math.round(n / 1000) + 'k'; }
+function sp(text, color, o) {
+  o = o || {};
+  return { text: text, color: color, cls: o.cls || '', op: o.op == null ? 1 : o.op, fw: o.bold ? 700 : 400, fs: o.italic ? 'italic' : 'normal' };
+}
+function segmentsOf(s) {
+  var segs = [];
+  if (s.auth) {
+    if (s.loading) {
+      segs.push({ kind: 'five_hour', loading: true, hasBar: true });
+      segs.push({ kind: 'seven_day', loading: true, hasBar: true });
+    } else {
+      s.windows.forEach(function (w) {
+        segs.push({ kind: w.kind, pct: w.pct, resetMin: w.resetMin, resetAt: w.resetAt, hasBar: w.kind !== 'spend_limit', stale: s.stale });
+      });
+    }
+  }
+  if (s.showContext && s.ctx) {
+    segs.push({ kind: 'ctx', pct: s.ctx.tokens == null ? null : s.ctx.pct, tokens: s.ctx.tokens, window: s.ctx.window, hasBar: true });
+  }
+  return segs;
+}
+function piecesOf(seg, tier, isLast) {
+  var barTier = tier === 'full' || tier === 'compact';
+  var label = (tier === 'full' ? LABELS.full : LABELS.short)[seg.kind];
+  var pct = seg.loading ? '…' : seg.pct == null ? '--' : Math.round(seg.pct) + '%';
+  if (seg.stale && !barTier) pct = '~' + pct;
+  var extra = '';
+  if (seg.kind === 'ctx') {
+    if (barTier && seg.pct != null) extra = fmtTok(seg.tokens) + '/' + fmtTok(seg.window);
+  } else if (!seg.loading && seg.resetMin != null && tier !== 'micro') {
+    extra = seg.kind === 'seven_day' && tier === 'full' ? seg.resetAt : (tier === 'full' ? 'in ' : '') + fmtDur(seg.resetMin);
+  }
+  if (barTier) {
+    pct = padL(pct, 4);
+    if (seg.kind !== 'spend_limit' && !isLast && !seg.loading) extra = padR(extra, seg.kind === 'ctx' ? 9 : tier === 'full' ? (seg.kind === 'seven_day' ? 9 : 8) : 5);
+  }
+  return { label: label, pct: pct, extra: extra };
+}
+function pctColor(seg, T) {
+  if (seg.loading) return { color: T.neutral, op: 1, live: true };
+  if (seg.pct == null) return { color: T.text, op: 1, live: false };
+  if (seg.stale) return { color: T.ramp[rampIndex(seg.pct)], op: 0.45, live: false };
+  return { color: T.ramp[rampIndex(seg.pct)], op: 1, live: true };
+}
+function pushBar(out, seg, len, T, opt) {
+  if (seg.loading) { out.push(sp(rep(CELL, len), T.neutral, { cls: opt.pulse })); return; }
+  var pct = seg.pct == null ? 0 : Math.min(seg.pct, 100);
+  var f = pct <= 0 ? 0 : Math.max(1, Math.round(pct / 100 * len));
+  var cls = seg.stale ? '' : opt.pulse, op = seg.stale ? 0.45 : 1;
+  var run = '', runColor = null;
+  for (var i = 0; i < f; i++) {
+    // Ramp: the fill runs through every range up to the percent's in equal stretches, ending in its color.
+    var top = rampIndex(pct);
+    var c = opt.bars === 'ramp' && i < f - 1 ? T.ramp[Math.min(top, Math.floor(i / f * (top + 1)))] : T.ramp[top];
+    if (c !== runColor && run) { out.push(sp(run, runColor, { cls: cls, op: op })); run = ''; }
+    runColor = c; run += CELL;
+  }
+  if (run) out.push(sp(run, runColor, { cls: cls, op: op }));
+  if (len - f > 0) out.push(sp(rep(CELL, len - f), T.track));
+}
+function layoutBars(segs, tier, s, cols, T, opt) {
+  var min = tier === 'full' ? 8 : 4;
+  var parts = segs.map(function (seg, i) { return piecesOf(seg, tier, i === segs.length - 1); });
+  var staleTxt = s.stale && s.auth && !s.loading ? '  stale ' + s.staleAge : '';
+  var lastWin = -1;
+  segs.forEach(function (seg, i) { if (seg.kind !== 'ctx') lastWin = i; });
+  var fixed = (segs.length - 1) * 3, nb = 0;
+  parts.forEach(function (p, i) {
+    fixed += p.label.length + 1 + p.pct.length + (p.extra ? 1 + p.extra.length : 0) + (i === lastWin ? staleTxt.length : 0);
+    if (segs[i].hasBar) { fixed += 1; nb++; }
+  });
+  var free = cols - fixed;
+  if (nb === 0 || free < nb * min) return null;
+  var base = Math.floor(free / nb), rem = free % nb, k = 0, out = [];
+  segs.forEach(function (seg, i) {
+    var p = parts[i];
+    if (i) out.push(sp(' │ ', T.text, { op: 0.4 }));
+    out.push(sp(p.label + ' ', T.text));
+    if (seg.hasBar) {
+      pushBar(out, seg, base + (k < rem ? 1 : 0), T, opt);
+      k++;
+      out.push(sp(' ', T.text));
+    }
+    var pc = pctColor(seg, T);
+    out.push(sp(p.pct, pc.color, { cls: pc.live ? opt.pulse : '', op: pc.op, bold: true }));
+    if (p.extra) out.push(sp(' ' + p.extra, T.text));
+    if (i === lastWin && staleTxt) out.push(sp(staleTxt, T.text, { italic: true, op: 0.7 }));
+  });
+  return out;
+}
+function layoutJustified(segs, tier, cols, T, opt, force) {
+  var parts = segs.map(function (seg, i) { return piecesOf(seg, tier, true); });
+  var total = 0;
+  parts.forEach(function (p) { total += p.label.length + 1 + p.pct.length + (p.extra ? 1 + p.extra.length : 0); });
+  var gaps = segs.length - 1;
+  if (!force && total + gaps * 3 > cols) return null;
+  var free = Math.max(cols - total, gaps * 3), out = [];
+  segs.forEach(function (seg, i) {
+    var p = parts[i];
+    if (i) {
+      var g = Math.floor(free / gaps) + (i - 1 < free % gaps ? 1 : 0), left = Math.floor((g - 1) / 2);
+      out.push(sp(rep(' ', left) + '·' + rep(' ', g - 1 - left), T.text, { op: 0.4 }));
+    }
+    var pc = pctColor(seg, T);
+    out.push(sp(p.label + ' ', T.text));
+    out.push(sp(p.pct, pc.color, { cls: pc.live ? opt.pulse : '', op: pc.op, bold: true }));
+    if (p.extra) out.push(sp(' ' + p.extra, T.text));
+  });
+  return out;
+}
+function band(s, cols, theme, opt) {
+  var T = THEMES[theme], segs = segmentsOf(s);
+  if (!segs.length) return null;
+  var spans = layoutBars(segs, 'full', s, cols, T, opt), tier = 'full';
+  if (!spans) { spans = layoutBars(segs, 'compact', s, cols, T, opt); tier = 'compact'; }
+  if (!spans) { spans = layoutJustified(segs, 'narrow', cols, T, opt, false); tier = 'narrow'; }
+  if (!spans) { spans = layoutJustified(segs, 'micro', cols, T, opt, true); tier = 'micro'; }
+  return { tier: tier, spans: spans };
+}
+// The desktop band as the plugin draws it: full labels and fields as text, each bar a smooth rounded
+// bar (the ramp in equal stretches of the fill, or one level color) under a halo of the percent's color.
+function desktopRow(s, theme, opt) {
+  var T = THEMES[theme], segs = segmentsOf(s);
+  var lastWin = -1;
+  segs.forEach(function (seg, i) { if (seg.kind !== 'ctx') lastWin = i; });
+  var staleTxt = s.stale && s.auth && !s.loading ? 'stale ' + s.staleAge : '';
+  return segs.map(function (seg, i) {
+    var p = piecesOf(seg, 'full', true), pc = pctColor(seg, T);
+    var pct = seg.loading || seg.pct == null ? 0 : Math.min(seg.pct, 100);
+    var top = rampIndex(pct), fill;
+    if (seg.loading) fill = T.neutral;
+    else if (opt.bars === 'ramp') {
+      var stops = [];
+      for (var k = 0; k <= top; k++) {
+        var a = (k / (top + 1) * 100).toFixed(2), b = ((k + 1) / (top + 1) * 100).toFixed(2);
+        stops.push(T.ramp[k] + ' ' + a + '%', T.ramp[k] + ' ' + b + '%');
+      }
+      fill = 'linear-gradient(to right, ' + stops.join(', ') + ')';
+    } else fill = T.ramp[top];
+    var filled = seg.loading || pct > 0;
+    return {
+      sep: i ? '│' : '', text: T.text, label: p.label, hasBar: seg.hasBar, track: T.track,
+      width: (seg.loading ? 100 : pct) + '%', minw: filled ? '7px' : '0px', fill: fill, glow: pc.color,
+      barCls: !filled ? '' : pc.live ? 'barglow' : 'barrest', op: pc.op,
+      pct: p.pct.trim(), pctColor: pc.color, pctCls: pc.live ? 'pulse' : '',
+      extra: (p.extra ? p.extra.trim() : '') + (i === lastWin && staleTxt ? '  ' + staleTxt : '')
+    };
+  });
+}
+function optsOf(props) {
+  return { bars: props.bars === 'level' ? 'level' : 'ramp', pulse: props.render === 'cells' ? 'cellpulse' : 'pulse' };
+}
+var BASE = { auth: true, loading: false, stale: false, staleAge: '5m', showContext: true, windows: [], ctx: null };
+var STATES = [
+  { n: '1', title: 'Live, fresh', note: '5-hour blue, weekly lime green, context darker green.',
+    s: { windows: [{ kind: 'five_hour', pct: 42.3, resetMin: 193 }, { kind: 'seven_day', pct: 55, resetMin: 4560, resetAt: 'Thu 14:05' }], ctx: { pct: 64, tokens: 128000, window: 200000 } } },
+  { n: '2', title: 'One window high, context high', note: '5-hour orangered, weekly blue, context yellow.',
+    s: { windows: [{ kind: 'five_hour', pct: 81.6, resetMin: 64 }, { kind: 'seven_day', pct: 18.2, resetMin: 4560, resetAt: 'Thu 14:05' }], ctx: { pct: 74, tokens: 148000, window: 200000 } } },
+  { n: '3', title: 'Critical', note: '5-hour and context red, weekly darker green; 1M context window.',
+    s: { windows: [{ kind: 'five_hour', pct: 93.4, resetMin: 47 }, { kind: 'seven_day', pct: 61, resetMin: 1510, resetAt: 'Tue 09:30' }], ctx: { pct: 91, tokens: 910000, window: 1000000 } } },
+  { n: '4', title: 'Stale, last reading 5m old', note: 'Window bars freeze and fade, age marked in whole minutes; context stays live.',
+    s: { stale: true, windows: [{ kind: 'five_hour', pct: 64, resetMin: 151 }, { kind: 'seven_day', pct: 29.5, resetMin: 4560, resetAt: 'Thu 14:05' }], ctx: { pct: 45, tokens: 90000, window: 200000 } } },
+  { n: '5', title: 'No subscription or API key', note: 'Rate-limit segments hidden; context takes the whole row.',
+    s: { auth: false, ctx: { pct: 52, tokens: 104000, window: 200000 } } },
+  { n: '6', title: 'First load', note: 'Neutral grey track pulses until the first reading lands.',
+    s: { loading: true, ctx: { pct: 12, tokens: 24000, window: 200000 } } },
+  { n: '7', title: 'High across the board', note: '5-hour red, weekly orangered, context yellow.',
+    s: { windows: [{ kind: 'five_hour', pct: 95.2, resetMin: 22 }, { kind: 'seven_day', pct: 84, resetMin: 1890, resetAt: 'Tue 15:50' }], ctx: { pct: 77, tokens: 154000, window: 200000 } } },
+  { n: '8', title: 'Turn running (isWorking)', note: 'Unchanged: the band keeps pulsing under the engine spinner.', working: true,
+    s: { windows: [{ kind: 'five_hour', pct: 42.3, resetMin: 193 }, { kind: 'seven_day', pct: 55, resetMin: 4560, resetAt: 'Thu 14:05' }], ctx: { pct: 64, tokens: 128000, window: 200000 } } },
+  { n: '9', title: 'New session, before the first response', note: 'Context tokens absent: empty track and --.',
+    s: { windows: [{ kind: 'five_hour', pct: 12, resetMin: 284 }, { kind: 'seven_day', pct: 22, resetMin: 4560, resetAt: 'Thu 14:05' }], ctx: { pct: 0, tokens: null, window: 200000 } } },
+  { n: '10', title: 'Gateway spend limit present', note: 'Spend has no bar; its percent carries the color and pulse.',
+    s: { windows: [{ kind: 'five_hour', pct: 38, resetMin: 201 }, { kind: 'seven_day', pct: 21, resetMin: 4560, resetAt: 'Thu 14:05' }, { kind: 'spend_limit', pct: 112 }], ctx: { pct: 30, tokens: 60000, window: 200000 } } }
+];
+function matrix(theme, opt) {
+  return STATES.map(function (st) {
+    var s = Object.assign({}, BASE, st.s), main = band(s, 120, theme, opt);
+    return {
+      n: st.n, title: st.title, note: st.note,
+      main: main.spans, working: !!st.working,
+      rows: [96, 72, 56, 40].map(function (c) {
+        var b = band(s, c, theme, opt);
+        return { w: c + 'ch', label: c + ' cols · ' + b.tier, spans: b.spans };
+      })
+    };
+  });
+}
+
+function numSetter(self, key) { return function (e) { var o = {}; o[key] = Number(e.target.value); self.setState(o); }; }
+function flagSetter(self, key) { return function (e) { var o = {}; o[key] = e.target.checked; self.setState(o); }; }
+class Component extends DCLogic {
+  renderVals() {
+    var st = Object.assign({ cols: 120, p5: 68, p7: 31, pc: 52, light: false, ramp: true, cells: false, auth: true, loading: false, stale: false, showContext: true }, this.state || {});
+    var theme = st.light ? 'light' : 'dark', T = THEMES[theme];
+    var opt = { bars: st.ramp ? 'ramp' : 'level', pulse: st.cells ? 'cellpulse' : 'pulse' };
+    var s = Object.assign({}, BASE, {
+      auth: st.auth, loading: st.loading, stale: st.stale, showContext: st.showContext,
+      windows: [{ kind: 'five_hour', pct: st.p5, resetMin: 133 }, { kind: 'seven_day', pct: st.p7, resetMin: 4560, resetAt: 'Thu 14:05' }],
+      ctx: { pct: st.pc, tokens: st.pc * 2000, window: 200000 }
+    });
+    var b = band(s, st.cols, theme, opt);
+    return Object.assign({}, st, {
+      page: st.light ? '#F2F1EE' : '#010409', bg: T.bg, panel: T.panel, text: T.text, muted: T.muted, border: T.border,
+      colsW: st.cols + 'ch', tier: b ? b.tier : 'none (passes to next)', spans: b ? b.spans : [], desk: b ? desktopRow(s, theme, opt) : [],
+      setCols: numSetter(this, 'cols'), setP5: numSetter(this, 'p5'), setP7: numSetter(this, 'p7'), setPc: numSetter(this, 'pc'),
+      setLight: flagSetter(this, 'light'), setRamp: flagSetter(this, 'ramp'), setCells: flagSetter(this, 'cells'),
+      setAuth: flagSetter(this, 'auth'), setShowContext: flagSetter(this, 'showContext'),
+      setLoading: flagSetter(this, 'loading'), setStale: flagSetter(this, 'stale')
+    });
+  }
+}
+</script>
+</body>
+</html>

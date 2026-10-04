@@ -1,0 +1,154 @@
+{
+  "name": "neonmeter",
+  "version": "1.0.0",
+  "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
+  "author": {
+    "name": "Ivan Pavlak",
+    "url": "https://github.com/IvanPavlak"
+  },
+  "homepage": "https://github.com/IvanPavlak/NeonMeter",
+  "repository": "https://github.com/IvanPavlak/NeonMeter",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "rate-limits",
+    "usage",
+    "context-window",
+    "terminal",
+    "desktop"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "barColoring": {
+      "type": "string",
+      "title": "Bar coloring",
+      "description": "ramp runs the filled part through every range up to the percent's in equal stretches; level colors every filled cell by the segment's percent",
+      "options": [
+        "level",
+        "ramp"
+      ],
+      "default": "ramp"
+    },
+    "desktopBars": {
+      "type": "string",
+      "title": "Desktop bars",
+      "description": "How bars draw in the desktop app: a smooth glowing bar with rounded ends, or a row of glowing dots",
+      "options": [
+        "dots",
+        "bars"
+      ],
+      "default": "bars"
+    },
+    "pulse": {
+      "type": "boolean",
+      "title": "Pulse",
+      "description": "Pulse live cells and percents in their own color; off draws them still",
+      "default": true
+    },
+    "glow": {
+      "type": "boolean",
+      "title": "Glow",
+      "description": "Draw the desktop's halo under filled bars, dots and percents; off draws them crisp (the pulse still brightens them)",
+      "default": true
+    },
+    "pulseMs": {
+      "type": "number",
+      "title": "Pulse cycle (ms)",
+      "description": "Length of one pulse cycle in milliseconds, 400 to 3000",
+      "default": 800,
+      "min": 400,
+      "max": 3000
+    },
+    "segments": {
+      "type": "string",
+      "multiple": true,
+      "title": "Segments",
+      "description": "Which segments to draw and in what order: five_hour, seven_day, spend, context (spend shows only when the account reports a spend limit)",
+      "default": [
+        "five_hour",
+        "seven_day",
+        "spend",
+        "context"
+      ]
+    },
+    "pollSeconds": {
+      "type": "number",
+      "title": "Poll interval (s)",
+      "description": "Seconds between usage fetches, 10 to 3600; a reading older than twice this is marked stale",
+      "default": 60,
+      "min": 10,
+      "max": 3600
+    },
+    "theme": {
+      "type": "string",
+      "title": "Theme",
+      "description": "auto follows Claude Code's theme setting (dark when it cannot be read); dark or light forces that palette",
+      "options": [
+        "auto",
+        "dark",
+        "light"
+      ],
+      "default": "auto"
+    },
+    "desktopTheme": {
+      "type": "string",
+      "title": "Desktop theme",
+      "description": "Palette in the desktop app: auto follows the app's own light or dark appearance (and the system theme it follows), dark or light overrides it",
+      "options": [
+        "auto",
+        "dark",
+        "light"
+      ],
+      "default": "auto"
+    },
+    "ranges": {
+      "type": "string",
+      "title": "Range bounds",
+      "description": "Where each of the six color ranges starts: five ascending whole numbers from 1 to 99, separated by commas",
+      "default": "50,60,70,80,90"
+    },
+    "colorsDark": {
+      "type": "string",
+      "multiple": true,
+      "title": "Colors (dark)",
+      "description": "The six range colors on a dark background, lowest range first, as #RRGGBB",
+      "default": [
+        "#1E90FF",
+        "#39FF14",
+        "#00D45A",
+        "#FFF01F",
+        "#FF5F1F",
+        "#FF073A"
+      ]
+    },
+    "colorsLight": {
+      "type": "string",
+      "multiple": true,
+      "title": "Colors (light)",
+      "description": "The six range colors on a light background, lowest range first, as #RRGGBB",
+      "default": [
+        "#1874D2",
+        "#32A800",
+        "#139A43",
+        "#A89200",
+        "#E84A00",
+        "#E8001F"
+      ]
+    },
+    "glyph": {
+      "type": "string",
+      "title": "Bar cell",
+      "description": "The character every terminal bar cell is drawn with: one single-width character such as ━ ● ■ █ • (wide characters and emoji are refused; the desktop draws vectors)",
+      "default": "━"
+    },
+    "rotateSeconds": {
+      "type": "number",
+      "title": "Weekly rotation (s)",
+      "description": "Seconds each weekly limit shows when the Weekly segment rotates between several, 2 to 60",
+      "default": 5,
+      "min": 2,
+      "max": 60
+    }
+  }
+}

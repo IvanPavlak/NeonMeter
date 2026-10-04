@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeonMeter design canvas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+:root { --page: #E9E7E2; --ink: #1F2328; --muted: #59636E; --card: #FFFFFF; --line: #D0D7DE; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #010409; --ink: #F0F6FC; --muted: #9198A1; --card: #0D1117; --line: #30363D; } }
+:root[data-theme="dark"] { --page: #010409; --ink: #F0F6FC; --muted: #9198A1; --card: #0D1117; --line: #30363D; }
+body { margin: 0; background: var(--page); color: var(--ink); font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+header { padding: 32px 40px 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px 28px; }
+h1 { margin: 0; font-size: 32px; font-weight: 600; }
+nav { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 15px; }
+a { color: inherit; }
+p { margin: 0; color: var(--muted); font-size: 15px; }
+.stage { padding: 24px 40px 48px; overflow-x: auto; }
+.canvas { position: relative; transform-origin: 0 0; }
+.board { position: absolute; display: flex; flex-direction: column; gap: 8px; }
+.board span { font-size: 22px; color: var(--muted); }
+.board iframe { border: 1px solid var(--line); border-radius: 6px; background: var(--card); }
+</style>
+</head>
+<body>
+<header>
+<h1>NeonMeter</h1>
+<nav>
+<a href="artboards/Main.dc.html">Playground</a>
+<a href="artboards/Palette.dc.html">Palette</a>
+<a href="artboards/StatesDark.dc.html">States, dark</a>
+<a href="artboards/StatesLight.dc.html">States, light</a>
+<a href="artboards/Spec.dc.html">Decisions</a>
+</nav>
+<p>The full design canvas. Open a board on its own to interact with it; add <code>?bars=level</code> or <code>?render=cells</code> to the state boards and the palette.</p>
+</header>
+<div class="stage"><div class="canvas" id="canvas"></div></div>
+<script>
+(function () {
+  var layout = {"Main.dc.html":{"x":0,"y":0,"w":1600,"h":980,"title":"Playground"},"Palette.dc.html":{"x":1680,"y":0,"w":1400,"h":1180,"title":"Palette"},"StatesDark.dc.html":{"x":0,"y":1300,"w":1180,"h":5000,"title":"States, dark theme"},"StatesLight.dc.html":{"x":1260,"y":1300,"w":1180,"h":5000,"title":"States, light theme"},"Spec.dc.html":{"x":2520,"y":1300,"w":1280,"h":2600,"title":"Decisions"}};
+  var canvas = document.getElementById('canvas');
+  var width = 0, height = 0;
+  Object.keys(layout).forEach(function (file) {
+    var b = layout[file];
+    var box = document.createElement('div');
+    box.className = 'board';
+    box.style.left = b.x + 'px';
+    box.style.top = b.y + 'px';
+    var label = document.createElement('span');
+    label.textContent = b.title;
+    var frame = document.createElement('iframe');
+    frame.src = 'artboards/' + file;
+    frame.title = b.title;
+    frame.width = b.w;
+    frame.height = b.h;
+    frame.loading = 'lazy';
+    box.appendChild(label);
+    box.appendChild(frame);
+    canvas.appendChild(box);
+    width = Math.max(width, b.x + b.w + 2);
+    height = Math.max(height, b.y + b.h + 40);
+  });
+  function fit() {
+    var avail = Math.max(320, document.querySelector('.stage').clientWidth - 80);
+    var scale = Math.min(1, avail / width);
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    canvas.style.transform = 'scale(' + scale + ')';
+    canvas.parentNode.style.height = Math.ceil(height * scale) + 'px';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+})();
+</script>
+</body>
+</html>

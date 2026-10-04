@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.286
+      - name: Validate the plugin manifest and hooks
+        run: claude plugin validate .claude-plugin/plugin.json --strict
+      - name: Validate the marketplace manifest
+        run: claude plugin validate .claude-plugin/marketplace.json --strict
+      - name: Run the plugin tests
+        run: claude plugin test .

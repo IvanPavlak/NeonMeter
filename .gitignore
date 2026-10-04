@@ -1,0 +1,11 @@
+# Written by Claude Code when it loads the plugin from this folder or by /plugin-types
+.claude/
+.claude-plugin/types/
+
+node_modules/
+*.log
+
+# The graphics generator's local preview page
+design/readme/_*.html
+.DS_Store
+Thumbs.db

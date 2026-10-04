@@ -1,0 +1,27 @@
+{
+  "name": "neonmeter",
+  "owner": {
+    "name": "Ivan Pavlak",
+    "url": "https://github.com/IvanPavlak"
+  },
+  "metadata": {
+    "description": "NeonMeter: neon rate-limit and context meter for Claude Code, drawn above the prompt"
+  },
+  "plugins": [
+    {
+      "name": "neonmeter",
+      "source": "./",
+      "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
+      "version": "1.0.0",
+      "author": {
+        "name": "Ivan Pavlak",
+        "url": "https://github.com/IvanPavlak"
+      },
+      "homepage": "https://github.com/IvanPavlak/NeonMeter",
+      "repository": "https://github.com/IvanPavlak/NeonMeter",
+      "license": "MIT",
+      "keywords": ["claude-code", "claude-code-plugin", "rate-limits", "usage", "context-window", "terminal", "desktop"],
+      "category": "productivity"
+    }
+  ]
+}
