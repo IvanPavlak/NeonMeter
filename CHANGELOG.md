@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - The README's terminal illustration no longer runs out of its panels on phones: each monospace line is pinned to its cell width, so a fallback font wider than Cascadia Mono (Android's) is fitted instead of overflowing.
+- The README's illustrations no longer keep the browser's CPU busy. They carried the band's 800 ms pulse as SVG animations, and a browser rasterizes a whole SVG image again in software whenever any value in it changes, so an open README cost Firefox four to seven CPU cores. The drawings now hold still, with the glow and the 5-second Weekly rotation kept; they cost nothing between turns.
 
 ## [1.0.0] - 2026-10-04
 

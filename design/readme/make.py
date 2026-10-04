@@ -2,7 +2,15 @@
 (the six ranges) title-dark.svg / title-light.svg (the glowing name and tagline) and
 terminal.svg (the terminal band at three widths on both themes, from the builder's own
 rows in terminal-rows.json). Pure SVG with the same glow the desktop band draws: a blurred
-halo of each color under it, pulsing on an 800 ms cycle. Run from anywhere:
+halo of each color under every filled bar, dot and percent.
+
+The drawings hold still; only the Weekly segment takes its turns with the Fable limit, every
+5 s, as the band does. The band's 800 ms pulse is deliberately not here. A browser shows these
+files through <img>, and whenever any value in such an SVG changes it rasterizes the whole image
+again in software, blur or no blur. Measured in Firefox's GPU process, the pulse as <animate>
+cost four to seven CPU cores while the README was open and a pulse stepped eight times per
+cycle two; the rotation alone costs nothing between turns and one short repaint per turn. Keep
+every <animate> here on the rotation's time scale. Run from anywhere:
 
     python design/readme/make.py
 """
@@ -21,19 +29,6 @@ BOUNDS = [50, 60, 70, 80, 90]
 RANGES = ['0 to 49', '50 to 59', '60 to 69', '70 to 79', '80 to 89', '90 and up']
 NAMES = ['dodgerblue', 'lime green', 'darker green', 'yellow', 'orangered', 'red']
 FONT = "font-family=\"'Segoe UI', system-ui, -apple-system, Roboto, sans-serif\""
-MS = 800
-
-
-def mix_white(hex_color, strength):
-    r, g, b = int(hex_color[1:3], 16), int(hex_color[3:5], 16), int(hex_color[5:7], 16)
-    f = lambda c: round(255 + (c - 255) * strength)
-    return '#%02X%02X%02X' % (f(r), f(g), f(b))
-
-
-def peak(color):
-    return mix_white(color, 1 - 0.45)
-
-
 def range_of(pct):
     i = 0
     for n, b in enumerate(BOUNDS):
@@ -42,23 +37,16 @@ def range_of(pct):
     return i
 
 
-def anim(attr, values, delay=0):
-    return (f'<animate attributeName="{attr}" values="{values}" dur="{MS}ms" begin="{delay}ms" repeatCount="indefinite" '
-            f'calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"/>')
-
-
 def defs():
+    """The halo filter: the band's blur at the middle of its breath."""
     return ('<defs>'
-            '<filter id="g" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="3">'
-            + anim('stdDeviation', '3;6;3') + '</feGaussianBlur></filter>'
-            '<filter id="r" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="3"/></filter>'
+            '<filter id="g" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="4"/></filter>'
             '</defs>')
 
 
-def glow_attrs(live=True):
-    if live:
-        return 'filter="url(#g)" opacity="0.7">' + anim('opacity', '0.7;0.95;0.7')
-    return 'filter="url(#r)" opacity="0.7">'
+def halo(inner):
+    """`inner` (one element, or a group) as a blurred halo under itself."""
+    return f'<g filter="url(#g)" opacity="0.7">{inner}</g>'
 
 
 _clip_n = 0
@@ -78,13 +66,12 @@ def pill_bar(x, y, w, pct, T, thickness=10.5, live=True, level=False):
         at = pct * i / parts
         hi = pct * (i + 1) / parts
         color = T['ramp'][top if level else i]
-        slices += (f'<rect x="{x + w * at / 100:.2f}" y="{y}" width="{w * (hi - at) / 100 + 0.5:.2f}" height="{thickness}" fill="{color}">'
-                   + (anim('fill', f'{color};{peak(color)};{color}') if live else '') + '</rect>')
+        slices += f'<rect x="{x + w * at / 100:.2f}" y="{y}" width="{w * (hi - at) / 100 + 0.5:.2f}" height="{thickness}" fill="{color}"/>'
     tip = T['ramp'][range_of(pct)]
     body = (f'<g clip-path="url(#{cid})"><rect x="{x}" y="{y}" width="{filled:.2f}" height="{thickness}" fill="{tip}"/>{slices}</g>')
     return (f'<clipPath id="{cid}"><rect x="{x}" y="{y}" width="{filled:.2f}" height="{thickness}" rx="{rx}"/></clipPath>'
             f'<rect x="{x}" y="{y}" width="{w}" height="{thickness}" rx="{rx}" fill="{T["track"]}"/>'
-            f'<g {glow_attrs(live)}{body}</g>{body}')
+            f'{halo(body)}{body}')
 
 
 def dot_bar(x, y, w, pct, T, live=True):
@@ -98,9 +85,8 @@ def dot_bar(x, y, w, pct, T, live=True):
             top = range_of(pct)
             i = top if k >= f - 1 else min(top, int(k / f * (top + 1)))
             color = T['ramp'][i]
-            out += f'<circle cx="{cx}" cy="{y}" r="6" fill="{color}" {glow_attrs(live)}</circle>'
-            out += (f'<circle cx="{cx}" cy="{y}" r="4.8" fill="{color}">'
-                    + (anim('fill', f'{color};{peak(color)};{color}') if live else '') + '</circle>')
+            out += halo(f'<circle cx="{cx}" cy="{y}" r="6" fill="{color}"/>')
+            out += f'<circle cx="{cx}" cy="{y}" r="4.8" fill="{color}"/>'
         else:
             out += f'<circle cx="{cx}" cy="{y}" r="4.8" fill="{T["track"]}"/>'
     return out
@@ -108,8 +94,7 @@ def dot_bar(x, y, w, pct, T, live=True):
 
 def glow_text(x, y, text, color, size=19.5, live=True, anchor='start'):
     attrs = f'x="{x}" y="{y}" {FONT} font-size="{size}" font-weight="700" fill="{color}" text-anchor="{anchor}"'
-    return (f'<text {attrs} {glow_attrs(live)}{text}</text>'
-            f'<text {attrs}>{text}' + (anim('fill', f'{color};{peak(color)};{color}') if live else '') + '</text>')
+    return halo(f'<text {attrs}>{text}</text>') + f'<text {attrs}>{text}</text>'
 
 
 def plain(x, y, text, color, size=19.5, weight=400, anchor='start', italic=False):
@@ -221,9 +206,8 @@ def palette():
         out.append(plain(left + W / 4, 38, f'{name.title()} Theme', T['text'], size=15, weight=600, anchor='middle'))
         for i, color in enumerate(T['ramp']):
             y = 70 + i * 36
-            out.append(f'<rect x="{left + 28}" y="{y - 11}" width="120" height="10.5" rx="5.25" fill="{color}" {glow_attrs()}</rect>')
-            out.append(f'<rect x="{left + 28}" y="{y - 11}" width="120" height="10.5" rx="5.25" fill="{color}">'
-                       + anim('fill', f'{color};{peak(color)};{color}') + '</rect>')
+            out.append(halo(f'<rect x="{left + 28}" y="{y - 11}" width="120" height="10.5" rx="5.25" fill="{color}"/>'))
+            out.append(f'<rect x="{left + 28}" y="{y - 11}" width="120" height="10.5" rx="5.25" fill="{color}"/>')
             out.append(glow_text(left + 170, y + 1, f'{[0, 50, 60, 70, 80, 90][i]}%', color, size=17))
             out.append(plain(left + W / 4, y + 1, f'{RANGES[i]} used', T['text'], size=15, anchor='middle'))
             out.append(plain(left + 412, y + 1, NAMES[i], T['dim'], size=15))
@@ -238,22 +222,20 @@ TAGLINE = "Your Claude Code rate limits and context as one glowing neon row abov
 
 
 def title(theme):
-    """The README's title for one theme: NeonMeter in dodgerblue on its halo, pulsing like a live percent, and the
-    tagline beneath it with every word in the next range color. Transparent, for GitHub's matching color scheme."""
+    """The README's title for one theme: NeonMeter in dodgerblue on its halo, like a live percent, and the tagline
+    beneath it with every word in the next range color. Transparent, for GitHub's matching color scheme."""
     T = THEMES[theme]
     W, H = 1000, 150
     color = T['ramp'][0]
     attrs = f'x="{W / 2}" y="66" {FONT} font-size="56" font-weight="700" fill="{color}" text-anchor="middle" letter-spacing="1"'
     words = TAGLINE.split(' ')
     # Each word takes the next range color; the run is centered by SVG itself (one text, several spans).
-    # Every word in the next range color, pulsing toward white like a live percent.
-    spans = ''.join(f'<tspan fill="{T["ramp"][i % 6]}">{w}' + anim('fill', f'{T["ramp"][i % 6]};{peak(T["ramp"][i % 6])};{T["ramp"][i % 6]}') + '</tspan>' + (' ' if i < len(words) - 1 else '') for i, w in enumerate(words))
+    spans = ''.join(f'<tspan fill="{T["ramp"][i % 6]}">{w}</tspan>' + (' ' if i < len(words) - 1 else '') for i, w in enumerate(words))
     tag_attrs = f'x="{W / 2}" y="122" {FONT} font-size="21" font-weight="600" text-anchor="middle"'
-    tagline_glow = ''.join(f'<tspan fill="{T["ramp"][i % 6]}">{w}</tspan>' + (' ' if i < len(words) - 1 else '') for i, w in enumerate(words))
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">' + defs()
-            + f'<text {attrs} {glow_attrs()}NeonMeter</text>'
-            + f'<text {attrs}>NeonMeter' + anim('fill', f'{color};{peak(color)};{color}') + '</text>'
-            + f'<text {tag_attrs} {glow_attrs()}{tagline_glow}</text>'
+            + halo(f'<text {attrs}>NeonMeter</text>')
+            + f'<text {attrs}>NeonMeter</text>'
+            + halo(f'<text {tag_attrs}>{spans}</text>')
             + f'<text {tag_attrs}>{spans}</text>'
             + '</svg>')
 
@@ -272,14 +254,13 @@ def cells(n):
 
 def terminal_row(x, y, spans):
     """One terminal row: the builder's spans as tspans in one monospace text, so the columns line up whatever font
-    the viewer has; a live span carries its own pulse, the color toward white and back, as the terminal draws it."""
+    the viewer has. The builder marks live spans, but the drawing holds still (see the module docstring)."""
     out = f'<text x="{x}" y="{y}" {MONO} font-size="14" {cells(sum(len(sp["text"]) for sp in spans))} xml:space="preserve">'
     for sp in spans:
         text = sp['text'].replace('&', '&amp;').replace('<', '&lt;')
         weight = ' font-weight="700"' if sp.get('bold') else ''
         style = ' font-style="italic"' if sp.get('italic') else ''
-        pulse = anim('fill', f'{sp["color"]};{peak(sp["color"])};{sp["color"]}') if sp.get('live') else ''
-        out += f'<tspan fill="{sp["color"]}"{weight}{style}>{text}{pulse}</tspan>'
+        out += f'<tspan fill="{sp["color"]}"{weight}{style}>{text}</tspan>'
     out += '</text>'
     return out
 
@@ -287,7 +268,7 @@ def terminal_row(x, y, spans):
 def terminal_theme(theme, top, W):
     """The terminal band at 120, 72 and 40 columns on one theme, from the builder's own rows (terminal-rows.json,
     one row per Weekly turn): the rule in the prompt border's color with Claude Code's [-] at its end, the cell row
-    rotating between Weekly and Fable, the input box's rule and the prompt, live cells pulsing like the terminal does.
+    rotating between Weekly and Fable, the input box's rule and the prompt.
     Returns the markup and the height it took."""
     import json
     rows = json.loads((HERE / 'terminal-rows.json').read_text(encoding='utf-8'))
