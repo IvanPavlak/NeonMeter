@@ -53,11 +53,26 @@ Filled cells and percents take the color of the range the percent falls in. A ra
 
 Requirements:
 
-1. Claude Code 2.1.271 or newer (1.0.0 is tested on 2.1.286)
+1. Claude Code 2.1.286 or newer, in the terminal and in the desktop app, which keeps its own copy and updates it by itself (on 2.1.284 the desktop app loads the plugin but draws no band)
 2. A terminal with truecolor or the desktop app's Code tab
 3. A Claude subscription for the rate-limit windows (with an API key the windows are hidden and the context takes the whole row)
+4. Hooks modules turned on for installed plugins: they are still rolling out, and until your account has them `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` turns them on (the installer sets it)
 
-The repository is its own plugin marketplace, so two commands install it and keep it updatable:
+One command installs it, turns on hooks modules and is safe to run again to update:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/IvanPavlak/NeonMeter/master/install.sh | bash
+```
+
+On Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/IvanPavlak/NeonMeter/master/install.ps1 | iex
+```
+
+The installer adds this repository as a plugin marketplace, installs `neonmeter@neonmeter` (or updates it when it is already there), and sets `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` to `1` in the `env` block of `~/.claude/settings.json`, keeping the previous file as `settings.json.bak`. It warns when Claude Code is older than 2.1.286.
+
+To do the same by hand, run the two plugin commands:
 
 ```bash
 claude plugin marketplace add IvanPavlak/NeonMeter
@@ -67,7 +82,19 @@ claude plugin marketplace add IvanPavlak/NeonMeter
 claude plugin install neonmeter@neonmeter
 ```
 
-Start a session and the band appears above the prompt, with the last reading at once and the first fetch a moment later; the desktop app loads the same installed plugin.
+Then add the variable to `~/.claude/settings.json`. A plugin cannot set it itself, because none of its code runs until the variable is on. The `env` block reaches every session, the desktop app's included:
+
+```json
+{
+	"env": {
+		"CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1"
+	}
+}
+```
+
+Start a new session (in the desktop app, quit and reopen it) and the band appears above the prompt, with the last reading at once and the first fetch a moment later; the desktop app loads the same installed plugin. The module loads only in a folder you have trusted.
+
+If the band does not appear, start a session with `claude --debug` and look for `hooks module neonmeter@neonmeter not loaded`: the line says why, the switch being off included.
 
 Update later with `claude plugin update neonmeter@neonmeter`, or turn on auto-update for the marketplace in `/plugin`.
 

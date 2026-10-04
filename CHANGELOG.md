@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `install.sh` and `install.ps1`: one command adds the marketplace, installs or updates the plugin and sets `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the `env` block of `~/.claude/settings.json`, backing the file up first and leaving it alone when the variable is already set.
+
+### Changed
+
+- The README names every requirement: Claude Code 2.1.286 or newer (the desktop app's bundled 2.1.284 loads the plugin but draws no band), and hooks modules turned on for installed plugins, which are still rolling out.
+
+### Fixed
+
+- The README's terminal illustration no longer runs out of its panels on phones: each monospace line is pinned to its cell width, so a fallback font wider than Cascadia Mono (Android's) is fitted instead of overflowing.
+
 ## [1.0.0] - 2026-10-04
 
 The first release.

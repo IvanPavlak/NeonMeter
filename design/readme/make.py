@@ -261,12 +261,19 @@ def title(theme):
 MONO = "font-family=\"'Cascadia Mono', 'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace\""
 CELL_W = 8.4
 CELL_H = 22
+PROMPT_CELLS = len('❯ Try "how does <filepath> work?"')
+
+
+def cells(n):
+    """Pins a monospace text to n cells: a viewer whose fallback font runs wider or narrower than CELL_W (Android's
+    monospace, a box-drawing glyph from another font) gets it stretched or squeezed to fit instead of overflowing."""
+    return f'textLength="{n * CELL_W:g}" lengthAdjust="spacingAndGlyphs"'
 
 
 def terminal_row(x, y, spans):
     """One terminal row: the builder's spans as tspans in one monospace text, so the columns line up whatever font
     the viewer has; a live span carries its own pulse, the color toward white and back, as the terminal draws it."""
-    out = f'<text x="{x}" y="{y}" {MONO} font-size="14" xml:space="preserve">'
+    out = f'<text x="{x}" y="{y}" {MONO} font-size="14" {cells(sum(len(sp["text"]) for sp in spans))} xml:space="preserve">'
     for sp in spans:
         text = sp['text'].replace('&', '&amp;').replace('<', '&lt;')
         weight = ' font-weight="700"' if sp.get('bold') else ''
@@ -301,13 +308,13 @@ def terminal_theme(theme, top, W):
         out.append(f'<rect x="{px}" y="{py}" width="{pw}" height="{panel_h}" rx="6" fill="{T["panel"]}" stroke="{border}"/>')
         tx = px + 8
         rule_y = py + CELL_H - 6
-        out.append(f'<text x="{tx}" y="{rule_y}" {MONO} font-size="14" xml:space="preserve"><tspan fill="{border}">{"─" * (cols - 3)}</tspan><tspan fill="{T["dim"]}">[-]</tspan></text>')
+        out.append(f'<text x="{tx}" y="{rule_y}" {MONO} font-size="14" {cells(cols)} xml:space="preserve"><tspan fill="{border}">{"─" * (cols - 3)}</tspan><tspan fill="{T["dim"]}">[-]</tspan></text>')
         row_y = py + 2 * CELL_H - 6
         # The Weekly segment takes turns with the Fable limit, as the band does: one row per turn, shown 5 s each.
         for which, spans in enumerate(row['turns']):
             out.append(turn(terminal_row(tx, row_y, spans), which))
-        out.append(f'<text x="{tx}" y="{py + 3 * CELL_H - 6}" {MONO} font-size="14" fill="{border}" xml:space="preserve">{"─" * cols}</text>')
-        out.append(f'<text x="{tx}" y="{py + 4 * CELL_H - 6}" {MONO} font-size="14" xml:space="preserve"><tspan fill="{T["text"]}">❯ </tspan><tspan fill="{T["dim"]}">Try "how does &lt;filepath&gt; work?"</tspan></text>')
+        out.append(f'<text x="{tx}" y="{py + 3 * CELL_H - 6}" {MONO} font-size="14" {cells(cols)} fill="{border}" xml:space="preserve">{"─" * cols}</text>')
+        out.append(f'<text x="{tx}" y="{py + 4 * CELL_H - 6}" {MONO} font-size="14" {cells(PROMPT_CELLS)} xml:space="preserve"><tspan fill="{T["text"]}">❯ </tspan><tspan fill="{T["dim"]}">Try "how does &lt;filepath&gt; work?"</tspan></text>')
         y += panel_h + gap + 24
     return "\n".join(out), height
 
