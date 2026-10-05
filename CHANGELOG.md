@@ -6,13 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-05
+
 ### Added
 
-- `install.sh` and `install.ps1`: one command adds the marketplace, installs or updates the plugin and sets `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the `env` block of `~/.claude/settings.json`, backing the file up first and leaving it alone when the variable is already set.
+- The `layout` option. `single` draws one segment across the whole row and takes turns, `rotateSeconds` each: 5-hour, Weekly, each per-model weekly limit, the spend limit when the account has one, and Context, in the order of `segments`. It works with every bar style: ramp and level coloring, the terminal's cells, the desktop's smooth bars and dots. `all`, the default, is the row as before.
+- `uninstall.sh` and `uninstall.ps1`: remove the plugin, its marketplace, the folders Claude Code can leave behind and NeonMeter's settings, and nothing else. A marketplace named `neonmeter` from another source stays, and so does `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS` while another plugin may use hooks modules.
+- `install.sh` and `install.ps1`: one command adds the marketplace, installs or updates the plugin and sets `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the `env` block of `~/.claude/settings.json` when it is not set. They stop with the right update command when `claude` is older than 2.1.286, reinstall an install whose recorded files are missing, check the install afterwards, keep the previous settings as `settings.json.neonmeter.bak` (never over a backup of yours), write `settings.json` back in the same two-space format Claude Code uses (Windows PowerShell 5.1 would otherwise re-indent the whole file), and under `irm | iex` never close the calling shell.
+- `design/readme/rows.mjs` writes the README's terminal rows from the plugin's own builder; `--check` verifies them.
+- The `release` workflow publishes the GitHub release of every `v*` tag with that version's `CHANGELOG.md` section as its notes, after checking the tag against both manifests. `master` is protected by a ruleset kept in `.github/rulesets/` (pull request, code owner review, a green `plugin` check, linear history); the repository admin bypasses it.
 
 ### Changed
 
-- The README names every requirement: Claude Code 2.1.286 or newer (the desktop app's bundled 2.1.284 loads the plugin but draws no band), and hooks modules turned on for installed plugins, which are still rolling out.
+- `barColoring` defaults to `level`: every filled cell takes the color of its segment's percent. `ramp`, the previous default, stays one setting away. The README's graphics show level bars first, then ramp bars, then dots in level and in ramp coloring.
+- The README leads with the official install: `/plugin install neonmeter --marketplace IvanPavlak/NeonMeter` in a session, or `claude plugin marketplace add` and `claude plugin install` from a shell, and the desktop app's **+** › **Plugins**. The scripts are optional. It names every requirement (Claude Code 2.1.286 or newer; on 2.1.286 the hooks-modules variable, which 2.1.287 and later ignore), how to uninstall, and what to check when the band does not appear.
+- The README explains what the context number is: the last request's input, measured by Claude Code after each turn, which is why it can trail Claude Code's own indicator.
+- The README's graphics show the single layout on the desktop and in the terminal, taking turns through every segment, and the terminal graphic shows every look the desktop one does: level coloring, ramp coloring and dotted cells in either coloring. Both group their examples by layout under each theme.
 
 ### Fixed
 
@@ -38,5 +47,6 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/IvanPavlak/NeonMeter/releases/tag/v1.0.0

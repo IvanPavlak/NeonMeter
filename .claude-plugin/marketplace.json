@@ -12,7 +12,7 @@
       "name": "neonmeter",
       "source": "./",
       "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "Ivan Pavlak",
         "url": "https://github.com/IvanPavlak"

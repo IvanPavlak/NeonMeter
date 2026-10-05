@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -23,12 +23,22 @@
     "barColoring": {
       "type": "string",
       "title": "Bar coloring",
-      "description": "ramp runs the filled part through every range up to the percent's in equal stretches; level colors every filled cell by the segment's percent",
+      "description": "level colors every filled cell by the segment's percent; ramp runs the filled part through every range up to the percent's in equal stretches",
       "options": [
         "level",
         "ramp"
       ],
-      "default": "ramp"
+      "default": "level"
+    },
+    "layout": {
+      "type": "string",
+      "title": "Layout",
+      "description": "all draws every segment in one row; single draws one segment across the whole row and takes turns: 5-hour, Weekly (each weekly limit), Spend, Context",
+      "options": [
+        "all",
+        "single"
+      ],
+      "default": "all"
     },
     "desktopBars": {
       "type": "string",
@@ -145,7 +155,7 @@
     "rotateSeconds": {
       "type": "number",
       "title": "Weekly rotation (s)",
-      "description": "Seconds each weekly limit shows when the Weekly segment rotates between several, 2 to 60",
+      "description": "Seconds each weekly limit shows when the Weekly segment rotates between several, and each segment shows in the single layout, 2 to 60",
       "default": 5,
       "min": 2,
       "max": 60

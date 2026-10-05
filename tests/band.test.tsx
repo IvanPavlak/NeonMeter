@@ -173,7 +173,7 @@ describe('terminal', () => {
     await ui.unmount()
   })
 
-  test('ramp coloring by default runs the ranges across the filled part', async ($, on) => {
+  test('barColoring: ramp runs the ranges across the filled part', { options: { barColoring: 'ramp' } }, async ($, on) => {
     const world = setup(on, { response: ok(usageBody(81.6, 18.2)) })
     await start($, world)
 
@@ -192,7 +192,7 @@ describe('terminal', () => {
     await ui.unmount()
   })
 
-  test('barColoring: level colors every filled cell by the percent', { options: { barColoring: 'level' } }, async ($, on) => {
+  test('level coloring by default colors every filled cell by the percent', async ($, on) => {
     const world = setup(on, { response: ok(usageBody(81.6, 18.2)) })
     await start($, world)
 
@@ -334,7 +334,7 @@ describe('terminal', () => {
 // it as full labels and fields plus bar drawings that stretch to the pixels
 // available: smooth bars (the default) or dots.
 describe('desktop, desktopBars: dots', () => {
-  test('a fresh reading draws dot bars of one length, colored like the terminal cells', { options: { desktopBars: 'dots' } }, async ($, on) => {
+  test('a fresh reading draws dot bars of one length, colored like the terminal cells', { options: { desktopBars: 'dots', barColoring: 'ramp' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 
@@ -384,7 +384,7 @@ describe('desktop, desktopBars: dots', () => {
     await ui.unmount()
   })
 
-  test('stale window dots fade and freeze', { options: { desktopBars: 'dots' } }, async ($, on) => {
+  test('stale window dots fade and freeze', { options: { desktopBars: 'dots', barColoring: 'ramp' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
     world.response = FAIL
@@ -400,7 +400,7 @@ describe('desktop, desktopBars: dots', () => {
 })
 
 describe('desktop, desktopBars: bars (the default)', () => {
-  test('a fresh reading shows full labels, fields and three weighted bars', { options: { desktopBars: 'bars' } }, async ($, on) => {
+  test('a fresh reading shows full labels, fields and three weighted bars', { options: { desktopBars: 'bars', barColoring: 'ramp' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 
@@ -413,7 +413,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
       expect(bar.slices.reduce((n, s) => n + s.grow, 0), bar.kind).toBeLessThanOrEqual(100)
       expect(bar.track, bar.kind).toBe('#21262D')
     }
-    // Ramp by default: the fill runs through the ranges up to the percent's in equal stretches.
+    // Ramp coloring: the fill runs through the ranges up to the percent's in equal stretches.
     // 42.3 is all dodgerblue; 55 is half dodgerblue, half lime; 64 is thirds up to darker green.
     expect(bars[0]?.slices).toEqual([{ grow: 42.3, color: '#1E90FF' }])
     expect(bars[1]?.slices).toEqual([
@@ -433,7 +433,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await ui.unmount()
   })
 
-  test('barColoring: level draws one slice in the range color', { options: { desktopBars: 'bars', barColoring: 'level' } }, async ($, on) => {
+  test('level coloring by default draws one slice in the range color', { options: { desktopBars: 'bars' } }, async ($, on) => {
     const world = setup(on, { response: ok(usageBody(81.6, 18.2)) })
     await start($, world)
 
@@ -443,7 +443,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await ui.unmount()
   })
 
-  test('a stale reading fades the window bars and shows the age; the context stays live', { options: { desktopBars: 'bars' } }, async ($, on) => {
+  test('a stale reading fades the window bars and shows the age; the context stays live', { options: { desktopBars: 'bars', barColoring: 'ramp' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
     world.response = FAIL
@@ -498,7 +498,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await ui.unmount()
   })
 
-  test('the pulse brightens live bars and percents at the peak frame and leaves the rest alone', { options: { desktopBars: 'bars' } }, async ($, on) => {
+  test('the pulse brightens live bars and percents at the peak frame and leaves the rest alone', { options: { desktopBars: 'bars', barColoring: 'ramp' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 

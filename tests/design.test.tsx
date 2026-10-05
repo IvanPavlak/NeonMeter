@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { parseColors, parseGlyph, parseRanges } from '../hooks/register'
+import { parseColors, parseGlyph, parseOptions, parseRanges } from '../hooks/register'
 import { dotBarsOf, limitsBody, mountBand, ok, rowOf, setup, spansOf, start, textOf, usageBody } from './kit'
 
 // Every part of the look is an option; at the defaults the band is the
@@ -105,4 +105,14 @@ test('rotateSeconds sets how long each weekly limit shows', { options: { rotateS
   await ui.advance(5_000)
   expect(await rowOf(ui)).toContain('│ Fable  ')
   await ui.unmount()
+})
+
+test('bar coloring is level by default and takes ramp or level as set; anything else is the default', () => {
+  expect(parseOptions({}).parsed.barColoring).toBe('level')
+  expect(parseOptions({ barColoring: 'ramp' }).parsed.barColoring).toBe('ramp')
+  expect(parseOptions({ barColoring: 'level' }).parsed.barColoring).toBe('level')
+  expect(parseOptions({ barColoring: 'rainbow' }).parsed.barColoring).toBe('level')
+  expect(parseOptions({}).parsed.layout).toBe('all')
+  expect(parseOptions({ layout: 'single' }).parsed.layout).toBe('single')
+  expect(parseOptions({ layout: 'stacked' }).parsed.layout).toBe('all')
 })

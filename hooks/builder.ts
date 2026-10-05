@@ -1,6 +1,6 @@
 // The band builder: a line-for-line port of the design canvas's builder (the
 // appendix of the approved design specification), with two deliberate
-// differences: the cell is `━` (a continuous bar) and ramp coloring is the default. Pure
+// differences: the cell is `━` (a continuous bar) and ramp coloring, an option beside the default level coloring. Pure
 // functions from a reading to the spans of one row; no `$`, no elements.
 
 import { mix } from './color'

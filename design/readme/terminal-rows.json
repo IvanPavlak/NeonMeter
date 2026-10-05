@@ -8,6 +8,473 @@
      "color": "#FFFFFF"
     },
     {
+     "text": "━━━━━━━━━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Weekly ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 18%",
+     "color": "#1E90FF",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Fable  ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ]
+  ]
+ },
+ "dark-72": {
+  "tier": "compact",
+  "turns": [
+   [
+    {
+     "text": "5h ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "7d  ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 18%",
+     "color": "#1E90FF",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3d4h ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Ctx ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "5h ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Fab ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3d4h ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Ctx ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ]
+  ]
+ },
+ "dark-40": {
+  "tier": "narrow",
+  "turns": [
+   [
+    {
+     "text": "5h ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "  ·  ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "7d  ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "18%",
+     "color": "#1E90FF",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3d4h",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " ·  ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Ctx ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    }
+   ],
+   [
+    {
+     "text": "5h ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "  ·  ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Fab ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3d4h",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " ·  ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Ctx ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    }
+   ]
+  ]
+ },
+ "dark-120-ramp": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
      "text": "━━━",
      "color": "#1E90FF",
      "live": true
@@ -286,41 +753,21 @@
    ]
   ]
  },
- "dark-72": {
-  "tier": "compact",
+ "dark-120-dots": {
+  "tier": "full",
   "turns": [
    [
     {
-     "text": "5h ",
+     "text": "5-hour ",
      "color": "#FFFFFF"
     },
     {
-     "text": "━━",
-     "color": "#1E90FF",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#39FF14",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#00D45A",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#FFF01F",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●●●",
      "color": "#FF5F1F",
      "live": true
     },
     {
-     "text": "━",
+     "text": "●●●",
      "color": "#21262D"
     },
     {
@@ -334,7 +781,7 @@
      "live": true
     },
     {
-     "text": " 3h13m",
+     "text": " in 3h13m",
      "color": "#FFFFFF"
     },
     {
@@ -342,16 +789,16 @@
      "color": "#6E7074"
     },
     {
-     "text": "7d  ",
+     "text": "Weekly ",
      "color": "#FFFFFF"
     },
     {
-     "text": "━",
+     "text": "●●●",
      "color": "#1E90FF",
      "live": true
     },
     {
-     "text": "━━━━━━",
+     "text": "●●●●●●●●●●●●●●",
      "color": "#21262D"
     },
     {
@@ -365,7 +812,7 @@
      "live": true
     },
     {
-     "text": " 3d4h ",
+     "text": " Sun 18:00",
      "color": "#FFFFFF"
     },
     {
@@ -373,38 +820,17 @@
      "color": "#6E7074"
     },
     {
-     "text": "Ctx ",
+     "text": "Context ",
      "color": "#FFFFFF"
     },
     {
-     "text": "━",
-     "color": "#1E90FF",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#39FF14",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#00D45A",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#FFF01F",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#FF5F1F",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●●●●",
      "color": "#FF073A",
      "live": true
+    },
+    {
+     "text": "●",
+     "color": "#21262D"
     },
     {
      "text": " ",
@@ -423,36 +849,16 @@
    ],
    [
     {
-     "text": "5h ",
+     "text": "5-hour ",
      "color": "#FFFFFF"
     },
     {
-     "text": "━━",
-     "color": "#1E90FF",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#39FF14",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#00D45A",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#FFF01F",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●●●",
      "color": "#FF5F1F",
      "live": true
     },
     {
-     "text": "━",
+     "text": "●●●",
      "color": "#21262D"
     },
     {
@@ -466,7 +872,7 @@
      "live": true
     },
     {
-     "text": " 3h13m",
+     "text": " in 3h13m",
      "color": "#FFFFFF"
     },
     {
@@ -474,26 +880,16 @@
      "color": "#6E7074"
     },
     {
-     "text": "Fab ",
+     "text": "Fable  ",
      "color": "#FFFFFF"
     },
     {
-     "text": "━━",
-     "color": "#1E90FF",
-     "live": true
-    },
-    {
-     "text": "━━",
-     "color": "#39FF14",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●",
      "color": "#00D45A",
      "live": true
     },
     {
-     "text": "━━",
+     "text": "●●●●●",
      "color": "#21262D"
     },
     {
@@ -507,7 +903,7 @@
      "live": true
     },
     {
-     "text": " 3d4h ",
+     "text": " Sun 18:00",
      "color": "#FFFFFF"
     },
     {
@@ -515,38 +911,17 @@
      "color": "#6E7074"
     },
     {
-     "text": "Ctx ",
+     "text": "Context ",
      "color": "#FFFFFF"
     },
     {
-     "text": "━",
-     "color": "#1E90FF",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#39FF14",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#00D45A",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#FFF01F",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#FF5F1F",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●●●●",
      "color": "#FF073A",
      "live": true
+    },
+    {
+     "text": "●",
+     "color": "#21262D"
     },
     {
      "text": " ",
@@ -565,53 +940,1300 @@
    ]
   ]
  },
- "dark-40": {
-  "tier": "narrow",
+ "dark-120-dots-ramp": {
+  "tier": "full",
   "turns": [
    [
     {
-     "text": "5h ",
+     "text": "5-hour ",
      "color": "#FFFFFF"
     },
     {
-     "text": "82%",
+     "text": "●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#FFF01F",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
      "color": "#FF5F1F",
      "bold": true,
      "live": true
     },
     {
-     "text": " 3h13m",
+     "text": " in 3h13m",
      "color": "#FFFFFF"
     },
     {
-     "text": "  ·  ",
+     "text": " │ ",
      "color": "#6E7074"
     },
     {
-     "text": "7d  ",
+     "text": "Weekly ",
      "color": "#FFFFFF"
     },
     {
-     "text": "18%",
+     "text": "●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 18%",
      "color": "#1E90FF",
      "bold": true,
      "live": true
     },
     {
-     "text": " 3d4h",
+     "text": " Sun 18:00",
      "color": "#FFFFFF"
     },
     {
-     "text": " ·  ",
+     "text": " │ ",
      "color": "#6E7074"
     },
     {
-     "text": "Ctx ",
+     "text": "Context ",
      "color": "#FFFFFF"
     },
     {
-     "text": "93%",
+     "text": "●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#FFF01F",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "●●",
      "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": "●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#FFF01F",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Fable  ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●●",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "●●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#FFF01F",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": "●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ]
+  ]
+ },
+ "dark-120-single": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Weekly ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 18%",
+     "color": "#1E90FF",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Fable ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ]
+  ]
+ },
+ "dark-120-single-ramp": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#FFF01F",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Weekly ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 18%",
+     "color": "#1E90FF",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Fable ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#FFF01F",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ]
+  ]
+ },
+ "dark-120-single-dots": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Weekly ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 18%",
+     "color": "#1E90FF",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Fable ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ]
+  ]
+ },
+ "dark-120-single-dots-ramp": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#FFF01F",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Weekly ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 18%",
+     "color": "#1E90FF",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Fable ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#FFFFFF"
+    }
+   ],
+   [
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#FFF01F",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●",
+     "color": "#FF073A",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    }
+   ]
+  ]
+ },
+ "light-120": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Weekly ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 18%",
+     "color": "#1874D2",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Context ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "5-hour ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Fable  ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 69%",
+     "color": "#139A43",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Context ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    }
+   ]
+  ]
+ },
+ "light-72": {
+  "tier": "compact",
+  "turns": [
+   [
+    {
+     "text": "5h ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3h13m",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "7d  ",
+     "color": "#000000"
+    },
+    {
+     "text": "━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 18%",
+     "color": "#1874D2",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3d4h ",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Ctx ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "5h ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3h13m",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Fab ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 69%",
+     "color": "#139A43",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3d4h ",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Ctx ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    }
+   ]
+  ]
+ },
+ "light-40": {
+  "tier": "narrow",
+  "turns": [
+   [
+    {
+     "text": "5h ",
+     "color": "#000000"
+    },
+    {
+     "text": "82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3h13m",
+     "color": "#000000"
+    },
+    {
+     "text": "  ·  ",
+     "color": "#999999"
+    },
+    {
+     "text": "7d  ",
+     "color": "#000000"
+    },
+    {
+     "text": "18%",
+     "color": "#1874D2",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 3d4h",
+     "color": "#000000"
+    },
+    {
+     "text": " ·  ",
+     "color": "#999999"
+    },
+    {
+     "text": "Ctx ",
+     "color": "#000000"
+    },
+    {
+     "text": "93%",
+     "color": "#E8001F",
      "bold": true,
      "live": true
     }
@@ -619,54 +2241,54 @@
    [
     {
      "text": "5h ",
-     "color": "#FFFFFF"
+     "color": "#000000"
     },
     {
      "text": "82%",
-     "color": "#FF5F1F",
+     "color": "#E84A00",
      "bold": true,
      "live": true
     },
     {
      "text": " 3h13m",
-     "color": "#FFFFFF"
+     "color": "#000000"
     },
     {
      "text": "  ·  ",
-     "color": "#6E7074"
+     "color": "#999999"
     },
     {
      "text": "Fab ",
-     "color": "#FFFFFF"
+     "color": "#000000"
     },
     {
      "text": "69%",
-     "color": "#00D45A",
+     "color": "#139A43",
      "bold": true,
      "live": true
     },
     {
      "text": " 3d4h",
-     "color": "#FFFFFF"
+     "color": "#000000"
     },
     {
      "text": " ·  ",
-     "color": "#6E7074"
+     "color": "#999999"
     },
     {
      "text": "Ctx ",
-     "color": "#FFFFFF"
+     "color": "#000000"
     },
     {
      "text": "93%",
-     "color": "#FF073A",
+     "color": "#E8001F",
      "bold": true,
      "live": true
     }
    ]
   ]
  },
- "light-120": {
+ "light-120-ramp": {
   "tier": "full",
   "turns": [
    [
@@ -953,41 +2575,21 @@
    ]
   ]
  },
- "light-72": {
-  "tier": "compact",
+ "light-120-dots": {
+  "tier": "full",
   "turns": [
    [
     {
-     "text": "5h ",
+     "text": "5-hour ",
      "color": "#000000"
     },
     {
-     "text": "━━",
-     "color": "#1874D2",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#32A800",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#139A43",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#A89200",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●●●",
      "color": "#E84A00",
      "live": true
     },
     {
-     "text": "━",
+     "text": "●●●",
      "color": "#EBEDF0"
     },
     {
@@ -1001,7 +2603,7 @@
      "live": true
     },
     {
-     "text": " 3h13m",
+     "text": " in 3h13m",
      "color": "#000000"
     },
     {
@@ -1009,16 +2611,16 @@
      "color": "#999999"
     },
     {
-     "text": "7d  ",
+     "text": "Weekly ",
      "color": "#000000"
     },
     {
-     "text": "━",
+     "text": "●●●",
      "color": "#1874D2",
      "live": true
     },
     {
-     "text": "━━━━━━",
+     "text": "●●●●●●●●●●●●●●",
      "color": "#EBEDF0"
     },
     {
@@ -1032,7 +2634,7 @@
      "live": true
     },
     {
-     "text": " 3d4h ",
+     "text": " Sun 18:00",
      "color": "#000000"
     },
     {
@@ -1040,38 +2642,17 @@
      "color": "#999999"
     },
     {
-     "text": "Ctx ",
+     "text": "Context ",
      "color": "#000000"
     },
     {
-     "text": "━",
-     "color": "#1874D2",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#32A800",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#139A43",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#A89200",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#E84A00",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●●●●",
      "color": "#E8001F",
      "live": true
+    },
+    {
+     "text": "●",
+     "color": "#EBEDF0"
     },
     {
      "text": " ",
@@ -1090,36 +2671,16 @@
    ],
    [
     {
-     "text": "5h ",
+     "text": "5-hour ",
      "color": "#000000"
     },
     {
-     "text": "━━",
-     "color": "#1874D2",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#32A800",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#139A43",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#A89200",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●●●",
      "color": "#E84A00",
      "live": true
     },
     {
-     "text": "━",
+     "text": "●●●",
      "color": "#EBEDF0"
     },
     {
@@ -1133,7 +2694,7 @@
      "live": true
     },
     {
-     "text": " 3h13m",
+     "text": " in 3h13m",
      "color": "#000000"
     },
     {
@@ -1141,26 +2702,16 @@
      "color": "#999999"
     },
     {
-     "text": "Fab ",
+     "text": "Fable  ",
      "color": "#000000"
     },
     {
-     "text": "━━",
-     "color": "#1874D2",
-     "live": true
-    },
-    {
-     "text": "━━",
-     "color": "#32A800",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●",
      "color": "#139A43",
      "live": true
     },
     {
-     "text": "━━",
+     "text": "●●●●●",
      "color": "#EBEDF0"
     },
     {
@@ -1174,7 +2725,7 @@
      "live": true
     },
     {
-     "text": " 3d4h ",
+     "text": " Sun 18:00",
      "color": "#000000"
     },
     {
@@ -1182,38 +2733,17 @@
      "color": "#999999"
     },
     {
-     "text": "Ctx ",
+     "text": "Context ",
      "color": "#000000"
     },
     {
-     "text": "━",
-     "color": "#1874D2",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#32A800",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#139A43",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#A89200",
-     "live": true
-    },
-    {
-     "text": "━",
-     "color": "#E84A00",
-     "live": true
-    },
-    {
-     "text": "━",
+     "text": "●●●●●●●●●●●●●●●",
      "color": "#E8001F",
      "live": true
+    },
+    {
+     "text": "●",
+     "color": "#EBEDF0"
     },
     {
      "text": " ",
@@ -1232,103 +2762,883 @@
    ]
   ]
  },
- "light-40": {
-  "tier": "narrow",
+ "light-120-dots-ramp": {
+  "tier": "full",
   "turns": [
    [
     {
-     "text": "5h ",
+     "text": "5-hour ",
      "color": "#000000"
     },
     {
-     "text": "82%",
+     "text": "●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#A89200",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
      "color": "#E84A00",
      "bold": true,
      "live": true
     },
     {
-     "text": " 3h13m",
+     "text": " in 3h13m",
      "color": "#000000"
     },
     {
-     "text": "  ·  ",
+     "text": " │ ",
      "color": "#999999"
     },
     {
-     "text": "7d  ",
+     "text": "Weekly ",
      "color": "#000000"
     },
     {
-     "text": "18%",
+     "text": "●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 18%",
      "color": "#1874D2",
      "bold": true,
      "live": true
     },
     {
-     "text": " 3d4h",
+     "text": " Sun 18:00",
      "color": "#000000"
     },
     {
-     "text": " ·  ",
+     "text": " │ ",
      "color": "#999999"
     },
     {
-     "text": "Ctx ",
+     "text": "Context ",
      "color": "#000000"
     },
     {
-     "text": "93%",
+     "text": "●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#A89200",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": "●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
      "color": "#E8001F",
      "bold": true,
      "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
     }
    ],
    [
     {
-     "text": "5h ",
+     "text": "5-hour ",
      "color": "#000000"
     },
     {
-     "text": "82%",
+     "text": "●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#A89200",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
      "color": "#E84A00",
      "bold": true,
      "live": true
     },
     {
-     "text": " 3h13m",
+     "text": " in 3h13m",
      "color": "#000000"
     },
     {
-     "text": "  ·  ",
+     "text": " │ ",
      "color": "#999999"
     },
     {
-     "text": "Fab ",
+     "text": "Fable  ",
      "color": "#000000"
     },
     {
-     "text": "69%",
+     "text": "●●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●●",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "●●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 69%",
      "color": "#139A43",
      "bold": true,
      "live": true
     },
     {
-     "text": " 3d4h",
+     "text": " Sun 18:00",
      "color": "#000000"
     },
     {
-     "text": " ·  ",
+     "text": " │ ",
      "color": "#999999"
     },
     {
-     "text": "Ctx ",
+     "text": "Context ",
      "color": "#000000"
     },
     {
-     "text": "93%",
+     "text": "●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#A89200",
+     "live": true
+    },
+    {
+     "text": "●●●",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "●●",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": "●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
      "color": "#E8001F",
      "bold": true,
      "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    }
+   ]
+  ]
+ },
+ "light-120-single": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Weekly ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 18%",
+     "color": "#1874D2",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Fable ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 69%",
+     "color": "#139A43",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Context ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    }
+   ]
+  ]
+ },
+ "light-120-single-ramp": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#A89200",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Weekly ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 18%",
+     "color": "#1874D2",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Fable ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 69%",
+     "color": "#139A43",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Context ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━━",
+     "color": "#A89200",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━━━━",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    }
+   ]
+  ]
+ },
+ "light-120-single-dots": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#000000"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Weekly ",
+     "color": "#000000"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 18%",
+     "color": "#1874D2",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Fable ",
+     "color": "#000000"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 69%",
+     "color": "#139A43",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Context ",
+     "color": "#000000"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    }
+   ]
+  ]
+ },
+ "light-120-single-dots-ramp": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "5-hour ",
+     "color": "#000000"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#A89200",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Weekly ",
+     "color": "#000000"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 18%",
+     "color": "#1874D2",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Fable ",
+     "color": "#000000"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 69%",
+     "color": "#139A43",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " Sun 18:00",
+     "color": "#000000"
+    }
+   ],
+   [
+    {
+     "text": "Context ",
+     "color": "#000000"
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●●",
+     "color": "#A89200",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●●●●●●●●●",
+     "color": "#E8001F",
+     "live": true
+    },
+    {
+     "text": "●●●●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
     }
    ]
   ]

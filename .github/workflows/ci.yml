@@ -29,3 +29,17 @@ jobs:
         run: claude plugin validate .claude-plugin/marketplace.json --strict
       - name: Run the plugin tests
         run: claude plugin test .
+      - name: Check the install and uninstall scripts parse
+        run: |
+          bash -n install.sh
+          bash -n uninstall.sh
+          pwsh -NoProfile -Command '
+            $failed = $false
+            foreach ($file in "install.ps1", "uninstall.ps1") {
+              $errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$null, [ref]$errors)
+              foreach ($e in $errors) { Write-Host "${file}: $($e.Extent.StartLineNumber): $($e.Message)"; $failed = $true }
+            }
+            if ($failed) { exit 1 }'
+      - name: Check the README terminal rows match the builder
+        run: node design/readme/rows.mjs --check

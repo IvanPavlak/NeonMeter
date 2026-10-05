@@ -56,7 +56,7 @@ const theme = atom({ plugin: 'neonmeter', key: 'theme' } as const, 'dark' as Neo
 const tick = atom({ plugin: 'neonmeter', key: 'tick' } as const, 0)
 const appearance = atom({ plugin: 'neonmeter', key: 'appearance' } as const, null as NeonMeterTheme | null)
 
-// The fourteen userConfig options, parsed and clamped once per activation. A
+// The fifteen userConfig options, parsed and clamped once per activation. A
 // new session reads a changed option; a changed file hot-reloads the module.
 export type SegmentKind = OptionSegment
 
@@ -81,14 +81,16 @@ export type Options = {
   colorsLight: string[]
   /** The bar cell, one single-width character. */
   glyph: string
-  /** How long each weekly limit holds the Weekly segment, in seconds. */
+  /** How long each weekly limit holds the Weekly segment, and each segment the single layout, in seconds. */
   rotateSeconds: number
+  /** `all` draws every segment in one row; `single` draws one segment across the row at a time, taking turns. */
+  layout: 'all' | 'single'
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
 
 const DEFAULTS: Options = {
-  barColoring: 'ramp',
+  barColoring: 'level',
   desktopBars: 'bars',
   pulse: true,
   pulseMs: 800,
@@ -102,6 +104,7 @@ const DEFAULTS: Options = {
   colorsLight: [...DEFAULT_RAMPS.light],
   glyph: DEFAULT_CELL,
   rotateSeconds: 5,
+  layout: 'all',
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -182,8 +185,9 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const colorsLight = pick('colorsLight', parseColors, [...DEFAULT_RAMPS.light], 'six colors like "#1874D2"')
   const glyph = pick('glyph', parseGlyph, DEFAULT_CELL, 'one single-width character')
   const rotateSeconds = clamp(options.rotateSeconds, DEFAULTS.rotateSeconds, 2, 60)
-  const barColoring = options.barColoring === 'level' ? 'level' : DEFAULTS.barColoring
+  const barColoring = options.barColoring === 'level' || options.barColoring === 'ramp' ? options.barColoring : DEFAULTS.barColoring
   const desktopBars = options.desktopBars === 'dots' ? 'dots' : DEFAULTS.desktopBars
+  const layout = options.layout === 'single' ? 'single' : DEFAULTS.layout
   const pulse = typeof options.pulse === 'boolean' ? options.pulse : DEFAULTS.pulse
   const glow = typeof options.glow === 'boolean' ? options.glow : DEFAULTS.glow
   const pulseMs = clamp(options.pulseMs, DEFAULTS.pulseMs, 400, 3000)
@@ -203,7 +207,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
     }
   }
 
-  return { parsed: { barColoring, desktopBars, pulse, pulseMs, glow, segments, pollSeconds, theme: themeOption, desktopTheme, ranges, colorsDark, colorsLight, glyph, rotateSeconds }, rejected, problems }
+  return { parsed: { barColoring, desktopBars, pulse, pulseMs, glow, segments, pollSeconds, theme: themeOption, desktopTheme, ranges, colorsDark, colorsLight, glyph, rotateSeconds, layout }, rejected, problems }
 }
 
 /** Maps Claude Code's `theme` row to a palette; `null` when it names neither. */
@@ -689,6 +693,37 @@ export function weeklyVariants(input: BandInput): BandInput[] {
   }))
 }
 
+/**
+ * The single layout's turns: one input per segment, in the `segments` option's
+ * order, each drawn alone across the whole row. The Weekly segment gives one
+ * turn per weekly window (the all-models week, then one per model); a segment
+ * the account has no data for is skipped, as in the full row. With nothing to
+ * draw it is the input itself, so the band falls back as before.
+ */
+export function singleVariants(input: BandInput): BandInput[] {
+  const out: BandInput[] = []
+  const windowsOf = (kind: WindowInput['kind']) => input.windows.filter(w => w.kind === kind)
+  for (const option of input.segments) {
+    if (option === 'context') {
+      if (input.ctx) out.push({ ...input, segments: ['context'] })
+      continue
+    }
+    if (!input.auth) continue
+    if (input.loading) {
+      // Before the first reading only the two window placeholders exist.
+      if (option === 'five_hour' || option === 'seven_day') out.push({ ...input, segments: [option] })
+      continue
+    }
+    if (option === 'seven_day') {
+      const others = input.windows.filter(w => w.kind !== 'seven_day')
+      for (const w of windowsOf('seven_day')) out.push({ ...input, windows: [...others, w], segments: ['seven_day'] })
+      continue
+    }
+    if (windowsOf(option === 'spend' ? 'spend_limit' : 'five_hour').length > 0) out.push({ ...input, segments: [option] })
+  }
+  return out.length > 0 ? out : [input]
+}
+
 export const register: Register = (on, options) => {
   const { parsed, rejected, problems } = parseOptions(options)
   env.options = parsed
@@ -759,7 +794,8 @@ export const register: Register = (on, options) => {
     const palette = THEMES[t ?? 'dark']
     const input = inputOf(r, c, hv ?? DEFAULT_HEALTH, now, env.options)
     const base = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, ground: palette.bg }
-    const variants = weeklyVariants(input)
+    const single = env.options.layout === 'single'
+    const variants = single ? singleVariants(input) : weeklyVariants(input)
     const { Box } = $.ui.resolve(e)
 
     if (e.surface === 'desktop') {
@@ -786,12 +822,19 @@ export const register: Register = (on, options) => {
       const dt: NeonMeterTheme = env.options.desktopTheme === 'auto' ? (seen ?? t ?? 'dark') : env.options.desktopTheme
       const plain = flexRow(input, dt, env.options.barColoring)
       if (!plain) return next(e)
-      const dotCount = desktopDotCount(plain, e.props.bodyColumns)
-      const rows = variants
-        .map(v => flexRow(v, dt, env.options.barColoring, env.options.desktopBars === 'dots' ? dotCount : undefined))
-        .filter((r): r is FlexRow => r !== null)
-      ensureRotation($, rows.length)
-      const row = rows[env.turn % Math.max(1, rows.length)] ?? plain
+      const dots = env.options.desktopBars === 'dots'
+      // In the single layout each turn's text differs, so each row gets the dots its own text leaves room for.
+      const turns = variants
+        .map(v => {
+          const count = single ? desktopDotCount(flexRow(v, dt, env.options.barColoring) ?? plain, e.props.bodyColumns) : desktopDotCount(plain, e.props.bodyColumns)
+          const r = flexRow(v, dt, env.options.barColoring, dots ? count : undefined)
+          return r ? { row: r, dotCount: count } : null
+        })
+        .filter((t): t is { row: FlexRow; dotCount: number } => t !== null)
+      ensureRotation($, turns.length)
+      const turn = turns[env.turn % Math.max(1, turns.length)]
+      const row = turn?.row ?? plain
+      const dotCount = turn?.dotCount ?? desktopDotCount(plain, e.props.bodyColumns)
       const { Text, Svg } = $.ui.resolve(e)
       return (
         <Box width="100%">

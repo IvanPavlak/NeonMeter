@@ -1,17 +1,19 @@
 """Draws the README graphics: hero.svg (the band on both themes), palette.svg
 (the six ranges) title-dark.svg / title-light.svg (the glowing name and tagline) and
-terminal.svg (the terminal band at three widths on both themes, from the builder's own
-rows in terminal-rows.json). Pure SVG with the same glow the desktop band draws: a blurred
+terminal.svg (the terminal band in every look and at three widths on both themes, from the
+builder's own rows in terminal-rows.json). Pure SVG with the same glow the desktop band draws: a blurred
 halo of each color under every filled bar, dot and percent.
 
 The drawings hold still; only the Weekly segment takes its turns with the Fable limit, every
-5 s, as the band does. The band's 800 ms pulse is deliberately not here. A browser shows these
+5 s, as the band does, and the single layout's row takes its turns through every segment. The band's 800 ms pulse is deliberately not here. A browser shows these
 files through <img>, and whenever any value in such an SVG changes it rasterizes the whole image
 again in software, blur or no blur. Measured in Firefox's GPU process, the pulse as <animate>
 cost four to seven CPU cores while the README was open and a pulse stepped eight times per
 cycle two; the rotation alone costs nothing between turns and one short repaint per turn. Keep
-every <animate> here on the rotation's time scale. Run from anywhere:
+every <animate> here on the rotation's time scale. Run from anywhere (rows.mjs first when the
+builder's output changed; it rewrites terminal-rows.json from hooks/builder.ts):
 
+    node design/readme/rows.mjs
     python design/readme/make.py
 """
 
@@ -74,7 +76,9 @@ def pill_bar(x, y, w, pct, T, thickness=10.5, live=True, level=False):
             f'{halo(body)}{body}')
 
 
-def dot_bar(x, y, w, pct, T, live=True):
+def dot_bar(x, y, w, pct, T, live=True, level=True):
+    """A row of dots: under level coloring (the default) every filled dot in the percent's color, under ramp coloring
+    the filled dots running through the ranges up to the percent's."""
     n = int(w // 15)
     f = max(1, round(pct / 100 * n)) if pct > 0 else 0
     out = ''
@@ -83,7 +87,7 @@ def dot_bar(x, y, w, pct, T, live=True):
         cx = x + k * 15 + 7.5
         if k < f:
             top = range_of(pct)
-            i = top if k >= f - 1 else min(top, int(k / f * (top + 1)))
+            i = top if level or k >= f - 1 else min(top, int(k / f * (top + 1)))
             color = T['ramp'][i]
             out += halo(f'<circle cx="{cx}" cy="{y}" r="6" fill="{color}"/>')
             out += f'<circle cx="{cx}" cy="{y}" r="4.8" fill="{color}"/>'
@@ -106,11 +110,21 @@ ROTATE_S = 5
 FABLE = (69, 'Thu 14:05')
 
 
-def turn(out, which):
-    """Shows `out` on one turn of the Weekly rotation: the all-models week (0) or the Fable limit (1), 5 s each."""
-    values = '1;0' if which == 0 else '0;1'
-    return (f'<g opacity="{1 if which == 0 else 0}"><animate attributeName="opacity" values="{values}" keyTimes="0;0.5" '
-            f'dur="{2 * ROTATE_S}s" calcMode="discrete" repeatCount="indefinite"/>{out}</g>')
+def turn(out, which, count=2):
+    """Shows `out` on turn `which` of a rotation of `count` turns, 5 s each: the Weekly segment's two (the all-models
+    week, then the Fable limit), or the single layout's one per segment. A discrete opacity step, nothing in between."""
+    if count == 2:
+        values, times = ('1;0' if which == 0 else '0;1'), '0;0.5'
+    else:
+        start, end = which / count, (which + 1) / count
+        if which == 0:
+            values, times = '1;0', f'0;{end:g}'
+        elif which == count - 1:
+            values, times = '0;1', f'0;{start:g}'
+        else:
+            values, times = '0;1;0', f'0;{start:g};{end:g}'
+    return (f'<g opacity="{1 if which == 0 else 0}"><animate attributeName="opacity" values="{values}" keyTimes="{times}" '
+            f'dur="{count * ROTATE_S}s" calcMode="discrete" repeatCount="indefinite"/>{out}</g>')
 
 
 def segment(x, y, label, pct, extra, T, mode, seg_w, live):
@@ -124,7 +138,8 @@ def segment(x, y, label, pct, extra, T, mode, seg_w, live):
     elif mode == 'level':
         out += pill_bar(bar_x, y - 5.25, bar_w, pct, T, live=live, level=True)
     else:
-        out += dot_bar(bar_x, y, bar_w, pct, T, live=live)
+        # `dots` in the default level coloring, `dots-ramp` with ramp coloring.
+        out += dot_bar(bar_x, y, bar_w, pct, T, live=live, level=mode != 'dots-ramp')
     color = T['ramp'][range_of(pct)]
     if not live:
         color = mix_toward(color, T['bg'], 0.45)
@@ -154,6 +169,16 @@ def band_row(x, y, width, T, mode, windows, stale=False):
     return out
 
 
+SINGLE_TURNS = [('5-hour', 82, 'in 3h13m'), ('Weekly', 18.2, 'Thu 14:05'), ('Fable', FABLE[0], FABLE[1]), ('Context', 93, '930k/1M')]
+
+
+def single_row(x, y, width, T, mode):
+    """The single layout's row: one segment across the whole width, taking turns through 5-hour, Weekly, Fable
+    and Context, 5 s each, as the band does with `layout` set to `single`."""
+    return ''.join(turn(segment(x, y, label, pct, extra, T, mode, width, True), n, len(SINGLE_TURNS))
+                   for n, (label, pct, extra) in enumerate(SINGLE_TURNS))
+
+
 def mix_toward(color, ground, strength):
     c = [int(color[i:i + 2], 16) for i in (1, 3, 5)]
     g = [int(ground[i:i + 2], 16) for i in (1, 3, 5)]
@@ -175,8 +200,13 @@ def panel(x, y, w, h, T, title):
             + plain(x + w / 2, y + 32, title, T['text'], size=15, weight=600, anchor='middle'))
 
 
+# The `layout` option's two values, as the graphics title their groups.
+LAYOUT_ALL = 'Layout: All (Default)'
+LAYOUT_SINGLE = 'Layout: Single (One Segment at a Time)'
+
+
 def hero():
-    W, H = 1200, 600
+    W, H = 1200, 1440
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', defs(), canvas_open(W, H)]
     # stacked: the dark panel on top, the light one below
     out.append(f'<rect width="{W}" height="{H / 2}" fill="{THEMES["dark"]["bg"]}"/>')
@@ -184,12 +214,17 @@ def hero():
     for n, (name, T) in enumerate(THEMES.items()):
         top = n * H / 2
         out.append(panel(20, top + 20, W - 40, H / 2 - 40, T, f'{name.title()} Theme'))
-        # One row per look, each titled above it at the left, the default first.
-        rows = [('bars', 'Ramp Bars (Default)'), ('level', 'Level Bars'), ('dots', 'Dots')]
-        for k, (mode, title) in enumerate(rows):
-            title_y = top + 72 + k * 70
-            out.append(plain(44, title_y, title, T['dim'], size=13, weight=600))
-            out.append(band_row(44, title_y + 26, W - 88, T, mode, [82, 18.2, 93]))
+        # One group per layout, titled under the theme; in each, one row per look, titled above it, the default first.
+        rows = [('level', 'Level Bars (Default)'), ('bars', 'Ramp Bars'), ('dots', 'Level Dots'), ('dots-ramp', 'Ramp Dots')]
+        y = top + 80
+        for subtitle, draw in ((LAYOUT_ALL, lambda ry, mode: band_row(44, ry, W - 88, T, mode, [82, 18.2, 93])),
+                               (LAYOUT_SINGLE, lambda ry, mode: single_row(44, ry, W - 88, T, mode))):
+            out.append(plain(44, y, subtitle, T['text'], size=14, weight=600))
+            for k, (mode, title) in enumerate(rows):
+                title_y = y + 28 + k * 70
+                out.append(plain(44, title_y, title, T['dim'], size=13, weight=600))
+                out.append(draw(title_y + 26, mode))
+            y += 28 + len(rows) * 70 + 14
     out.append('</g>')
     out.append(frame(W, H))
     out.append('</svg>')
@@ -266,9 +301,10 @@ def terminal_row(x, y, spans):
 
 
 def terminal_theme(theme, top, W):
-    """The terminal band at 120, 72 and 40 columns on one theme, from the builder's own rows (terminal-rows.json,
-    one row per Weekly turn): the rule in the prompt border's color with Claude Code's [-] at its end, the cell row
-    rotating between Weekly and Fable, the input box's rule and the prompt.
+    """The terminal band on one theme, from the builder's own rows (terminal-rows.json, one row per turn): level,
+    ramp and dotted cells at 120 columns, the compact and narrow layouts at 72 and 40, and the single layout in the
+    three looks. Each panel is the rule in the prompt border's color with Claude Code's [-] at its end, the cell row
+    taking its turns (Weekly and Fable, or every segment in the single layout), the input box's rule and the prompt.
     Returns the markup and the height it took."""
     import json
     rows = json.loads((HERE / 'terminal-rows.json').read_text(encoding='utf-8'))
@@ -276,28 +312,52 @@ def terminal_theme(theme, top, W):
     border = '#30363D' if theme == 'dark' else '#D0D7DE'
     panel_h = 4 * CELL_H + 24
     gap = 46
-    height = 56 + 3 * (panel_h + gap + 24) - gap + 20
+    # The same looks as the hero, grouped by the `layout` option: level coloring (the default), ramp coloring, and dots
+    # (the `glyph` option set to `●`) in either coloring, plus, in the default layout, the narrower tiers the terminal
+    # picks by width.
+    groups = ((LAYOUT_ALL, ((120, 'level coloring (default)', f'{theme}-120'),
+                            (120, 'ramp coloring', f'{theme}-120-ramp'),
+                            (120, 'dots (glyph ●), level coloring', f'{theme}-120-dots'),
+                            (120, 'dots (glyph ●), ramp coloring', f'{theme}-120-dots-ramp'),
+                            (72, 'level coloring, compact', f'{theme}-72'),
+                            (40, 'narrow, no bars', f'{theme}-40'))),
+              (LAYOUT_SINGLE, ((120, 'level coloring (default)', f'{theme}-120-single'),
+                               (120, 'ramp coloring', f'{theme}-120-single-ramp'),
+                               (120, 'dots (glyph ●), level coloring', f'{theme}-120-single-dots'),
+                               (120, 'dots (glyph ●), ramp coloring', f'{theme}-120-single-dots-ramp'))))
+    subtitle_h = 34
+    count = sum(len(panels) for _, panels in groups)
+    height = 56 + len(groups) * subtitle_h + count * (panel_h + gap + 24) - gap + 20
     out = [f'<rect y="{top}" width="{W}" height="{height}" fill="{T["bg"]}"/>']
     out.append(plain(W / 2, top + 36, f'{theme.title()} Theme', T['text'], size=15, weight=600, anchor='middle'))
     y = top + 56
-    for cols, tier in ((120, 'full'), (72, 'compact'), (40, 'narrow')):
-        row = rows[f'{theme}-{cols}']
-        out.append(plain(20, y + 14, f'{cols} columns · {tier} layout', T['dim'], size=13, weight=600))
-        px = 20
-        py = y + 24
-        pw = cols * CELL_W + 16
-        out.append(f'<rect x="{px}" y="{py}" width="{pw}" height="{panel_h}" rx="6" fill="{T["panel"]}" stroke="{border}"/>')
-        tx = px + 8
-        rule_y = py + CELL_H - 6
-        out.append(f'<text x="{tx}" y="{rule_y}" {MONO} font-size="14" {cells(cols)} xml:space="preserve"><tspan fill="{border}">{"─" * (cols - 3)}</tspan><tspan fill="{T["dim"]}">[-]</tspan></text>')
-        row_y = py + 2 * CELL_H - 6
-        # The Weekly segment takes turns with the Fable limit, as the band does: one row per turn, shown 5 s each.
-        for which, spans in enumerate(row['turns']):
-            out.append(turn(terminal_row(tx, row_y, spans), which))
-        out.append(f'<text x="{tx}" y="{py + 3 * CELL_H - 6}" {MONO} font-size="14" {cells(cols)} fill="{border}" xml:space="preserve">{"─" * cols}</text>')
-        out.append(f'<text x="{tx}" y="{py + 4 * CELL_H - 6}" {MONO} font-size="14" {cells(PROMPT_CELLS)} xml:space="preserve"><tspan fill="{T["text"]}">❯ </tspan><tspan fill="{T["dim"]}">Try "how does &lt;filepath&gt; work?"</tspan></text>')
-        y += panel_h + gap + 24
+    for subtitle, panels in groups:
+        out.append(plain(20, y + 20, subtitle, T['text'], size=14, weight=600))
+        y += subtitle_h
+        for cols, what, key in panels:
+            out.extend(terminal_panel(rows[key], cols, what, y, T, border, panel_h))
+            y += panel_h + gap + 24
     return "\n".join(out), height
+
+
+def terminal_panel(row, cols, what, y, T, border, panel_h):
+    """One terminal panel at `y`: its label, the rule with [-], the cell row taking its turns, the input box's rule and
+    the prompt."""
+    out = [plain(20, y + 14, f'{cols} columns · {what}', T['dim'], size=13, weight=600)]
+    px = 20
+    py = y + 24
+    pw = cols * CELL_W + 16
+    out.append(f'<rect x="{px}" y="{py}" width="{pw}" height="{panel_h}" rx="6" fill="{T["panel"]}" stroke="{border}"/>')
+    tx = px + 8
+    rule_y = py + CELL_H - 6
+    out.append(f'<text x="{tx}" y="{rule_y}" {MONO} font-size="14" {cells(cols)} xml:space="preserve"><tspan fill="{border}">{"─" * (cols - 3)}</tspan><tspan fill="{T["dim"]}">[-]</tspan></text>')
+    row_y = py + 2 * CELL_H - 6
+    # One row per turn, shown 5 s each: Weekly and Fable in the default layout, every segment in the single one.
+    for which, spans in enumerate(row['turns']):
+        out.append(turn(terminal_row(tx, row_y, spans), which, len(row['turns'])))
+    out.append(f'<text x="{tx}" y="{py + 3 * CELL_H - 6}" {MONO} font-size="14" {cells(cols)} fill="{border}" xml:space="preserve">{"─" * cols}</text>')
+    out.append(f'<text x="{tx}" y="{py + 4 * CELL_H - 6}" {MONO} font-size="14" {cells(PROMPT_CELLS)} xml:space="preserve"><tspan fill="{T["text"]}">❯ </tspan><tspan fill="{T["dim"]}">Try "how does &lt;filepath&gt; work?"</tspan></text>')
+    return out
 
 
 def terminal():
@@ -311,9 +371,10 @@ def terminal():
 
 
 if __name__ == '__main__':
-    (HERE / 'hero.svg').write_text(hero(), encoding='utf-8')
-    (HERE / 'palette.svg').write_text(palette(), encoding='utf-8')
-    (HERE / 'title-dark.svg').write_text(title('dark'), encoding='utf-8')
-    (HERE / 'title-light.svg').write_text(title('light'), encoding='utf-8')
-    (HERE / 'terminal.svg').write_text(terminal(), encoding='utf-8')
+    # LF on every platform, as .gitattributes keeps *.svg (text mode on Windows would write CRLF).
+    (HERE / 'hero.svg').write_text(hero(), encoding='utf-8', newline='\n')
+    (HERE / 'palette.svg').write_text(palette(), encoding='utf-8', newline='\n')
+    (HERE / 'title-dark.svg').write_text(title('dark'), encoding='utf-8', newline='\n')
+    (HERE / 'title-light.svg').write_text(title('light'), encoding='utf-8', newline='\n')
+    (HERE / 'terminal.svg').write_text(terminal(), encoding='utf-8', newline='\n')
     print('wrote', HERE / 'hero.svg', HERE / 'palette.svg', HERE / 'title-dark.svg', HERE / 'title-light.svg', HERE / 'terminal.svg')

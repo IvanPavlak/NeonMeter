@@ -1,0 +1,70 @@
+name: Release
+
+# Publishes the GitHub release of every version tag, with the CHANGELOG.md section of that
+# version as its notes, so the file and the Releases page stay in sync. The changelog, the
+# version bump, the commit and the tag stay manual (README, "Releasing"); this automates the
+# release page. It works for both release flows: pushing a tag from the CLI creates the release
+# here, and creating the release in the GitHub UI first also pushes its tag, in which case this
+# run only brings the notes up to date with the changelog.
+
+on:
+  push:
+    tags: ["v*"]
+  # Manual runs check the manifests and print the notes the current changelog would publish;
+  # nothing is released. Useful before tagging.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish the release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag against the manifests
+        shell: pwsh
+        run: |
+          # The marketplace installs the version plugin.json names, so a tag must match it,
+          # and the marketplace entry must agree.
+          $plugin = (Get-Content -Raw "$env:GITHUB_WORKSPACE/.claude-plugin/plugin.json" | ConvertFrom-Json).version
+          $market = ((Get-Content -Raw "$env:GITHUB_WORKSPACE/.claude-plugin/marketplace.json" | ConvertFrom-Json).plugins | Where-Object name -eq 'neonmeter').version
+          if ($plugin -ne $market) { Write-Error "plugin.json is $plugin but marketplace.json is $market"; exit 1 }
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".TrimStart("v")
+            if ($version -ne $plugin) { Write-Error "tag ${{ github.ref_name }} does not match plugin.json version $plugin"; exit 1 }
+          }
+          "version $plugin"
+
+      - name: Extract release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          # The release body is the CHANGELOG.md section matching the version. Falls back to a
+          # changelog pointer when no section matches (e.g. a release-candidate tag).
+          $version = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}".TrimStart("v") }
+            else { (Get-Content -Raw "$env:GITHUB_WORKSPACE/.claude-plugin/plugin.json" | ConvertFrom-Json).version }
+          $changelog = Get-Content -Path "$env:GITHUB_WORKSPACE/CHANGELOG.md" -Raw
+          $pattern = "(?ms)^## \[$([regex]::Escape($version))\][^\r\n]*\r?\n(.*?)(?=^## \[|^\[[^\]]+\]: |\z)"
+          $notes = if ($changelog -match $pattern) { $matches[1].Trim() }
+          else { "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/master/CHANGELOG.md)." }
+          Set-Content -Path "$env:RUNNER_TEMP/release-notes.md" -Value $notes
+          Get-Content -Path "$env:RUNNER_TEMP/release-notes.md"
+
+      - name: Create or update the release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          gh release view $tag --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release edit $tag --repo "${{ github.repository }}" --notes-file "$env:RUNNER_TEMP/release-notes.md"
+          }
+          else {
+            gh release create $tag --repo "${{ github.repository }}" `
+              --title "NeonMeter $($tag.TrimStart('v'))" --notes-file "$env:RUNNER_TEMP/release-notes.md" --verify-tag
+          }
+          if ($LASTEXITCODE -ne 0) { exit 1 }
