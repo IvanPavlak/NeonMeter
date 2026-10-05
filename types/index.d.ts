@@ -24,6 +24,12 @@ export type NeonMeterReading = {
   at: number
   /** `http` from the usage fetch, `measure` from `session.measure`, `store` restored at session start. */
   source: 'http' | 'measure' | 'store'
+  /**
+   * `$.clock.now()` of the fetch behind the per-model weekly windows: the
+   * reading's own when `http`, else carried from the reading before. Absent
+   * when no fetch stands behind the reading yet.
+   */
+  fetchedAt?: number
 }
 
 /** The live context window, as `$.session.usage()` reports it. */

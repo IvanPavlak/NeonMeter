@@ -454,9 +454,16 @@ export function carryOver(previous: readonly NeonMeterWindow[], incoming: readon
   return [...incoming, ...kept]
 }
 
-/** Stores a fresh reading in state and in `$.store`, clearing staleness. */
+/**
+ * Stores a fresh reading in state and in `$.store`, clearing staleness. A
+ * fetch stamps `fetchedAt` with its own time; the engine's windows carry the
+ * previous reading's, since the per-model windows they keep are as old as that.
+ */
 async function setReading($: EngineInterface, windows: NeonMeterWindow[], source: NeonMeterReading['source'], now: number): Promise<void> {
+  const previous = (await $.state.get({ plugin: 'neonmeter', key: 'reading' })).value
+  const fetchedAt = source === 'http' ? now : previous ? fetchedAtOf(previous) : null
   const next: NeonMeterReading = { windows, at: now, source }
+  if (fetchedAt !== null) next.fetchedAt = fetchedAt
   await update($, reading, () => next)
   await update($, health, h => ({ ...(h ?? DEFAULT_HEALTH), hasAuth: true, isStale: false, lastError: undefined, lastAttemptAt: now }))
   await $.store.set(STORE_KEY, next)
@@ -523,7 +530,19 @@ function storedReading(raw: unknown): NeonMeterReading | null {
     if (typeof w.label === 'string') win.label = w.label
     windows.push(win)
   }
-  return { windows, at: r.at, source: 'store' }
+  const out: NeonMeterReading = { windows, at: r.at, source: 'store' }
+  if (typeof r.fetchedAt === 'number' && Number.isFinite(r.fetchedAt)) out.fetchedAt = r.fetchedAt
+  return out
+}
+
+/**
+ * When the windows only the fetch reports (the per-model weekly ones) were
+ * last fetched: the reading's own fetch, or the one it carried them from.
+ * Null when no fetch stands behind the reading.
+ */
+export function fetchedAtOf(r: NeonMeterReading): number | null {
+  if (typeof r.fetchedAt === 'number') return r.fetchedAt
+  return r.source === 'http' ? r.at : null
 }
 
 async function readSchedule($: EngineInterface): Promise<FetchSchedule> {
@@ -552,9 +571,12 @@ async function adoptStored($: EngineInterface, now: number, periodMs: number): P
 
 /**
  * One fetch of the usage endpoint with the session's credential, unless one
- * is not due: the reading (from the engine after a response, or stored by
- * another session) is younger than `pollSeconds`, another session tried
- * within the period, or a 429 put every session in backoff. Success replaces
+ * is not due: the last fetch (this session's, or one another session stored)
+ * is younger than `pollSeconds`, another session tried within the period, or
+ * a 429 put every session in backoff. The engine's windows after a response
+ * never postpone it: the per-model weekly windows come only from the
+ * endpoint, so a conversation with a reply every few seconds would otherwise
+ * never refresh them. Success replaces
  * the reading; failure keeps the last one and marks it stale; a 429 doubles
  * the shared wait up to 30 minutes. A `null` authorization (no first-party
  * login) or an API key hides the windows.
@@ -573,7 +595,8 @@ async function refresh($: EngineInterface): Promise<void> {
     }
 
     const current = await adoptStored($, now, periodMs)
-    if (current && now - current.at < periodMs - JITTER_MS) return
+    const lastFetch = current ? fetchedAtOf(current) : null
+    if (lastFetch !== null && now - lastFetch < periodMs - JITTER_MS) return
     const schedule = await readSchedule($)
     if (schedule.backoffUntil > now + MAX_BACKOFF_MS) {
       // A stored wait longer than the maximum is not one this version wrote: cap it.
@@ -671,11 +694,16 @@ function ensureRotation($: EngineInterface, rowCount: number): void {
 function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: NeonMeterHealth, now: number, options: Options): BandInput {
   const staleByAge = r !== null && now - r.at > 2 * options.pollSeconds * 1000
   const stale = r !== null && (h.isStale || staleByAge)
+  // The per-model windows come only from the fetch: while the engine keeps the reading fresh
+  // after each response, they fade on their own once that fetch is twice the period old.
+  const lastFetch = r ? (fetchedAtOf(r) ?? r.at) : 0
+  const fetchStale = r !== null && !stale && now - lastFetch > 2 * options.pollSeconds * 1000
   const windows: WindowInput[] = []
   for (const w of r?.windows ?? []) {
     if (!(WINDOW_KINDS as readonly string[]).includes(w.kind)) continue
     const win: WindowInput = { kind: w.kind as WindowKind, pct: w.percentUsed }
     if (w.label) win.label = { full: w.label, short: w.label.slice(0, 3) }
+    if (w.label && fetchStale) win.stale = true
     if (w.resetsAt) {
       const at = Date.parse(w.resetsAt)
       if (Number.isFinite(at)) {

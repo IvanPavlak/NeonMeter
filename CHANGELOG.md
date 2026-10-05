@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-05
+
+### Fixed
+
+- A per-model weekly limit (`Fable`) went stale during a conversation and only caught up once the session fell idle. Claude Code hands the band the 5-hour and all-models windows after every reply, and each of those readings counted as fresh enough to skip the usage fetch, which is the only source of the per-model windows; with a reply every few seconds the fetch never ran. The fetch now runs once per `pollSeconds` whatever the engine reports, and the per-model window shows the endpoint's newest figure within a period of the reply that moved it.
+- A per-model window the fetch has not refreshed in twice `pollSeconds` now fades and freezes on its own (and is marked `~` on the narrow tiers) while the rest of the band stays live, instead of looking as fresh as the windows Claude Code just reported. The stored reading records when its per-model windows were fetched.
+- The weekly reset time rounds to the minute. The endpoint stamps a per-model reset a few milliseconds before the hour, such as 23:59:59.975, which the band truncated to `Wed 23:59` while `/usage` showed Thursday midnight; it now reads `Thu 00:00`.
+
 ## [1.2.0] - 2026-10-05
 
 ### Added
@@ -70,7 +78,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.0.0...v1.1.0

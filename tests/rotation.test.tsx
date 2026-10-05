@@ -21,6 +21,14 @@ test('the limits list yields the 5-hour window, the weekly window and one per mo
   ])
 })
 
+test('the reset time rounds to the minute, so a stamp just before midnight reads as the next day', () => {
+  // 2026-10-08 00:00 local, a Thursday; the endpoint stamps a weekly reset like 23:59:59.975 the day before.
+  const midnight = new Date(2026, 9, 8, 0, 0, 0, 0).getTime()
+  expect(fmtResetAt(midnight - 25)).toBe('Thu 00:00')
+  expect(fmtResetAt(midnight - 29_999)).toBe('Thu 00:00')
+  expect(fmtResetAt(midnight - 30_001)).toBe('Wed 23:59')
+})
+
 test('a body without the limits list still reads the legacy fields', () => {
   const body = JSON.stringify({ five_hour: { utilization: 12, resets_at: null }, seven_day: { utilization: 22, resets_at: null } })
   expect(parseUsage(body)?.map(w => [w.kind, w.percentUsed])).toEqual([

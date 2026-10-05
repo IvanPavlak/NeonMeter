@@ -313,15 +313,16 @@ describe('terminal', () => {
     })
     await start($, world)
 
-    // The session's own windows are fresh, so session start fetches nothing.
-    expect(world.fetches).toHaveLength(0)
+    // The session's own windows never postpone the fetch, so session start fetches at once: the body's
+    // windows replace the session's (its 5-hour reset is 193 minutes from NOW), and the spend limit stays.
+    expect(world.fetches).toHaveLength(1)
     const ui = await mountBand($, 'terminal', 120)
-    expect(await rowOf(ui)).toBe(`5-hour ${'━'.repeat(12)}  38% in 3h21m │ Weekly ${'━'.repeat(12)}  21% ${WEEKLY_RESET} │ Spend 112% │ Context ${'━'.repeat(11)}  64% 128k/200k`)
+    expect(await rowOf(ui)).toBe(`5-hour ${'━'.repeat(12)}  38% in 3h13m │ Weekly ${'━'.repeat(12)}  21% ${WEEKLY_RESET} │ Spend 112% │ Context ${'━'.repeat(11)}  64% 128k/200k`)
     expect(await textOf(ui, '112%')).toMatchObject({ color: '#FF073A', bold: true })
 
-    // A period later the poll fetches: the body's windows replace the session's (its 5-hour reset is 193 minutes from NOW), and the spend limit stays.
+    // A period later the poll fetches again, and the spend limit still stays.
     await world.clock.advance(60_000)
-    expect(world.fetches).toHaveLength(1)
+    expect(world.fetches).toHaveLength(2)
     const row = await rowOf(ui)
     expect(row).toContain(' 38% in 3h12m')
     expect(row).toContain(' │ Spend 112% │ ')

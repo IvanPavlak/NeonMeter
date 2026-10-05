@@ -113,6 +113,8 @@ export type WindowInput = {
   resetMin?: number | null
   /** The weekly reset as `Thu 14:05`, drawn on the full tier. */
   resetAt?: string
+  /** This window alone is old: a per-model window the fetch has not refreshed in twice the period. */
+  stale?: boolean
 }
 
 export type ContextInput = {
@@ -203,9 +205,13 @@ export function fmtTok(n: number): string {
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
-/** The weekly reset on the full tier: local short weekday and 24-hour time, `Thu 14:05`. */
+/**
+ * The weekly reset on the full tier: local short weekday and 24-hour time,
+ * `Thu 14:05`, rounded to the minute, so a reset the endpoint stamps a few
+ * milliseconds before midnight reads as the next day's `00:00`, as /usage does.
+ */
 export function fmtResetAt(ms: number): string {
-  const d = new Date(ms)
+  const d = new Date(Math.round(ms / 60_000) * 60_000)
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
   return `${DAYS[d.getDay()]} ${hh}:${mm}`
@@ -236,7 +242,7 @@ function segmentsOf(s: BandInput): Segment[] {
       all.push({ kind: 'seven_day', loading: true, hasBar: true })
     } else {
       for (const w of s.windows) {
-        const seg: Segment = { kind: w.kind, pct: w.pct, resetMin: w.resetMin, resetAt: w.resetAt, hasBar: w.kind !== 'spend_limit', stale: s.stale }
+        const seg: Segment = { kind: w.kind, pct: w.pct, resetMin: w.resetMin, resetAt: w.resetAt, hasBar: w.kind !== 'spend_limit', stale: s.stale || w.stale === true }
         if (w.label) seg.label = w.label
         all.push(seg)
       }

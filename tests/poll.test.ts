@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { FAIL, HANDLE, MINUTE, NOW, USAGE_URL, mountBand, ok, rowOf, setup, start, usageBody } from './kit'
+import { CONTEXT, FAIL, HANDLE, MINUTE, NOW, USAGE_URL, limitsBody, mountBand, ok, rowOf, setup, start, usageBody } from './kit'
 
 // The test's engine handle has no `state` or `store` noun, so the reading and
 // its health are read back through the drawn row.
@@ -164,20 +164,53 @@ test('session.start takes the windows the session already reports as a fresh rea
 // shares one fetch schedule and the latest reading through the store.
 const SHARED = 'fetch'
 
-test('a reading the session already has, younger than pollSeconds, skips the fetch', async ($, on) => {
-  const world = setup(on, { usage: { rateLimits: [{ kind: 'five_hour', percentUsed: 12 }, { kind: 'seven_day', percentUsed: 22 }] } })
+test('the engine\'s windows never postpone the fetch: a conversation still refreshes the per-model window every period', async ($, on) => {
+  const world = setup(on, {
+    usage: { rateLimits: [{ kind: 'five_hour', percentUsed: 12 }, { kind: 'seven_day', percentUsed: 22 }] },
+    response: ok(limitsBody(12, 22, { Fable: 75 })),
+  })
   await start($, world)
-  expect(world.fetches).toHaveLength(0)
+  expect(world.fetches, 'the session\'s own windows carry no per-model window, so the start fetches').toHaveLength(1)
 
-  // After a turn the engine hands fresh windows again: the next poll is skipped too.
-  await world.clock.advance(30_000)
-  await $.session.measure({ context: { tokens: 1000, window: 200000, percent: 1 }, rateLimits: [{ kind: 'five_hour', percentUsed: 13 }], changed: ['rateLimits'] })
-  await world.clock.advance(30_000)
-  expect(world.fetches).toHaveLength(0)
+  // A reply every 30 s hands fresh all-models windows; the Fable window rides along from the fetch.
+  world.response = ok(limitsBody(13, 23, { Fable: 81 }))
+  for (let i = 1; i <= 4; i++) {
+    await world.clock.advance(30_000)
+    await $.session.measure({ context: CONTEXT, rateLimits: [{ kind: 'five_hour', percentUsed: 12 + i }, { kind: 'seven_day', percentUsed: 23 }], changed: ['rateLimits'] })
+  }
+  expect(world.fetches, 'one fetch per period, replies or not').toHaveLength(3)
 
-  // Idle: once the newest reading is a period old, the poll fetches.
-  await world.clock.advance(60_000)
+  const ui = await mountBand($, 'terminal', 120)
+  expect(await rowOf(ui)).toContain(' 23% ')
+  await ui.advance(5_000)
+  const fable = await rowOf(ui)
+  expect(fable).toContain('│ Fable  ')
+  expect(fable).toContain(' 81% ')
+  await ui.unmount()
+})
+
+test('a per-model window the fetch has not refreshed in twice the period fades alone while the engine keeps the rest fresh', async ($, on) => {
+  const world = setup(on, { response: ok(limitsBody(42, 55, { Fable: 75 })) })
+  await start($, world)
   expect(world.fetches).toHaveLength(1)
+
+  // Every later fetch hangs; a reply every 30 s keeps the reading itself fresh.
+  world.hang = true
+  world.hangMs = 1_000_000_000
+  for (let i = 1; i <= 5; i++) {
+    await world.clock.advance(30_000)
+    await $.session.measure({ context: CONTEXT, rateLimits: [{ kind: 'five_hour', percentUsed: 42 + i }, { kind: 'seven_day', percentUsed: 55 }], changed: ['rateLimits'] })
+  }
+
+  const ui = await mountBand($, 'terminal', 56)
+  const weekly = await rowOf(ui)
+  expect(weekly).not.toContain('stale')
+  expect(weekly).not.toContain('~')
+  await ui.advance(5_000)
+  const fable = await rowOf(ui)
+  expect(fable).toContain('Fab ~75%')
+  expect(fable).not.toContain('stale')
+  await ui.unmount()
 })
 
 test('another session\'s recent attempt holds this session\'s fetch until the period passes', async ($, on) => {
