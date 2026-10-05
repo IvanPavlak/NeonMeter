@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -61,6 +61,24 @@
       "title": "Glow",
       "description": "Draw the desktop's halo under filled bars, dots and percents; off draws them crisp (the pulse still brightens them)",
       "default": true
+    },
+    "pulseMode": {
+      "type": "string",
+      "title": "Pulse mode",
+      "description": "responsive pulses pulseCount cycles each time a value changes (a percent, the context, staleness) and otherwise holds the glow still, which costs next to nothing; always pulses without a stop, which costs about a third of a CPU core in the desktop app",
+      "options": [
+        "responsive",
+        "always"
+      ],
+      "default": "responsive"
+    },
+    "pulseCount": {
+      "type": "number",
+      "title": "Pulses per change",
+      "description": "How many pulse cycles pulseMode responsive runs each time a value changes, 1 to 20",
+      "default": 3,
+      "min": 1,
+      "max": 20
     },
     "pulseMs": {
       "type": "number",

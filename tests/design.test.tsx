@@ -38,7 +38,7 @@ test('custom range bounds move the colors', { options: { ranges: '30,40,45,50,60
   await ui.unmount()
 })
 
-test('custom colors replace the palette, with stale shades and the pulse derived from them', { options: { colorsDark: ['#112233', '#223344', '#334455', '#445566', '#556677', '#667788'], barColoring: 'level' } }, async ($, on) => {
+test('custom colors replace the palette, with stale shades and the pulse derived from them', { options: { colorsDark: ['#112233', '#223344', '#334455', '#445566', '#556677', '#667788'], barColoring: 'level', pulseMode: 'always' } }, async ($, on) => {
   const world = setup(on)
   await start($, world)
 

@@ -1,5 +1,6 @@
 import type { ClientModule } from 'claude-code'
 
+import type { Burst } from './color'
 import { pulseForeground, pulseIntensity } from './color'
 import type { Span } from './builder'
 
@@ -15,6 +16,13 @@ export type BandProps = {
   pulse: boolean
   /** The `pulseMs` option: one 8-frame cycle, so the frame interval is `pulseMs / 8`. */
   pulseMs: number
+  /**
+   * The `pulseMode` option: `responsive` pulses only during `burst`, after a
+   * value changed, and then stops its timer; `always` never stops.
+   */
+  pulseMode: 'responsive' | 'always'
+  /** The responsive pulse as of the hooks module's drawing: which change, how far it has run, how long it runs. */
+  burst: Burst
   /** The theme's ground. */
   ground: string
   /** How long each row holds the band while `alternates` rotate with it, in milliseconds. */
@@ -33,14 +41,12 @@ type State = { frame: number; turn: number }
 type Timer = { stop: () => void; ms: number }
 const timers = new WeakMap<object, Timer>()
 const rotations = new WeakMap<object, Timer>()
+/** The change each instance last pulsed for, so a redraw within or after it does not start it again. */
+const pulsed = new WeakMap<object, number>()
 
 /** How many rows take turns: the main one and its alternates. */
 function turnsOf(props: BandProps): number {
   return 1 + (props.alternates?.length ?? 0)
-}
-
-function hasLive(props: BandProps): boolean {
-  return (props.spans ?? []).some(s => s.live)
 }
 
 /**
@@ -70,18 +76,40 @@ function rotate(props: BandProps, surface: Parameters<ClientModule<BandProps, St
  * clock, every live span blended toward white in its own color, all in
  * phase. With alternates, the rows take turns every `rotateMs`. No background
  * tint behind glyphs: in cells it reads as a box, not a glow. The timer runs
- * only while something on the row is live and the `pulse` option is on.
+ * only while something on the row is live and the `pulse` option is on, and
+ * under `pulseMode: responsive` only for the `burst` after a value changed,
+ * picked up where it stands when the row is drawn partway through it; a
+ * rotation turn is no change. A row that holds still costs no redraws.
  */
 const Band: ClientModule<BandProps, State> = (props, surface) => {
   const { Box, Text } = surface.elements
-  const isLive = props.pulse && hasLive(props)
+
+  rotate(props, surface)
+  const turn = (surface.state?.turn ?? 0) % turnsOf(props)
+  const spans = turn === 0 ? (props.spans ?? []) : (props.alternates?.[turn - 1] ?? props.spans ?? [])
+  const isLive = props.pulse && spans.some(s => s.live)
+  const always = props.pulseMode === 'always'
+  const frameMs = Math.max(1, Math.round(props.pulseMs / 8))
+  const burst = props.burst ?? { gen: 0, elapsedMs: 0, totalMs: 0 }
+  const fresh = !always && burst.gen > 0 && pulsed.get(surface) !== burst.gen && burst.elapsedMs < burst.totalMs
 
   const timer = timers.get(surface)
-  if (isLive && (!timer || timer.ms !== props.pulseMs)) {
+  if (isLive && (always ? !timer || timer.ms !== props.pulseMs : fresh)) {
     timer?.stop()
-    const stop = surface.every(Math.max(1, Math.round(props.pulseMs / 8)), () => {
+    if (!always) pulsed.set(surface, burst.gen)
+    // 8 frames a cycle, counted from where the burst stands; it ends on the rest frame and stops its timer.
+    let n = always ? 0 : Math.floor(burst.elapsedMs / frameMs)
+    const last = always ? Infinity : Math.round(burst.totalMs / frameMs)
+    const stop = surface.every(frameMs, () => {
       const state = surface.state ?? { frame: 0, turn: 0 }
-      surface.setState({ ...state, frame: (state.frame + 1) % 8 })
+      n += 1
+      if (n >= last) {
+        stop()
+        timers.delete(surface)
+        surface.setState({ ...state, frame: 0 })
+        return
+      }
+      surface.setState({ ...state, frame: n % 8 })
     })
     timers.set(surface, { stop, ms: props.pulseMs })
   } else if (!isLive && timer) {
@@ -89,14 +117,10 @@ const Band: ClientModule<BandProps, State> = (props, surface) => {
     timers.delete(surface)
   }
 
-  rotate(props, surface)
-  const turn = (surface.state?.turn ?? 0) % turnsOf(props)
-
-  const frame = isLive ? (surface.state?.frame ?? 0) : 0
+  const frame = isLive && timers.has(surface) ? (surface.state?.frame ?? 0) : 0
   const i = pulseIntensity(frame)
   const colorOf = (color: string, live: boolean | undefined) => (isLive && live ? pulseForeground(color, i) : color)
 
-  const spans = turn === 0 ? (props.spans ?? []) : (props.alternates?.[turn - 1] ?? props.spans ?? [])
   return (
     <Box flexDirection="row">
       {spans.map(span => (

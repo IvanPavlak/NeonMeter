@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-05
+
+### Added
+
+- The `pulseMode` option. `responsive`, the new default, pulses the band each time a value changes (a percent, the context, the reading going stale or coming back, the first reading arriving) and holds the glow still otherwise; the first drawing of a session and a turn of the Weekly rotation are no change. `always` is the pulse of 1.1.1, which never stops.
+- The `pulseCount` option, 1 to 20 and 3 by default: how many cycles the responsive pulse runs after each change. The whole band pulses together, in phase, on both surfaces.
+- A Resource use section at the bottom of the README with the measured cost of each mode and how it was measured.
+
+### Changed
+
+- The pulse no longer runs all the time by default. The desktop app draws each bar and percent as an image, and an animated image is drawn again on every display frame, so the never-ending pulse kept about a third of a CPU core and 7% of the GPU busy for as long as the band was on screen. Under `responsive` the band costs what a still band costs between changes. The breath itself, its glow and its 800 ms cycle are unchanged; set `"pulseMode":"always"` to keep it going.
+
 ## [1.1.1] - 2026-10-05
 
 ### Changed
@@ -58,7 +70,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/IvanPavlak/NeonMeter/releases/tag/v1.0.0

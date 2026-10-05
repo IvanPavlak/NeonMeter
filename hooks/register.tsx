@@ -3,8 +3,9 @@ import type { ElementTable, EngineInterface, PluginOptions, Register, SessionCon
 
 import type { NeonMeterContext, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
-import { band, configureDesign, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_RAMPS, flexRow, fmtAge, fmtResetAt, THEMES } from './builder'
+import { band, configureDesign, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_RAMPS, flexRow, fmtAge, fmtResetAt, fmtTok, THEMES } from './builder'
 import type { BandInput, FlexRow, OptionSegment, WindowInput, WindowKind } from './builder'
+import type { Burst } from './color'
 import { desktopBand } from './desktop'
 
 /** The usage endpoint the built-in /usage command reads; the engine attaches the credential. */
@@ -56,7 +57,7 @@ const theme = atom({ plugin: 'neonmeter', key: 'theme' } as const, 'dark' as Neo
 const tick = atom({ plugin: 'neonmeter', key: 'tick' } as const, 0)
 const appearance = atom({ plugin: 'neonmeter', key: 'appearance' } as const, null as NeonMeterTheme | null)
 
-// The fifteen userConfig options, parsed and clamped once per activation. A
+// The seventeen userConfig options, parsed and clamped once per activation. A
 // new session reads a changed option; a changed file hot-reloads the module.
 export type SegmentKind = OptionSegment
 
@@ -66,6 +67,10 @@ export type Options = {
   desktopBars: 'dots' | 'bars'
   pulse: boolean
   pulseMs: number
+  /** `responsive` pulses `pulseCount` cycles each time a value changes, then holds still; `always` never stops. */
+  pulseMode: 'responsive' | 'always'
+  /** How many cycles the responsive pulse runs after each change. */
+  pulseCount: number
   /** Draw the desktop's halo under filled bars, dots and percents. */
   glow: boolean
   segments: SegmentKind[]
@@ -94,6 +99,8 @@ const DEFAULTS: Options = {
   desktopBars: 'bars',
   pulse: true,
   pulseMs: 800,
+  pulseMode: 'responsive',
+  pulseCount: 3,
   glow: true,
   segments: [...SEGMENT_KINDS],
   pollSeconds: 60,
@@ -204,6 +211,8 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const pulse = typeof options.pulse === 'boolean' ? options.pulse : DEFAULTS.pulse
   const glow = typeof options.glow === 'boolean' ? options.glow : DEFAULTS.glow
   const pulseMs = clamp(options.pulseMs, DEFAULTS.pulseMs, 400, 3000)
+  const pulseMode = options.pulseMode === 'always' ? 'always' : DEFAULTS.pulseMode
+  const pulseCount = Math.round(clamp(options.pulseCount, DEFAULTS.pulseCount, 1, 20))
   const pollSeconds = clamp(options.pollSeconds, DEFAULTS.pollSeconds, 10, 3600)
   const themeOption = options.theme === 'dark' || options.theme === 'light' ? options.theme : DEFAULTS.theme
   const desktopTheme = options.desktopTheme === 'dark' || options.desktopTheme === 'light' ? options.desktopTheme : DEFAULTS.desktopTheme
@@ -220,7 +229,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
     }
   }
 
-  return { parsed: { barColoring, desktopBars, pulse, pulseMs, glow, segments, pollSeconds, theme: themeOption, desktopTheme, ranges, colorsDark, colorsLight, glyph, rotateSeconds, layout }, rejected, problems }
+  return { parsed: { barColoring, desktopBars, pulse, pulseMs, pulseMode, pulseCount, glow, segments, pollSeconds, theme: themeOption, desktopTheme, ranges, colorsDark, colorsLight, glyph, rotateSeconds, layout }, rejected, problems }
 }
 
 /** Maps Claude Code's `theme` row to a palette; `null` when it names neither. */
@@ -476,9 +485,11 @@ type Env = {
    * looked up.
    */
   bandKey: string | null
+  /** The responsive pulse of each band, by band key: see `burstOf`. */
+  bursts: Map<string, BurstState>
 }
 
-const env: Env = { options: DEFAULTS, rejected: [], loggedOptions: false, inFlight: false, pollTimer: null, tickTimer: null, turn: 0, rotateTimer: null, onDesktop: false, problems: [], bandKey: null }
+const env: Env = { options: DEFAULTS, rejected: [], loggedOptions: false, inFlight: false, pollTimer: null, tickTimer: null, turn: 0, rotateTimer: null, onDesktop: false, problems: [], bandKey: null, bursts: new Map() }
 
 
 /**
@@ -737,6 +748,46 @@ export function singleVariants(input: BandInput): BandInput[] {
   return out.length > 0 ? out : [input]
 }
 
+/**
+ * What the responsive pulse counts as a change: every percent and label the
+ * band shows, as it shows them (whole percents, the context's tokens and window in `k`),
+ * staleness, loading and the credential. Not a tenth of a percent the band
+ * rounds away, which the usage fetch moves every minute, not the reset times
+ * and the stale age, and not which weekly window the rotation shows, which is
+ * the same reading turned.
+ */
+export function changeKey(input: BandInput): string {
+  return JSON.stringify([
+    input.auth,
+    input.loading,
+    input.stale,
+    input.windows.map(w => [w.kind, w.label?.full ?? '', Math.round(w.pct)]),
+    input.ctx ? [Math.round(input.ctx.pct), input.ctx.tokens === null ? null : fmtTok(input.ctx.tokens), fmtTok(input.ctx.window)] : null,
+  ])
+}
+
+/** A band's last change: its key, how many changes it has seen, and when the last one was drawn. */
+export type BurstState = { key: string; gen: number; at: number }
+
+/**
+ * The responsive pulse at `now`: the change it belongs to (`gen`, 0 before
+ * the first change), how far it has run and how long it runs in all, in
+ * milliseconds. The band's first drawing is not a change, so a session start
+ * or a reload draws still; each change after it starts a pulse of
+ * `cycles` cycles across the whole band.
+ */
+export function burstOf(bursts: Map<string, BurstState>, bandKey: string, key: string, now: number, cycleMs: number, cycles: number): Burst {
+  const last = bursts.get(bandKey)
+  if (!last) {
+    bursts.set(bandKey, { key, gen: 0, at: now })
+  } else if (last.key !== key) {
+    bursts.set(bandKey, { key, gen: last.gen + 1, at: now })
+  }
+  const state = bursts.get(bandKey)!
+  const totalMs = state.gen > 0 ? cycles * cycleMs : 0
+  return { gen: state.gen, elapsedMs: Math.min(totalMs, Math.max(0, now - state.at)), totalMs }
+}
+
 export const register: Register = (on, options) => {
   const { parsed, rejected, problems } = parseOptions(options)
   env.options = parsed
@@ -809,7 +860,8 @@ export const register: Register = (on, options) => {
 
     const palette = THEMES[t ?? 'dark']
     const input = inputOf(r, c, hv ?? DEFAULT_HEALTH, now, env.options)
-    const base = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, ground: palette.bg }
+    const burst = burstOf(env.bursts, bandKey, changeKey(input), now, env.options.pulseMs, env.options.pulseCount)
+    const base = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, ground: palette.bg }
     const single = env.options.layout === 'single'
     const variants = single ? singleVariants(input) : weeklyVariants(input)
     const { Box } = $.ui.resolve(e)
@@ -854,7 +906,7 @@ export const register: Register = (on, options) => {
       const { Text, Svg } = $.ui.resolve(e)
       return (
         <Box width="100%">
-          {desktopBand(row, { Box, Text, Svg }, { pulse: env.options.pulse, pulseMs: env.options.pulseMs, glow: env.options.glow, palette: THEMES[dt], dotCount })}
+          {desktopBand(row, { Box, Text, Svg }, { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, glow: env.options.glow, palette: THEMES[dt], dotCount })}
         </Box>
       )
     }

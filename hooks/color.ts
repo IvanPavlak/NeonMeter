@@ -33,6 +33,14 @@ export function pulseIntensity(frame: number): number {
   return (1 - Math.cos((2 * Math.PI * frame) / 8)) / 2
 }
 
+/**
+ * The responsive pulse as the hooks module hands it to a drawing: `gen` counts
+ * the changes the band has seen (0 before the first, when nothing pulses),
+ * `elapsedMs` is how far the current pulse has run and `totalMs` how long it
+ * runs in all (`pulseCount` cycles; 0 when nothing pulses).
+ */
+export type Burst = { gen: number; elapsedMs: number; totalMs: number }
+
 /** How far toward white the pulse blends at its peak. */
 export const PULSE_LIFT = 0.45
 

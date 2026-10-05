@@ -5,12 +5,21 @@
 // filled dot, bar and percent sits under a blurred halo of its own color (the
 // design's `text-shadow` glow). The pulse is a SMIL animation inside each
 // drawing: the color toward white and the halo wider, on one cycle, with no
-// redraw. The Weekly rotation is the hooks module's timer.
+// redraw. The app draws each drawing as an image, and an animated image is
+// rasterized again on every display frame, so a breath that never stops
+// measured about a third of a CPU core (README, Resource use). Under
+// `pulseMode: responsive` the drawings breathe only for the `burst` the hooks
+// module hands them after a value changed: each carries the change's number,
+// so every drawing is a new image and they all start together, and the
+// animation's negative `begin` keeps a drawing made later in the burst in
+// phase and ends it with the rest. The Weekly rotation is the hooks module's
+// timer.
 
 import type { BoxProps, ElementConstructor, RenderElement, SvgProps, TextProps } from 'claude-code'
 
 import type { FlexDot, FlexRow, FlexSegment, FlexSlice, Palette, Span } from './builder'
 import { THEME_KEYS } from './builder'
+import type { Burst } from './color'
 import { pulseForeground } from './color'
 
 export type DesktopElements = {
@@ -24,6 +33,10 @@ export type DesktopOptions = {
   pulse: boolean
   /** One pulse cycle in milliseconds. */
   pulseMs: number
+  /** `responsive` breathes only during `burst`, after a value changed; `always` never stops. */
+  pulseMode: 'responsive' | 'always'
+  /** The responsive pulse at the time of drawing. */
+  burst: Burst
   /** The `glow` option: false draws no halo; the pulse still brightens the colors. */
   glow: boolean
   /** The theme the row was built with: its ground and track colors are drawn where a theme key cannot be. */
@@ -56,35 +69,50 @@ export const GLOW = { restBlur: 3, peakBlur: 6, restHalo: 0.7, peakHalo: 0.95 } 
 const HEX = /^#[0-9A-Fa-f]{6}$/
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
 
+/**
+ * A drawing's pulse: its cycle, the SMIL timing of its animations and the
+ * attribute that marks the change it belongs to; null when it does not pulse
+ * (the pulse off, or responsive with no change running).
+ */
+type Beat = { ms: number; timing: string; mark: string } | null
+
+function beatOf(o: DesktopOptions): Beat {
+  if (!o.pulse) return null
+  if (o.pulseMode === 'always') return { ms: o.pulseMs, timing: 'repeatCount="indefinite"', mark: '' }
+  const { gen, elapsedMs, totalMs } = o.burst
+  if (gen === 0 || elapsedMs >= totalMs) return null
+  return { ms: o.pulseMs, timing: `begin="-${Math.round(elapsedMs)}ms" repeatDur="${Math.round(totalMs)}ms"`, mark: ` data-burst="${gen}"` }
+}
+
 /** `C;P;C`: the color, its pulse peak and back, for a SMIL `values`. */
 function pulseValues(color: string): string {
   return `${color};${pulseForeground(color, 1)};${color}`
 }
 
-function animate(attr: string, values: string, ms: number): string {
-  return `<animate attributeName="${attr}" values="${values}" dur="${ms}ms" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"/>`
+function animate(attr: string, values: string, beat: NonNullable<Beat>): string {
+  return `<animate attributeName="${attr}" values="${values}" dur="${beat.ms}ms" ${beat.timing} calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"/>`
 }
 
 /**
- * The glow filters: `g` pulses between the rest and the peak blur when `ms`
- * is given, `r` is the rest blur alone (stale drawings, or the pulse off).
+ * The glow filters: `g` pulses between the rest and the peak blur when the
+ * drawing pulses, `r` is the rest blur alone (stale drawings, or the pulse off).
  */
-function defs(ms: number | null): string {
-  const g = ms
-    ? `<filter id="g" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="${GLOW.restBlur}">${animate('stdDeviation', `${GLOW.restBlur};${GLOW.peakBlur};${GLOW.restBlur}`, ms)}</feGaussianBlur></filter>`
+function defs(beat: Beat): string {
+  const g = beat
+    ? `<filter id="g" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="${GLOW.restBlur}">${animate('stdDeviation', `${GLOW.restBlur};${GLOW.peakBlur};${GLOW.restBlur}`, beat)}</feGaussianBlur></filter>`
     : ''
   const r = `<filter id="r" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="${GLOW.restBlur}"/></filter>`
   return `<defs>${g}${r}</defs>`
 }
 
 /** The halo's filter and opacity, closing the opening tag: pulsing when live, at rest otherwise. */
-function halo(live: boolean, ms: number | null): string {
-  if (live && ms) return `filter="url(#g)" opacity="${GLOW.restHalo}">${animate('opacity', `${GLOW.restHalo};${GLOW.peakHalo};${GLOW.restHalo}`, ms)}`
+function halo(live: boolean, beat: Beat): string {
+  if (live && beat) return `filter="url(#g)" opacity="${GLOW.restHalo}">${animate('opacity', `${GLOW.restHalo};${GLOW.peakHalo};${GLOW.restHalo}`, beat)}`
   return `filter="url(#r)" opacity="${GLOW.restHalo}">`
 }
 
-function open(w: number, h: number, ms: number | null): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMid meet">${defs(ms)}`
+function open(w: number, h: number, beat: Beat): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMid meet"${beat?.mark ?? ''}>${defs(beat)}`
 }
 
 /**
@@ -93,7 +121,7 @@ function open(w: number, h: number, ms: number | null): string {
  * (`dot`, `dot-halo`) for a reader of the markup.
  */
 export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions): string {
-  const ms = o.pulse ? o.pulseMs : null
+  const beat = beatOf(o)
   const w = dots.length * DOT_UNIT + 2 * PAD
   const h = ROW_HEIGHT
   const cy = h / 2
@@ -102,11 +130,11 @@ export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions): string {
     const cx = (PAD + k * DOT_UNIT + DOT_UNIT / 2).toFixed(1)
     const color = HEX.test(d.color) ? d.color : o.palette.track
     const filled = color.toUpperCase() !== o.palette.track.toUpperCase()
-    const live = Boolean(d.live) && ms !== null
-    if (filled && o.glow) body += `<circle data-role="dot-halo" cx="${cx}" cy="${cy}" r="${DOT_RADIUS + 1.2}" fill="${color}" ${halo(live, ms)}</circle>`
-    body += `<circle data-role="dot" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${color}">${live ? animate('fill', pulseValues(color), ms!) : ''}</circle>`
+    const live = Boolean(d.live) && beat !== null
+    if (filled && o.glow) body += `<circle data-role="dot-halo" cx="${cx}" cy="${cy}" r="${DOT_RADIUS + 1.2}" fill="${color}" ${halo(live, beat)}</circle>`
+    body += `<circle data-role="dot" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${color}">${live ? animate('fill', pulseValues(color), beat!) : ''}</circle>`
   })
-  return open(w, h, ms) + body + '</svg>'
+  return open(w, h, beat) + body + '</svg>'
 }
 
 /**
@@ -117,7 +145,7 @@ export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions): string {
  * halo under it. Live slices pulse.
  */
 export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): string {
-  const ms = o.pulse ? o.pulseMs : null
+  const beat = beatOf(o)
   const bar = Math.max(1, o.dotCount) * DOT_UNIT
   const w = bar + 2 * PAD
   const h = ROW_HEIGHT
@@ -133,19 +161,19 @@ export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): s
     const isFilled = color.toUpperCase() !== track.toUpperCase()
     if (isFilled) {
       filledTo = at + sl.grow
-      const live = Boolean(sl.live) && ms !== null
-      rects += `<rect data-role="slice" x="${(PAD + at * px).toFixed(2)}" y="${y}" width="${(sl.grow * px).toFixed(2)}" height="${BAR_THICKNESS}" fill="${color}" data-grow="${sl.grow.toFixed(1)}">${live ? animate('fill', pulseValues(color), ms!) : ''}</rect>`
+      const live = Boolean(sl.live) && beat !== null
+      rects += `<rect data-role="slice" x="${(PAD + at * px).toFixed(2)}" y="${y}" width="${(sl.grow * px).toFixed(2)}" height="${BAR_THICKNESS}" fill="${color}" data-grow="${sl.grow.toFixed(1)}">${live ? animate('fill', pulseValues(color), beat!) : ''}</rect>`
     }
     at += sl.grow
   }
-  const anyLive = slices.some(sl => sl.live) && ms !== null
+  const anyLive = slices.some(sl => sl.live) && beat !== null
   const filledPx = Math.min(bar, Math.max(BAR_THICKNESS, filledTo * px))
   const clip = `<clipPath id="c"><rect x="${PAD}" y="${y}" width="${filledPx.toFixed(2)}" height="${BAR_THICKNESS}" rx="${rx}"/></clipPath>`
   // The last slice reaches the pill's end, so a small percent fills its round dot.
   const fill = (role: string) => `<g clip-path="url(#c)"><rect data-role="${role}-tip" x="${PAD}" y="${y}" width="${filledPx.toFixed(2)}" height="${BAR_THICKNESS}" fill="${lastColor(slices, track)}"/>${rects.replaceAll('data-role="slice"', `data-role="${role}"`)}</g>`
-  const glow = filledTo > 0 && o.glow ? `<g ${halo(anyLive, ms)}${fill('slice-halo')}</g>` : ''
+  const glow = filledTo > 0 && o.glow ? `<g ${halo(anyLive, beat)}${fill('slice-halo')}</g>` : ''
   return (
-    open(w, h, ms) +
+    open(w, h, beat) +
     `<defs>${clip}</defs>` +
     `<rect data-role="track" x="${PAD}" y="${y}" width="${bar}" height="${BAR_THICKNESS}" rx="${rx}" fill="${track}"/>` +
     glow +
@@ -163,16 +191,16 @@ function lastColor(slices: readonly FlexSlice[], track: string): string {
 
 /** A percent: bold text in its color under a halo of the same color; live, it pulses. */
 export function pctSvg(pct: Span, o: DesktopOptions): string {
-  const ms = o.pulse ? o.pulseMs : null
-  const live = Boolean(pct.live) && ms !== null
+  const beat = beatOf(o)
+  const live = Boolean(pct.live) && beat !== null
   const w = Math.ceil(pct.text.length * PCT_CHAR_WIDTH) + 2 * PAD
   const h = ROW_HEIGHT
   const attrs = `x="${PAD}" y="${(h / 2 + PCT_FONT_SIZE * 0.36).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="700" fill="${pct.color}"`
   const text = esc(pct.text)
   return (
-    open(w, h, ms) +
-    (o.glow ? `<text data-role="pct-halo" ${attrs} ${halo(live, ms)}${text}</text>` : '') +
-    `<text data-role="pct" ${attrs}>${text}${live ? animate('fill', pulseValues(pct.color), ms!) : ''}</text>` +
+    open(w, h, beat) +
+    (o.glow ? `<text data-role="pct-halo" ${attrs} ${halo(live, beat)}${text}</text>` : '') +
+    `<text data-role="pct" ${attrs}>${text}${live ? animate('fill', pulseValues(pct.color), beat!) : ''}</text>` +
     '</svg>'
   )
 }

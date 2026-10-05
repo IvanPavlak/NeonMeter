@@ -204,7 +204,7 @@ describe('terminal', () => {
     await ui.unmount()
   })
 
-  test('the pulse brightens live spans at the peak frame, in phase, with no background, and leaves the rest alone', async ($, on) => {
+  test('the pulse brightens live spans at the peak frame, in phase, with no background, and leaves the rest alone', { options: { pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 
@@ -234,7 +234,7 @@ describe('terminal', () => {
     await ui.unmount()
   })
 
-  test('pulseMs scales the frame interval', { options: { pulseMs: 1600 } }, async ($, on) => {
+  test('pulseMs scales the frame interval', { options: { pulseMs: 1600, pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 
@@ -370,7 +370,7 @@ describe('desktop, desktopBars: dots', () => {
     expect(many).toBeGreaterThan(few)
   })
 
-  test('live dots pulse and empty dots stay still', { options: { desktopBars: 'dots' } }, async ($, on) => {
+  test('live dots pulse and empty dots stay still', { options: { desktopBars: 'dots', pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 
@@ -384,7 +384,7 @@ describe('desktop, desktopBars: dots', () => {
     await ui.unmount()
   })
 
-  test('stale window dots fade and freeze', { options: { desktopBars: 'dots', barColoring: 'ramp' } }, async ($, on) => {
+  test('stale window dots fade and freeze', { options: { desktopBars: 'dots', barColoring: 'ramp', pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
     world.response = FAIL
@@ -400,7 +400,7 @@ describe('desktop, desktopBars: dots', () => {
 })
 
 describe('desktop, desktopBars: bars (the default)', () => {
-  test('a fresh reading shows full labels, fields and three weighted bars', { options: { desktopBars: 'bars', barColoring: 'ramp' } }, async ($, on) => {
+  test('a fresh reading shows full labels, fields and three weighted bars', { options: { desktopBars: 'bars', barColoring: 'ramp', pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 
@@ -443,7 +443,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await ui.unmount()
   })
 
-  test('a stale reading fades the window bars and shows the age; the context stays live', { options: { desktopBars: 'bars', barColoring: 'ramp' } }, async ($, on) => {
+  test('a stale reading fades the window bars and shows the age; the context stays live', { options: { desktopBars: 'bars', barColoring: 'ramp', pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
     world.response = FAIL
@@ -472,7 +472,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await ui.unmount()
   })
 
-  test('the first load shows grey pulsing bars and an ellipsis', { options: { desktopBars: 'bars' } }, async ($, on) => {
+  test('the first load shows grey pulsing bars and an ellipsis', { options: { desktopBars: 'bars', pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     world.hang = true
     await $.session.start({ cwd: '.', surface: 'terminal', isInteractive: true })
@@ -498,7 +498,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await ui.unmount()
   })
 
-  test('the pulse brightens live bars and percents at the peak frame and leaves the rest alone', { options: { desktopBars: 'bars', barColoring: 'ramp' } }, async ($, on) => {
+  test('the pulse brightens live bars and percents at the peak frame and leaves the rest alone', { options: { desktopBars: 'bars', barColoring: 'ramp', pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 
@@ -512,7 +512,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await ui.unmount()
   })
 
-  test('glow: false draws bars, dots and percents without a halo; the pulse stays', { options: { glow: false } }, async ($, on) => {
+  test('glow: false draws bars, dots and percents without a halo; the pulse stays', { options: { glow: false, pulseMode: 'always' } }, async ($, on) => {
     const world = setup(on)
     await start($, world)
 
