@@ -124,10 +124,23 @@ export function parseRanges(value: unknown): number[] | null {
 }
 
 /** Six `#RGB` or `#RRGGBB` colors, normalized to upper-case `#RRGGBB`, or null. */
+/**
+ * A list option as the module receives it: a list, or the comma-separated text
+ * Claude Code stores for a `multiple` option set through `claude plugin
+ * configure` or `/plugin` ("context,five_hour"). `null` for anything else,
+ * an empty text included, which leaves the option at its default.
+ */
+export function listOf(value: unknown): unknown[] | null {
+  if (Array.isArray(value)) return value
+  if (typeof value !== 'string' || value.trim() === '') return null
+  return value.split(',').map(entry => entry.trim()).filter(entry => entry !== '')
+}
+
 export function parseColors(value: unknown): string[] | null {
-  if (!Array.isArray(value) || value.length !== 6) return null
+  const list = listOf(value)
+  if (!list || list.length !== 6) return null
   const out: string[] = []
-  for (const raw of value) {
+  for (const raw of list) {
     const s = String(raw).trim()
     if (/^#[0-9a-fA-F]{6}$/.test(s)) out.push(s.toUpperCase())
     else if (/^#[0-9a-fA-F]{3}$/.test(s)) out.push(('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toUpperCase())
@@ -195,7 +208,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const themeOption = options.theme === 'dark' || options.theme === 'light' ? options.theme : DEFAULTS.theme
   const desktopTheme = options.desktopTheme === 'dark' || options.desktopTheme === 'light' ? options.desktopTheme : DEFAULTS.desktopTheme
 
-  const raw = Array.isArray(options.segments) ? options.segments : DEFAULTS.segments
+  const raw = listOf(options.segments) ?? DEFAULTS.segments
   const segments: SegmentKind[] = []
   const rejected: string[] = []
   for (const entry of raw) {
@@ -747,7 +760,10 @@ export const register: Register = (on, options) => {
 
     const usage = await $.session.usage()
     await update($, context, () => contextOf(usage.context))
-    if (usage.rateLimits.length > 0) await setReading($, windowsOf(usage.rateLimits), 'measure', now)
+    // The engine reports the all-models windows only; keep the per-model weekly ones (and a spend
+    // limit) the stored reading has, or a session start, a module reload included, would drop them
+    // for every session until the next fetch.
+    if (usage.rateLimits.length > 0) await setReading($, carryOver(restored?.windows ?? [], windowsOf(usage.rateLimits)), 'measure', now)
 
     if (e.surface === 'desktop') {
       env.onDesktop = true

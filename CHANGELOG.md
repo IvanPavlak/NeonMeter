@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-05
+
+### Changed
+
+- The README's Configuration section shows how to set every option: `claude plugin configure neonmeter@neonmeter --values-stdin` from any shell (how to write numbers, true/false and lists, how to check and reset, the Windows PowerShell 5.1 encoding step), `/plugin` in a terminal session, `--config` at install time, a table of common setups, every option at its default, and where the options are stored.
+
+### Fixed
+
+- The Weekly segment could stop taking turns with the per-model limits (Fable) for a minute or more, in every look and on both surfaces. When a session started, or the plugin reloaded, as it does whenever an option changes, the windows Claude Code reports, which carry only the all-models week, replaced the stored reading for every open session, and the fetch that brings the per-model limits back was skipped because that reading looked fresh. A session start now keeps the per-model limits and a spend limit from the stored reading, as the reading after each response already did.
+- `segments`, `colorsDark` and `colorsLight` set through `claude plugin configure` or `/plugin` took no effect. Claude Code stores a list option as comma-separated text, which NeonMeter did not read, so the band kept the default segments and colors (the colors with a "not valid" line in the debug log). Both comma-separated text and a list now work.
+
 ## [1.1.0] - 2026-10-05
 
 ### Added
@@ -47,6 +58,7 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/IvanPavlak/NeonMeter/releases/tag/v1.0.0

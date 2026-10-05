@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { parseColors, parseGlyph, parseOptions, parseRanges } from '../hooks/register'
+import { listOf, parseColors, parseGlyph, parseOptions, parseRanges } from '../hooks/register'
 import { dotBarsOf, limitsBody, mountBand, ok, rowOf, setup, spansOf, start, textOf, usageBody } from './kit'
 
 // Every part of the look is an option; at the defaults the band is the
@@ -115,4 +115,31 @@ test('bar coloring is level by default and takes ramp or level as set; anything 
   expect(parseOptions({}).parsed.layout).toBe('all')
   expect(parseOptions({ layout: 'single' }).parsed.layout).toBe('single')
   expect(parseOptions({ layout: 'stacked' }).parsed.layout).toBe('all')
+})
+
+test('list options take a list or the comma-separated text Claude Code stores for them', () => {
+  expect(listOf(['context', 'five_hour'])).toEqual(['context', 'five_hour'])
+  expect(listOf('context, five_hour,')).toEqual(['context', 'five_hour'])
+  expect(listOf('')).toBeNull()
+  expect(listOf(7)).toBeNull()
+  expect(parseOptions({ segments: 'context,five_hour' }).parsed.segments).toEqual(['context', 'five_hour'])
+  expect(parseOptions({ segments: '' }).parsed.segments).toEqual(['five_hour', 'seven_day', 'spend', 'context'])
+  expect(parseColors('#112233,#223344,#334455,#445566,#556677,#667788')).toEqual(['#112233', '#223344', '#334455', '#445566', '#556677', '#667788'])
+  expect(parseColors('#112233,#223344')).toBeNull()
+})
+
+test('segments set as comma-separated text order the row', { options: { segments: 'context,five_hour' } }, async ($, on) => {
+  const world = setup(on, { response: ok(limitsBody(47, 28)) })
+  await start($, world)
+  const ui = await mountBand($, 'terminal', 120)
+  expect(await rowOf(ui)).toMatch(/^Context .*│ 5-hour /)
+  await ui.unmount()
+})
+
+test('colors set as comma-separated text replace the palette', { options: { colorsDark: '#112233,#223344,#334455,#445566,#556677,#667788', pulse: false } }, async ($, on) => {
+  const world = setup(on, { response: ok(limitsBody(47, 28)) })
+  await start($, world)
+  const ui = await mountBand($, 'terminal', 120)
+  expect(await textOf(ui, ' 28%')).toMatchObject({ color: '#112233' })
+  await ui.unmount()
 })

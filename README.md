@@ -198,13 +198,55 @@ The context bar is empty and shows `--` until the model has answered once.
 
 <h2 align="center">Configuration</h2>
 
-Installed from the marketplace, the options are interactive: open `/plugin`, pick NeonMeter under Installed and choose Configure options, or set them at install time with `--config key=value`. Loaded from a clone, they go in `~/.claude/settings.json` under `pluginConfigs.neonmeter.options`, as below. Either way every option you leave out keeps its default and a new session picks up a change. An out-of-range number is clamped to its range; any other invalid value keeps its default and is named in the debug log (`claude --debug`) when the session starts.
+Fifteen options, listed in the table below, change the look and the behaviour. Every option you leave out keeps its default. Options are saved in Claude Code's settings, not in the plugin's files, so they survive every update; uninstalling the plugin deletes them.
+
+**From a shell** (works for the terminal and the desktop app alike), pipe a JSON object of the options you want to change into `claude plugin configure`:
+
+```bash
+echo '{"barColoring":"ramp","desktopBars":"dots","glyph":"●"}' | claude plugin configure neonmeter@neonmeter --values-stdin
+```
+
+How to write the values:
+
+- **Every value is text in quotes**, numbers and true/false included: `"pollSeconds":"30"`, `"pulse":"false"`. Claude Code stores them as numbers and booleans.
+- **Lists are comma-separated text:** `"segments":"context,five_hour"`, `"colorsDark":"#112233,#223344,#334455,#445566,#556677,#667788"`.
+- **A value outside an option's choices or range is refused** with a message, and nothing is saved.
+- **Options you leave out keep their current value.** To reset one, set it to its default from the table.
+- **To see what is set:** `claude plugin configure neonmeter@neonmeter`.
+- **A change applies** in the next session, or at once after `/reload-plugins` in an open one.
+- **In Windows PowerShell 5.1**, run `$OutputEncoding = New-Object Text.UTF8Encoding $false` first when a value has a character beyond ASCII, such as `●`; otherwise it arrives as `?`. PowerShell 7, Git Bash and other shells need nothing.
+
+**Inside a terminal session**, `/plugin` shows the same options as pickers and fields: pick NeonMeter under Installed and choose Configure options. The desktop app's Code tab has no `/plugin`; use the shell command there.
+
+**At install time**, add `--config key=value` once per option: `claude plugin install neonmeter@neonmeter --config layout=single --config barColoring=ramp`.
+
+**Common setups:**
+
+| You want | Pipe this into `claude plugin configure neonmeter@neonmeter --values-stdin` |
+| --- | --- |
+| Ramp coloring instead of level | `{"barColoring":"ramp"}` |
+| Dots, in the desktop app and in the terminal | `{"desktopBars":"dots","glyph":"●"}` |
+| One segment at a time across the row | `{"layout":"single"}` |
+| One segment at a time, as ramp dots, 8 s each | `{"layout":"single","desktopBars":"dots","glyph":"●","barColoring":"ramp","rotateSeconds":"8"}` |
+| Only the context and the 5-hour window, in that order | `{"segments":"context,five_hour"}` |
+| A still band without the halo | `{"pulse":"false","glow":"false"}` |
+| Fewer usage fetches | `{"pollSeconds":"300"}` |
+| Your own ranges and colors | `{"ranges":"40,60,75,85,95","colorsDark":"#1E90FF,#39FF14,#00D45A,#FFF01F,#FF5F1F,#FF073A"}` |
+
+Every option at its default, to copy as a template or to reset everything:
+
+```bash
+echo '{"layout":"all","barColoring":"level","desktopBars":"bars","glyph":"━","segments":"five_hour,seven_day,spend,context","pulse":"true","pulseMs":"800","glow":"true","pollSeconds":"60","rotateSeconds":"5","theme":"auto","desktopTheme":"auto","ranges":"50,60,70,80,90","colorsDark":"#1E90FF,#39FF14,#00D45A,#FFF01F,#FF5F1F,#FF073A","colorsLight":"#1874D2,#32A800,#139A43,#A89200,#E84A00,#E8001F"}' | claude plugin configure neonmeter@neonmeter --values-stdin
+```
+
+**Where they are stored:** `~/.claude/settings.json`, under `pluginConfigs`, keyed by the plugin's id. You can edit them there by hand too; there a list may be written either as comma-separated text or as a JSON list:
 
 ```json
 {
 	"pluginConfigs": {
-		"neonmeter": {
+		"neonmeter@neonmeter": {
 			"options": {
+				"layout": "single",
 				"desktopBars": "dots",
 				"segments": ["context", "five_hour", "seven_day"],
 				"ranges": "40,60,75,85,95",
@@ -214,6 +256,8 @@ Installed from the marketplace, the options are interactive: open `/plugin`, pic
 	}
 }
 ```
+
+Loaded from a clone instead of installed (`--plugin-dir`, see Install), the key is `neonmeter` instead of `neonmeter@neonmeter`. A value set by hand is not checked when you save the file: an out-of-range number is clamped to its range, and any other invalid value keeps its default and is named in the debug log (`claude --debug`) when the session starts.
 
 | Option          | Type                                                 | Default                    | What it does                                                                                                                                                                                                                         |
 | --------------- | ---------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
