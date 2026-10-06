@@ -296,106 +296,84 @@ Loaded from a clone instead of installed (`--plugin-dir`, see Install), the key 
 
 <h2 align="center" id="every-option">Every option at a glance</h2>
 
-Each option below opens on a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`) and `rotateSeconds` have none; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme.
+Each option below has a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`) and `rotateSeconds` have none; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme.
 
-<details>
-<summary><code>layout</code>: <code>all</code> or <code>single</code></summary>
+<h3><code>layout</code>: <code>all</code> or <code>single</code></h3>
 <p>Every segment in one row, or one segment across the whole row at a time, taking turns.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/layout-dark.svg">
   <img src="design/readme/options/layout-light.svg" alt="The layout option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>barColoring</code>: <code>level</code> or <code>ramp</code></summary>
+<h3><code>barColoring</code>: <code>level</code> or <code>ramp</code></h3>
 <p>The whole fill in the percent's color, or the fill running through every range up to it.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/barColoring-dark.svg">
   <img src="design/readme/options/barColoring-light.svg" alt="The barColoring option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>desktopBars</code>: <code>bars</code> or <code>dots</code></summary>
+<h3><code>desktopBars</code>: <code>bars</code> or <code>dots</code></h3>
 <p>Smooth glowing bars or rows of glowing dots, in the desktop app.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/desktopBars-dark.svg">
   <img src="design/readme/options/desktopBars-light.svg" alt="The desktopBars option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>glyph</code>: one character</summary>
+<h3><code>glyph</code>: one character</h3>
 <p>The terminal's bar cell: <code>━</code> runs into a continuous bar, <code>●</code> or <code>■</code> make dotted ones.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/glyph-dark.svg">
   <img src="design/readme/options/glyph-light.svg" alt="The glyph option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>glow</code>: <code>true</code> or <code>false</code></summary>
+<h3><code>glow</code>: <code>true</code> or <code>false</code></h3>
 <p>The desktop's halo under bars, dots and percents.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/glow-dark.svg">
   <img src="design/readme/options/glow-light.svg" alt="The glow option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>segments</code>: a list</summary>
+<h3><code>segments</code>: a list</h3>
 <p>Which segments to draw and in what order.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/segments-dark.svg">
   <img src="design/readme/options/segments-light.svg" alt="The segments option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>ranges</code>: five bounds</summary>
+<h3><code>ranges</code>: five bounds</h3>
 <p>Where each of the six colors starts for the percents.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/ranges-dark.svg">
   <img src="design/readme/options/ranges-light.svg" alt="The ranges option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>fiveHourReset</code>: <code>countdown</code> or <code>clock</code></summary>
+<h3><code>fiveHourReset</code>: <code>countdown</code> or <code>clock</code></h3>
 <p>The 5-hour reset as the time left or the time it happens, on the widest layout.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/fiveHourReset-dark.svg">
   <img src="design/readme/options/fiveHourReset-light.svg" alt="The fiveHourReset option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>weeklyReset</code>: <code>countdown</code> or <code>clock</code></summary>
+<h3><code>weeklyReset</code>: <code>countdown</code> or <code>clock</code></h3>
 <p>Every weekly reset as the time left or the day and time, on the widest layout.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/weeklyReset-dark.svg">
   <img src="design/readme/options/weeklyReset-light.svg" alt="The weeklyReset option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>resetColor</code>: <code>plain</code> or <code>time</code></summary>
+<h3><code>resetColor</code>: <code>plain</code> or <code>time</code></h3>
 <p>Each reset in the text color, or colored by how much of its window is still to run, with the pulse and the glow.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/resetColor-dark.svg">
   <img src="design/readme/options/resetColor-light.svg" alt="The resetColor option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
-<details>
-<summary><code>timeRanges</code>: five bounds</summary>
+<h3><code>timeRanges</code>: five bounds</h3>
 <p>Where each time color starts under <code>resetColor: time</code>; the default is six even steps of every window.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/timeRanges-dark.svg">
   <img src="design/readme/options/timeRanges-light.svg" alt="The timeRanges option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
-</details>
 
 <h2 align="center">How usage is fetched, and what the plugin touches</h2>
 
