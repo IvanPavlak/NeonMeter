@@ -1,9 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { fmtResetAt } from '../hooks/builder'
 import { CONTEXT, FAIL, MINUTE, NOW, SURFACES, barsOf, clientProps, dotBarsOf, isEngineRow, mountBand, ok, partsOf, peakOf, rowOf, setup, spansOf, start, textOf, usageBody } from './kit'
-
-const WEEKLY_RESET = fmtResetAt(NOW + 4560 * MINUTE)
 
 // The terminal draws the cell row: one character per cell, exactly as wide as
 // the row's columns, the golden rows' layout.
@@ -13,7 +10,7 @@ describe('terminal', () => {
     await start($, world)
 
     const ui = await mountBand($, 'terminal', 120)
-    expect(await rowOf(ui)).toBe(`5-hour ━━━━━━━━━━━━━━━━  42% in 3h13m │ Weekly ━━━━━━━━━━━━━━━━  55% ${WEEKLY_RESET} │ Context ━━━━━━━━━━━━━━━━  64% 128k/200k`)
+    expect(await rowOf(ui)).toBe(`5-hour ━━━━━━━━━━━━━━━━  42% in 3h13m │ Weekly ━━━━━━━━━━━━━━━━  55% in 3d4h   │ Context ━━━━━━━━━━━━━━━━  64% 128k/200k`)
     await ui.unmount()
   })
 
@@ -317,7 +314,7 @@ describe('terminal', () => {
     // windows replace the session's (its 5-hour reset is 193 minutes from NOW), and the spend limit stays.
     expect(world.fetches).toHaveLength(1)
     const ui = await mountBand($, 'terminal', 120)
-    expect(await rowOf(ui)).toBe(`5-hour ${'━'.repeat(12)}  38% in 3h13m │ Weekly ${'━'.repeat(12)}  21% ${WEEKLY_RESET} │ Spend 112% │ Context ${'━'.repeat(11)}  64% 128k/200k`)
+    expect(await rowOf(ui)).toBe(`5-hour ${'━'.repeat(12)}  38% in 3h13m │ Weekly ${'━'.repeat(12)}  21% in 3d4h   │ Spend 112% │ Context ${'━'.repeat(11)}  64% 128k/200k`)
     expect(await textOf(ui, '112%')).toMatchObject({ color: '#FF073A', bold: true })
 
     // A period later the poll fetches again, and the spend limit still stays.
@@ -406,7 +403,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await start($, world)
 
     const ui = await mountBand($, 'desktop', 95)
-    expect(await rowOf(ui)).toBe(`5-hour  42% in 3h13m │ Weekly  55% ${WEEKLY_RESET} │ Context  64% 128k/200k`)
+    expect(await rowOf(ui)).toBe(`5-hour  42% in 3h13m │ Weekly  55% in 3d4h │ Context  64% 128k/200k`)
     const bars = await barsOf(ui)
     expect(bars.map(b => b.kind)).toEqual(['five_hour', 'seven_day', 'ctx'])
     // The filled slices, in hundredths of the bar; the rest of the rounded bar is the track.
@@ -492,7 +489,7 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await start($, world)
 
     const ui = await mountBand($, 'desktop', 95)
-    expect(await rowOf(ui)).toBe(`5-hour  42% in 3h13m │ Weekly  55% ${WEEKLY_RESET} │ Context  --`)
+    expect(await rowOf(ui)).toBe(`5-hour  42% in 3h13m │ Weekly  55% in 3d4h │ Context  --`)
     expect((await barsOf(ui))[2]?.slices, 'nothing filled').toEqual([])
     expect((await barsOf(ui))[2]?.track).toBe('#21262D')
     expect(await textOf(ui, '--')).toMatchObject({ color: 'text' })

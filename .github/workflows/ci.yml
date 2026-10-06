@@ -43,3 +43,5 @@ jobs:
             if ($failed) { exit 1 }'
       - name: Check the README terminal rows match the builder
         run: node design/readme/rows.mjs --check
+      - name: Check the README option pictures match the builder and drawings
+        run: node design/readme/options.mjs --check

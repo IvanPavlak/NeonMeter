@@ -107,7 +107,7 @@ def plain(x, y, text, color, size=19.5, weight=400, anchor='start', italic=False
 
 
 ROTATE_S = 5
-FABLE = (69, 'Thu 14:05')
+FABLE = (69, 'in 3d4h')
 
 
 def turn(out, which, count=2):
@@ -153,7 +153,7 @@ def band_row(x, y, width, T, mode, windows, stale=False):
     The Weekly segment takes turns with the account's Fable limit, as the band does."""
     out = ''
     labels = ['5-hour', 'Weekly', 'Context']
-    extras = ['in 3h13m', 'Thu 14:05', '930k/1M']
+    extras = ['in 3h13m', 'in 3d4h', '930k/1M']
     seg_w = (width - 2 * 30) / 3
     cx = x
     for n, (label, pct, extra) in enumerate(zip(labels, windows, extras)):
@@ -169,7 +169,7 @@ def band_row(x, y, width, T, mode, windows, stale=False):
     return out
 
 
-SINGLE_TURNS = [('5-hour', 82, 'in 3h13m'), ('Weekly', 18.2, 'Thu 14:05'), ('Fable', FABLE[0], FABLE[1]), ('Context', 93, '930k/1M')]
+SINGLE_TURNS = [('5-hour', 82, 'in 3h13m'), ('Weekly', 18.2, 'in 3d4h'), ('Fable', FABLE[0], FABLE[1]), ('Context', 93, '930k/1M')]
 
 
 def single_row(x, y, width, T, mode):
@@ -185,14 +185,26 @@ def mix_toward(color, ground, strength):
     return '#%02X%02X%02X' % tuple(round(gi + (ci - gi) * strength) for ci, gi in zip(c, g))
 
 
-def canvas_open(W, H):
-    """Clips everything that follows to the frame's rounded shape, so the backgrounds have round corners too."""
-    return f'<clipPath id="canvas"><rect width="{W}" height="{H}" rx="14"/></clipPath><g clip-path="url(#canvas)">'
+# The page around the panels: white with black text, or GitHub's dark canvas with white text when the reader's
+# system is dark. An SVG shown through <img> sees the browser's prefers-color-scheme, so the drawing blends into
+# the README on either theme; only the panels keep the theme they show.
+PAGE = {'light': ('#FFFFFF', '#000000'), 'dark': ('#0D1117', '#FFFFFF')}
 
 
-def frame(W, H):
-    """A thin rounded border around a whole drawing, neutral enough for either half of a two-theme canvas."""
-    return f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="none" stroke="#6E7681" stroke-opacity="0.6"/>'
+def page_style():
+    light, dark = PAGE['light'], PAGE['dark']
+    return (f'<style>.page{{fill:{light[0]}}}.ink{{fill:{light[1]}}}'
+            f'@media (prefers-color-scheme: dark){{.page{{fill:{dark[0]}}}.ink{{fill:{dark[1]}}}}}</style>')
+
+
+def page(W, H):
+    """The page under everything, in the reader's theme."""
+    return f'<rect class="page" width="{W}" height="{H}"/>'
+
+
+def ink(x, y, text, size=15, weight=400, anchor='start'):
+    """Text on the page, outside every panel: black on white or white on black, never grey."""
+    return f'<text class="ink" x="{x}" y="{y}" {FONT} font-size="{size}" font-weight="{weight}" text-anchor="{anchor}">{text}</text>'
 
 
 def panel(x, y, w, h, T, title):
@@ -207,10 +219,8 @@ LAYOUT_SINGLE = 'Layout: Single (One Segment at a Time)'
 
 def hero():
     W, H = 1200, 1440
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', defs(), canvas_open(W, H)]
-    # stacked: the dark panel on top, the light one below
-    out.append(f'<rect width="{W}" height="{H / 2}" fill="{THEMES["dark"]["bg"]}"/>')
-    out.append(f'<rect y="{H / 2}" width="{W}" height="{H / 2}" fill="{THEMES["light"]["bg"]}"/>')
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', page_style(), defs(), page(W, H)]
+    # stacked: the dark panel on top, the light one below, on the reader's page
     for n, (name, T) in enumerate(THEMES.items()):
         top = n * H / 2
         out.append(panel(20, top + 20, W - 40, H / 2 - 40, T, f'{name.title()} Theme'))
@@ -225,19 +235,17 @@ def hero():
                 out.append(plain(44, title_y, title, T['dim'], size=13, weight=600))
                 out.append(draw(title_y + 26, mode))
             y += 28 + len(rows) * 70 + 14
-    out.append('</g>')
-    out.append(frame(W, H))
     out.append('</svg>')
     return '\n'.join(out)
 
 
 def palette():
     W, H = 1200, 300
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', defs(), canvas_open(W, H)]
-    out.append(f'<rect width="{W / 2}" height="{H}" fill="{THEMES["dark"]["bg"]}"/>')
-    out.append(f'<rect x="{W / 2}" width="{W / 2}" height="{H}" fill="{THEMES["light"]["bg"]}"/>')
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', page_style(), defs(), page(W, H)]
     for n, (name, T) in enumerate(THEMES.items()):
         left = n * W / 2
+        # Each theme in a panel of its own, side by side on the reader's page.
+        out.append(f'<rect x="{left + 10}" y="10" width="{W / 2 - 20}" height="{H - 20}" rx="14" fill="{T["panel"]}" stroke="{T["track"]}"/>')
         out.append(plain(left + W / 4, 38, f'{name.title()} Theme', T['text'], size=15, weight=600, anchor='middle'))
         for i, color in enumerate(T['ramp']):
             y = 70 + i * 36
@@ -247,8 +255,6 @@ def palette():
             out.append(plain(left + W / 4, y + 1, f'{RANGES[i]} used', T['text'], size=15, anchor='middle'))
             out.append(plain(left + 412, y + 1, NAMES[i], T['dim'], size=15))
             out.append(plain(left + 524, y + 1, color, T['dim'], size=13))
-    out.append('</g>')
-    out.append(frame(W, H))
     out.append('</svg>')
     return '\n'.join(out)
 
@@ -328,11 +334,11 @@ def terminal_theme(theme, top, W):
     subtitle_h = 34
     count = sum(len(panels) for _, panels in groups)
     height = 56 + len(groups) * subtitle_h + count * (panel_h + gap + 24) - gap + 20
-    out = [f'<rect y="{top}" width="{W}" height="{height}" fill="{T["bg"]}"/>']
-    out.append(plain(W / 2, top + 36, f'{theme.title()} Theme', T['text'], size=15, weight=600, anchor='middle'))
+    # The titles sit on the reader's page; only the terminal panels below them take the theme.
+    out = [ink(W / 2, top + 36, f'{theme.title()} Theme', size=15, weight=600, anchor='middle')]
     y = top + 56
     for subtitle, panels in groups:
-        out.append(plain(20, y + 20, subtitle, T['text'], size=14, weight=600))
+        out.append(ink(20, y + 20, subtitle, size=14, weight=600))
         y += subtitle_h
         for cols, what, key in panels:
             out.extend(terminal_panel(rows[key], cols, what, y, T, border, panel_h))
@@ -343,7 +349,7 @@ def terminal_theme(theme, top, W):
 def terminal_panel(row, cols, what, y, T, border, panel_h):
     """One terminal panel at `y`: its label, the rule with [-], the cell row taking its turns, the input box's rule and
     the prompt."""
-    out = [plain(20, y + 14, f'{cols} columns · {what}', T['dim'], size=13, weight=600)]
+    out = [ink(20, y + 14, f'{cols} columns · {what}', size=13, weight=600)]
     px = 20
     py = y + 24
     pw = cols * CELL_W + 16
@@ -366,8 +372,8 @@ def terminal():
     dark, h1 = terminal_theme('dark', 0, W)
     light, h2 = terminal_theme('light', h1, W)
     H = h1 + h2
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">' + defs() + canvas_open(W, H)
-            + dark + light + '</g>' + frame(W, H) + '</svg>')
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">' + page_style() + defs() + page(W, H)
+            + dark + light + '</svg>')
 
 
 if __name__ == '__main__':

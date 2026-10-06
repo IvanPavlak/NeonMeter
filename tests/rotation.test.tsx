@@ -9,8 +9,6 @@ import { MINUTE, NOW, clientProps, limitsBody, mountBand, ok, rowOf, setup, star
 // its own percent, range color and reset time.
 
 const ROTATE = 5_000
-const WEEKLY_RESET = fmtResetAt(NOW + 4560 * MINUTE)
-const FABLE_RESET = fmtResetAt(NOW + 4561 * MINUTE)
 
 test('the limits list yields the 5-hour window, the weekly window and one per model', () => {
   const windows = parseUsage(limitsBody(47, 28, { Fable: 35 }))
@@ -75,14 +73,14 @@ test('the terminal row takes turns between Weekly and Fable, each with its own p
   const ui = await mountBand($, 'terminal', 120)
   const weekly = await rowOf(ui)
   expect(weekly).toContain(`│ Weekly `)
-  expect(weekly).toContain(` 28% ${WEEKLY_RESET} │`)
+  expect(weekly).toContain(` 28% in 3d4h   │`)
   expect(weekly).toHaveLength(120)
   expect(await textOf(ui, ' 28%')).toMatchObject({ color: '#1E90FF', bold: true })
 
   await ui.advance(ROTATE)
   const fable = await rowOf(ui)
   expect(fable).toContain(`│ Fable  `)
-  expect(fable).toContain(` 62% ${FABLE_RESET} │`)
+  expect(fable).toContain(` 62% in 3d4h   │`)
   expect(fable).toHaveLength(120)
   // Its range color (darker green for 62) is checked at rest in the pulse-off test below.
   expect(await textOf(ui, ' 62%')).toMatchObject({ bold: true })
@@ -152,7 +150,7 @@ test('the desktop row rotates too', async ($, on) => {
   const row = await rowOf(ui)
   expect(row).toContain('Fable  ')
   expect(row).toContain('35%')
-  expect(row).toContain(FABLE_RESET)
+  expect(row).toContain('in 3d4h')
   await ui.unmount()
 })
 

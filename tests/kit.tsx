@@ -314,19 +314,21 @@ export type TextProps = { color?: string; backgroundColor?: string; bold?: boole
 
 /**
  * The element drawn for exactly this text, with its colors: a Text's props,
- * or, on the desktop, a percent drawing's: its fill as `color`, `bold`, the
- * pulse peak and whether it has a halo.
+ * or, on the desktop, a percent or reset drawing's: its fill as `color`,
+ * `bold`, the pulse peak and whether it has a halo.
  */
 export async function textOf(ui: Drawing, text: string): Promise<TextProps | undefined> {
   const scope = ui.surface === 'terminal' ? { in: 'band' } : {}
   const found = (await ui.findAll({ type: 'Text', ...scope })).find(t => t.text === text)
   if (found) return found.props as TextProps
   if (ui.surface === 'terminal') return undefined
-  const svg = (await svgsOf(ui)).find(s => s.key.startsWith('pct-') && s.alt === text)
+  // A percent's drawing, or a reset's under `resetColor: time`; the key's prefix names the text's role.
+  const svg = (await svgsOf(ui)).find(s => (s.key.startsWith('pct-') || s.key.startsWith('extra-')) && s.alt === text)
   if (!svg) return undefined
-  const main = partsOf(svg.source, 'pct')[0]
+  const role = svg.key.startsWith('pct-') ? 'pct' : 'extra'
+  const main = partsOf(svg.source, role)[0]
   if (!main) return undefined
-  const props: TextProps = { color: main.attrs.fill, bold: main.attrs['font-weight'] === '700', glow: partsOf(svg.source, 'pct-halo').length > 0 }
+  const props: TextProps = { color: main.attrs.fill, bold: main.attrs['font-weight'] === '700', glow: partsOf(svg.source, `${role}-halo`).length > 0 }
   const peak = peakOf(main.inner)
   if (peak) props.peak = peak
   return props

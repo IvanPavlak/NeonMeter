@@ -27,10 +27,11 @@ const { band, configureDesign } = await import(new URL('../../hooks/builder.ts',
 const out = new URL('./terminal-rows.json', import.meta.url)
 
 // The account the README shows: 82% of the 5-hour window, 18% of the week and 69% of the
-// Fable week, both resetting Sunday 18:00, and 930k of a 1M context.
+// Fable week, both resetting in 3d4h (Sunday 18:00), shown as a countdown, the weekly
+// default since 1.3.0, and 930k of a 1M context.
 const fiveHour = { kind: 'five_hour', pct: 82, resetMin: 193 }
-const weekly = { kind: 'seven_day', pct: 18.2, resetMin: 4560, resetAt: 'Sun 18:00' }
-const fable = { kind: 'seven_day', pct: 69, resetMin: 4560, resetAt: 'Sun 18:00', label: { full: 'Fable', short: 'Fab' } }
+const weekly = { kind: 'seven_day', pct: 18.2, resetMin: 4560, resetAt: 'Sun 18:00', resetAs: 'countdown' }
+const fable = { kind: 'seven_day', pct: 69, resetMin: 4560, resetAt: 'Sun 18:00', resetAs: 'countdown', label: { full: 'Fable', short: 'Fab' } }
 const input = {
   auth: true,
   loading: false,
