@@ -43,7 +43,7 @@ Every open session shares one fetch schedule through the plugin store, so ten ch
 
 - **Yours to tune**
 
-Seventeen options cover the colors, the range bounds, the glyph, the segments and their order, the layout (every segment in one row, or one at a time across the whole row), the pulse and when it runs, the polling and the theme. The defaults are the approved design.
+Twenty-one options cover the colors, the range bounds, the glyph, the segments and their order, the layout (every segment in one row, or one at a time across the whole row), the pulse and when it runs, how each reset reads and whether it is colored by the time left, the polling and the theme. The defaults are the approved design.
 
 <h2 align="center">The color scheme</h2>
 
