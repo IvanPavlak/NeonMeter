@@ -107,7 +107,7 @@ def plain(x, y, text, color, size=19.5, weight=400, anchor='start', italic=False
 
 
 ROTATE_S = 5
-FABLE = (69, 'Thu 14:05')
+FABLE = (69, 'in 3d4h')
 
 
 def turn(out, which, count=2):
@@ -153,7 +153,7 @@ def band_row(x, y, width, T, mode, windows, stale=False):
     The Weekly segment takes turns with the account's Fable limit, as the band does."""
     out = ''
     labels = ['5-hour', 'Weekly', 'Context']
-    extras = ['in 3h13m', 'Thu 14:05', '930k/1M']
+    extras = ['in 3h13m', 'in 3d4h', '930k/1M']
     seg_w = (width - 2 * 30) / 3
     cx = x
     for n, (label, pct, extra) in enumerate(zip(labels, windows, extras)):
@@ -169,7 +169,7 @@ def band_row(x, y, width, T, mode, windows, stale=False):
     return out
 
 
-SINGLE_TURNS = [('5-hour', 82, 'in 3h13m'), ('Weekly', 18.2, 'Thu 14:05'), ('Fable', FABLE[0], FABLE[1]), ('Context', 93, '930k/1M')]
+SINGLE_TURNS = [('5-hour', 82, 'in 3h13m'), ('Weekly', 18.2, 'in 3d4h'), ('Fable', FABLE[0], FABLE[1]), ('Context', 93, '930k/1M')]
 
 
 def single_row(x, y, width, T, mode):

@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-06
+
+### Added
+
+- The `weeklyReset` option. `countdown`, the default, shows the time left until a weekly limit resets, as the 5-hour window does (`in 2d15h`, then `in 8h50m`); `clock` shows the day and time it resets (`Thu 14:05`), as before 1.3.0. It applies to the all-models week and to every per-model limit such as `Fable`, so the Weekly rotation keeps its bars still.
+- The `fiveHourReset` option. `countdown`, the default, is the time left as before (`in 3h13m`); `clock` shows the time the window resets (`14:05`), without the day, since it falls within five hours.
+- The `resetColor` option. `plain`, the default, keeps the reset in the text color; `time` colors it by how much of its window is still to run, measured against the window's length (5 hours, 7 days) and drawn on the same six colors as the percents. A reset that is close is blue and one far off red, whatever the percent used, so the all-models week and a per-model limit that reset together share a color. It pulses with the percents, glows in the desktop app and fades when the reading is stale; under the responsive pulse a reset moving into the next range is a change, the minutes in between are not.
+- The `timeRanges` option: where each of the six time colors starts, as the share of the window still to run, written like `ranges`. The default, `"17,33,50,67,83"`, splits every window into six even steps, about 50 minutes of a 5-hour window and 1.2 days of a week per color; the percents keep `ranges`.
+- Both reset options change the widest layout only; narrower layouts keep counting down for every window, as they did, because a clock time does not fit their field.
+- An "Every option at a glance" section in the README: one small picture per option, its values as the desktop and the terminal band draw them, on your GitHub theme, each in a collapsible section. `node design/readme/options.mjs` draws them from the plugin's code; CI checks they are current.
+
+### Changed
+
+- The weekly limits show the time until they reset, `in 3d4h`, the way the 5-hour window does, instead of the day and time, `Thu 14:05`. Set `weeklyReset` to `clock` for the day and time.
+
+### Fixed
+
+- In the desktop app the bars, dots and percents sat about 2 px below the labels beside them: each drawing was centered on its own canvas, while the app's text sits above the middle of the row. They are now drawn on the labels' centre line, so the whole row reads as one straight line.
+
 ## [1.2.1] - 2026-10-05
 
 ### Fixed
@@ -78,7 +97,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.0...v1.1.1

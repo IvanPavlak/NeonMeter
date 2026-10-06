@@ -151,7 +151,7 @@ Left to right the row shows:
     - only when your account reports a spend limit
 - **Context**
 
-Each window segment is its label, a bar, the percent used and the time until the window resets; the context segment shows the percent and the tokens used against the model's window. The band is the strip Claude Code gives the plugin above the prompt; the row is the single line of cells or drawings it holds.
+Each window segment is its label, a bar, the percent used and its reset: every window counts down to it, `in 3h13m` for the 5-hour window and `in 3d4h` for a weekly limit on the widest layout, `3h13m` and `3d4h` on narrower ones. `fiveHourReset` and `weeklyReset` switch either one to the other form, and `resetColor` set to `time` colors the reset by how much of its window is still to run. The context segment shows the percent and the tokens used against the model's window. The band is the strip Claude Code gives the plugin above the prompt; the row is the single line of cells or drawings it holds.
 
 **In the desktop app** the band keeps the full labels and the bars stretch to fill whatever room the text leaves. Bars are smooth with rounded ends by default, or a row of dots with `desktopBars` set to `dots`. Everything filled glows.
 
@@ -202,7 +202,9 @@ The context bar is empty and shows `--` until the model has answered once.
 
 <h2 align="center">Configuration</h2>
 
-Seventeen options, listed in the table below, change the look and the behaviour. Every option you leave out keeps its default. Options are saved in Claude Code's settings, not in the plugin's files, so they survive every update; uninstalling the plugin deletes them.
+Twenty-one options, listed in the table below, change the look and the behaviour. Every option you leave out keeps its default. Options are saved in Claude Code's settings, not in the plugin's files, so they survive every update; uninstalling the plugin deletes them.
+
+**To see what each option does**, [Every option at a glance](#every-option), below the table, shows each one as a picture.
 
 **From a shell** (works for the terminal and the desktop app alike), pipe a JSON object of the options you want to change into `claude plugin configure`:
 
@@ -237,12 +239,15 @@ How to write the values:
 | Five breaths after each change instead of three       | `{"pulseCount":"5"}`                                                                            |
 | A still band without the halo                         | `{"pulse":"false","glow":"false"}`                                                              |
 | Fewer usage fetches                                   | `{"pollSeconds":"300"}`                                                                         |
+| Weekly resets as a day and time, as before 1.3.0      | `{"weeklyReset":"clock"}`                                                                       |
+| The 5-hour reset as a clock time                      | `{"fiveHourReset":"clock"}`                                                                     |
+| Reset times colored by the time left, pulsing         | `{"resetColor":"time"}`                                                                         |
 | Your own ranges and colors                            | `{"ranges":"40,60,75,85,95","colorsDark":"#1E90FF,#39FF14,#00D45A,#FFF01F,#FF5F1F,#FF073A"}`    |
 
 Every option at its default, to copy as a template or to reset everything:
 
 ```bash
-echo '{"layout":"all","barColoring":"level","desktopBars":"bars","glyph":"━","segments":"five_hour,seven_day,spend,context","pulse":"true","pulseMode":"responsive","pulseCount":"3","pulseMs":"800","glow":"true","pollSeconds":"60","rotateSeconds":"5","theme":"auto","desktopTheme":"auto","ranges":"50,60,70,80,90","colorsDark":"#1E90FF,#39FF14,#00D45A,#FFF01F,#FF5F1F,#FF073A","colorsLight":"#1874D2,#32A800,#139A43,#A89200,#E84A00,#E8001F"}' | claude plugin configure neonmeter@neonmeter --values-stdin
+echo '{"layout":"all","barColoring":"level","desktopBars":"bars","glyph":"━","segments":"five_hour,seven_day,spend,context","pulse":"true","pulseMode":"responsive","pulseCount":"3","pulseMs":"800","glow":"true","pollSeconds":"60","rotateSeconds":"5","fiveHourReset":"countdown","weeklyReset":"countdown","resetColor":"plain","theme":"auto","desktopTheme":"auto","ranges":"50,60,70,80,90","timeRanges":"17,33,50,67,83","colorsDark":"#1E90FF,#39FF14,#00D45A,#FFF01F,#FF5F1F,#FF073A","colorsLight":"#1874D2,#32A800,#139A43,#A89200,#E84A00,#E8001F"}' | claude plugin configure neonmeter@neonmeter --values-stdin
 ```
 
 **Where they are stored:** `~/.claude/settings.json`, under `pluginConfigs`, keyed by the plugin's id. You can edit them there by hand too; there a list may be written either as comma-separated text or as a JSON list:
@@ -265,25 +270,132 @@ echo '{"layout":"all","barColoring":"level","desktopBars":"bars","glyph":"━","
 
 Loaded from a clone instead of installed (`--plugin-dir`, see Install), the key is `neonmeter` instead of `neonmeter@neonmeter`. A value set by hand is not checked when you save the file: an out-of-range number is clamped to its range, and any other invalid value keeps its default and is named in the debug log (`claude --debug`) when the session starts.
 
-| Option          | Type                                                 | Default                    | What it does                                                                                                                                                                                                                                                                                                                                                  |
-| --------------- | ---------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `desktopBars`   | `bars` or `dots`                                     | `bars`                     | How bars draw in the desktop app: a smooth glowing bar with rounded ends, or a row of glowing dots; both follow `barColoring`. The terminal draws character cells (see `glyph`).                                                                                                                                                                              |
-| `barColoring`   | `level` or `ramp`                                    | `level`                    | `level` colors every filled cell by the segment's percent; `ramp` runs the filled part through every range up to the percent's, in equal stretches.                                                                                                                                                                                                           |
-| `segments`      | list of `five_hour`, `seven_day`, `spend`, `context` | all four, in that order    | Which segments to draw and in what order. `spend` shows only when the account reports a spend limit. Unknown and repeated names are ignored.                                                                                                                                                                                                                  |
-| `layout`        | `all` or `single`                                    | `all`                      | `all` draws every segment in one row. `single` draws one segment across the whole row and takes turns, `rotateSeconds` each: 5-hour, Weekly and each per-model limit, Spend, Context.                                                                                                                                                                         |
-| `glow`          | boolean                                              | `true`                     | Draw the desktop's halo under filled bars, dots and percents. Off draws them crisp; the pulse still brightens them. The terminal has no glow either way.                                                                                                                                                                                                      |
-| `pulse`         | boolean                                              | `true`                     | Pulse the live cells and percents. Off draws them still, whatever `pulseMode` says.                                                                                                                                                                                                                                                                           |
-| `pulseMode`     | `responsive` or `always`                             | `responsive`               | When the pulse runs. `responsive` pulses the whole band `pulseCount` cycles each time a value changes (a percent, the context, the reading going stale or coming back) and holds the glow still otherwise; a session start and a turn of the Weekly rotation are no change. `always` never stops, which costs about a third of a CPU core in the desktop app. |
-| `pulseCount`    | number, 1 to 20                                      | `3`                        | How many cycles the `responsive` pulse runs after each change.                                                                                                                                                                                                                                                                                                |
-| `pulseMs`       | number, 400 to 3000                                  | `800`                      | Length of one pulse cycle in milliseconds.                                                                                                                                                                                                                                                                                                                    |
-| `pollSeconds`   | number, 10 to 3600                                   | `60`                       | Seconds between usage fetches. A reading older than twice this is marked stale.                                                                                                                                                                                                                                                                               |
-| `rotateSeconds` | number, 2 to 60                                      | `5`                        | How long each weekly limit shows when the Weekly segment rotates between several, and each segment in the `single` layout.                                                                                                                                                                                                                                    |
-| `theme`         | `auto`, `dark` or `light`                            | `auto`                     | The terminal palette. `auto` follows Claude Code's theme setting and falls back to dark when it cannot be read.                                                                                                                                                                                                                                               |
-| `desktopTheme`  | `auto`, `dark` or `light`                            | `auto`                     | The desktop palette. `auto` follows the app's own light or dark appearance, including a system theme it follows, and checks again every minute.                                                                                                                                                                                                               |
-| `ranges`        | text: five whole numbers from 1 to 99, ascending     | `"50,60,70,80,90"`         | Where ranges 2 to 6 start. The first range runs from 0 to the first number; a range includes its lower bound.                                                                                                                                                                                                                                                 |
-| `colorsDark`    | list of six `#RRGGBB` colors                         | the six neon colors        | The range colors on a dark background, lowest range first. Stale shades and the pulse are derived from them.                                                                                                                                                                                                                                                  |
-| `colorsLight`   | list of six `#RRGGBB` colors                         | the six light-theme colors | The range colors on a light background, lowest range first.                                                                                                                                                                                                                                                                                                   |
-| `glyph`         | one single-width character                           | `━`                        | The character every terminal bar cell is drawn with, filled and empty alike: `━` runs into a continuous bar; `●`, `■`, `█` or `•` make dotted ones. Wide characters and emoji are refused. The desktop draws vectors and ignores it.                                                                                                                          |
+| Option          | Type                                                 | Default                    | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------- | ---------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `desktopBars`   | `bars` or `dots`                                     | `bars`                     | How bars draw in the desktop app: a smooth glowing bar with rounded ends, or a row of glowing dots; both follow `barColoring`. The terminal draws character cells (see `glyph`).                                                                                                                                                                                                                                                                                       |
+| `barColoring`   | `level` or `ramp`                                    | `level`                    | `level` colors every filled cell by the segment's percent; `ramp` runs the filled part through every range up to the percent's, in equal stretches.                                                                                                                                                                                                                                                                                                                    |
+| `segments`      | list of `five_hour`, `seven_day`, `spend`, `context` | all four, in that order    | Which segments to draw and in what order. `spend` shows only when the account reports a spend limit. Unknown and repeated names are ignored.                                                                                                                                                                                                                                                                                                                           |
+| `layout`        | `all` or `single`                                    | `all`                      | `all` draws every segment in one row. `single` draws one segment across the whole row and takes turns, `rotateSeconds` each: 5-hour, Weekly and each per-model limit, Spend, Context.                                                                                                                                                                                                                                                                                  |
+| `glow`          | boolean                                              | `true`                     | Draw the desktop's halo under filled bars, dots and percents. Off draws them crisp; the pulse still brightens them. The terminal has no glow either way.                                                                                                                                                                                                                                                                                                               |
+| `pulse`         | boolean                                              | `true`                     | Pulse the live cells and percents. Off draws them still, whatever `pulseMode` says.                                                                                                                                                                                                                                                                                                                                                                                    |
+| `pulseMode`     | `responsive` or `always`                             | `responsive`               | When the pulse runs. `responsive` pulses the whole band `pulseCount` cycles each time a value changes (a percent, the context, the reading going stale or coming back) and holds the glow still otherwise; a session start and a turn of the Weekly rotation are no change. `always` never stops, which costs about a third of a CPU core in the desktop app.                                                                                                          |
+| `pulseCount`    | number, 1 to 20                                      | `3`                        | How many cycles the `responsive` pulse runs after each change.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `pulseMs`       | number, 400 to 3000                                  | `800`                      | Length of one pulse cycle in milliseconds.                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `pollSeconds`   | number, 10 to 3600                                   | `60`                       | Seconds between usage fetches. A reading older than twice this is marked stale.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `rotateSeconds` | number, 2 to 60                                      | `5`                        | How long each weekly limit shows when the Weekly segment rotates between several, and each segment in the `single` layout.                                                                                                                                                                                                                                                                                                                                             |
+| `fiveHourReset` | `countdown` or `clock`                               | `countdown`                | How the 5-hour reset shows on the widest layout: `countdown` is the time left (`in 3h13m`), `clock` the time it resets (`14:05`). Narrower layouts always count down.                                                                                                                                                                                                                                                                                                  |
+| `weeklyReset`   | `countdown` or `clock`                               | `countdown`                | How every weekly limit's reset shows on the widest layout, the per-model ones such as Fable included: `countdown` is the time left, as the 5-hour window shows it (`in 2d15h`, then `in 8h50m`), `clock` the day and time (`Thu 14:05`). Narrower layouts always count down.                                                                                                                                                                                                                          |
+| `resetColor`    | `plain` or `time`                                    | `plain`                    | `plain` draws each window's reset in the text color. `time` colors it by the share of its window still to run, on the same six colors as the percents, starting where `timeRanges` says: a reset that is close is blue, one far off red, whatever the percent used, so limits that reset together share a color. It pulses with the percents, glows on the desktop and fades when stale; a reset moving to the next color counts as a change for the responsive pulse. |
+| `theme`         | `auto`, `dark` or `light`                            | `auto`                     | The terminal palette. `auto` follows Claude Code's theme setting and falls back to dark when it cannot be read.                                                                                                                                                                                                                                                                                                                                                        |
+| `desktopTheme`  | `auto`, `dark` or `light`                            | `auto`                     | The desktop palette. `auto` follows the app's own light or dark appearance, including a system theme it follows, and checks again every minute.                                                                                                                                                                                                                                                                                                                        |
+| `ranges`        | text: five whole numbers from 1 to 99, ascending     | `"50,60,70,80,90"`         | Where ranges 2 to 6 start. The first range runs from 0 to the first number; a range includes its lower bound.                                                                                                                                                                                                                                                                                                                                                          |
+| `timeRanges`    | text: five whole numbers from 1 to 99, ascending     | `"17,33,50,67,83"`         | Where time ranges 2 to 6 start for `resetColor: time`, as the share of the window still to run. The default splits every window into six even steps: about 50 minutes of a 5-hour window and 1.2 days of a week per color. The percents keep `ranges`.                                                                                                                                                                                                                 |
+| `colorsDark`    | list of six `#RRGGBB` colors                         | the six neon colors        | The range colors on a dark background, lowest range first. Stale shades and the pulse are derived from them.                                                                                                                                                                                                                                                                                                                                                           |
+| `colorsLight`   | list of six `#RRGGBB` colors                         | the six light-theme colors | The range colors on a light background, lowest range first.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `glyph`         | one single-width character                           | `━`                        | The character every terminal bar cell is drawn with, filled and empty alike: `━` runs into a continuous bar; `●`, `■`, `█` or `•` make dotted ones. Wide characters and emoji are refused. The desktop draws vectors and ignores it.                                                                                                                                                                                                                                   |
+
+<h2 align="center" id="every-option">Every option at a glance</h2>
+
+Each option below opens on a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`) and `rotateSeconds` have none; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme.
+
+<details>
+<summary><code>layout</code>: <code>all</code> or <code>single</code></summary>
+<p>Every segment in one row, or one segment across the whole row at a time, taking turns.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/layout-dark.svg">
+  <img src="design/readme/options/layout-light.svg" alt="The layout option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>barColoring</code>: <code>level</code> or <code>ramp</code></summary>
+<p>The whole fill in the percent's color, or the fill running through every range up to it.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/barColoring-dark.svg">
+  <img src="design/readme/options/barColoring-light.svg" alt="The barColoring option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>desktopBars</code>: <code>bars</code> or <code>dots</code></summary>
+<p>Smooth glowing bars or rows of glowing dots, in the desktop app.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/desktopBars-dark.svg">
+  <img src="design/readme/options/desktopBars-light.svg" alt="The desktopBars option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>glyph</code>: one character</summary>
+<p>The terminal's bar cell: <code>━</code> runs into a continuous bar, <code>●</code> or <code>■</code> make dotted ones.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/glyph-dark.svg">
+  <img src="design/readme/options/glyph-light.svg" alt="The glyph option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>glow</code>: <code>true</code> or <code>false</code></summary>
+<p>The desktop's halo under bars, dots and percents.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/glow-dark.svg">
+  <img src="design/readme/options/glow-light.svg" alt="The glow option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>segments</code>: a list</summary>
+<p>Which segments to draw and in what order.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/segments-dark.svg">
+  <img src="design/readme/options/segments-light.svg" alt="The segments option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>ranges</code>: five bounds</summary>
+<p>Where each of the six colors starts for the percents.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/ranges-dark.svg">
+  <img src="design/readme/options/ranges-light.svg" alt="The ranges option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>fiveHourReset</code>: <code>countdown</code> or <code>clock</code></summary>
+<p>The 5-hour reset as the time left or the time it happens, on the widest layout.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/fiveHourReset-dark.svg">
+  <img src="design/readme/options/fiveHourReset-light.svg" alt="The fiveHourReset option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>weeklyReset</code>: <code>countdown</code> or <code>clock</code></summary>
+<p>Every weekly reset as the time left or the day and time, on the widest layout.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/weeklyReset-dark.svg">
+  <img src="design/readme/options/weeklyReset-light.svg" alt="The weeklyReset option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>resetColor</code>: <code>plain</code> or <code>time</code></summary>
+<p>Each reset in the text color, or colored by how much of its window is still to run, with the pulse and the glow.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/resetColor-dark.svg">
+  <img src="design/readme/options/resetColor-light.svg" alt="The resetColor option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
+
+<details>
+<summary><code>timeRanges</code>: five bounds</summary>
+<p>Where each time color starts under <code>resetColor: time</code>; the default is six even steps of every window.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/timeRanges-dark.svg">
+  <img src="design/readme/options/timeRanges-light.svg" alt="The timeRanges option: each value as the desktop band and the terminal band draw it" width="100%">
+</picture>
+</details>
 
 <h2 align="center">How usage is fetched, and what the plugin touches</h2>
 
@@ -312,7 +424,7 @@ claude plugin test .
 
 For hot reload while editing, start a session with `claude --plugin-dir .` from the repository root; saving a file reloads the module. In such a session `/plugin-types` writes the engine's declarations to `.claude-plugin/types/` (ignored by git); `npx tsc -p .claude-plugin/types/tsconfig.json` then type-checks the hooks and tests against them.
 
-The design canvas under [`design/`](design/README.md) is the source of truth for the look, with an interactive playground and every state on both themes; open `design/index.html` in a browser. It matches the shipped look: `━` cells in the terminal and smooth glowing bars on the desktop. Its boards open on ramp coloring; the plugin defaults to level coloring since 1.1.0, which the state boards show with `?bars=level`. The graphics on this page, the title and the terminal rows included, are generated by `design/readme/make.py` from the same palette and geometry; the terminal rows come from the builder itself, dumped to `design/readme/terminal-rows.json` by `node design/readme/rows.mjs` (Node 22.18 or later), which `node design/readme/rows.mjs --check` verifies.
+The design canvas under [`design/`](design/README.md) is the source of truth for the look, with an interactive playground and every state on both themes; open `design/index.html` in a browser. It matches the shipped look: `━` cells in the terminal and smooth glowing bars on the desktop. Its boards open on ramp coloring; the plugin defaults to level coloring since 1.1.0, which the state boards show with `?bars=level`. The graphics on this page, the title and the terminal rows included, are generated by `design/readme/make.py` from the same palette and geometry; the terminal rows come from the builder itself, dumped to `design/readme/terminal-rows.json` by `node design/readme/rows.mjs` (Node 22.18 or later), which `node design/readme/rows.mjs --check` verifies. The pictures under [Every option at a glance](#every-option) are drawn by `node design/readme/options.mjs` from the builder and `hooks/drawings.ts`; `node design/readme/options.mjs --check` verifies them, and CI runs it.
 
 **Releasing** takes a few minutes, and only the last step is automated:
 
@@ -340,11 +452,11 @@ A change every 10 seconds is a stress case: the 5-hour and weekly percents move 
 
 **In the desktop app itself**, with the dots layout and ramp coloring, every Claude process summed over 60 to 120 seconds with the band on screen and the session idle:
 
-| `pulseMode` | CPU | GPU |
-| --- | --- | --- |
+| `pulseMode`                                 | CPU       | GPU       |
+| ------------------------------------------- | --------- | --------- |
 | `always` (1.1.1, and 1.2.0 set to `always`) | 37 to 43% | 11 to 16% |
-| `responsive`, between changes | 4.4% | 0.4% |
-| `pulse: false` | 2.2% | 0.1% |
+| `responsive`, between changes               | 4.4%      | 0.4%      |
+| `pulse: false`                              | 2.2%      | 0.1%      |
 
 The app does work of its own when idle, so `pulse: false` is the floor. One sample per mode, so the two points between `responsive` and the floor are within noise.
 

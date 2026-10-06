@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -177,6 +177,42 @@
       "default": 5,
       "min": 2,
       "max": 60
+    },
+    "fiveHourReset": {
+      "type": "string",
+      "title": "5-hour reset",
+      "description": "How the 5-hour window's reset shows on the widest layout: countdown is the time left (in 3h13m), clock the time it resets (14:05); narrower layouts always count down",
+      "options": [
+        "countdown",
+        "clock"
+      ],
+      "default": "countdown"
+    },
+    "weeklyReset": {
+      "type": "string",
+      "title": "Weekly reset",
+      "description": "How every weekly limit's reset (all models and each model's, such as Fable) shows on the widest layout: countdown is the time left, as the 5-hour window shows it (in 2d15h, in 8h50m), clock the day and time it resets (Thu 14:05); narrower layouts always count down",
+      "options": [
+        "countdown",
+        "clock"
+      ],
+      "default": "countdown"
+    },
+    "resetColor": {
+      "type": "string",
+      "title": "Reset color",
+      "description": "plain draws each window's reset in the text color; time colors it by how much of the window is still to run, on the same six colors and ranges as the percents (a reset that is close is blue, one far off red), with the pulse and the desktop's glow, faded when stale; timeRanges sets where each color starts",
+      "options": [
+        "plain",
+        "time"
+      ],
+      "default": "plain"
+    },
+    "timeRanges": {
+      "type": "string",
+      "title": "Time range bounds",
+      "description": "Where each of the six colors starts for resetColor time, as the share of the window still to run: five ascending whole numbers from 1 to 99, separated by commas; the default splits the window into six even steps",
+      "default": "17,33,50,67,83"
     }
   }
 }

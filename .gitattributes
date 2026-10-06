@@ -6,6 +6,9 @@
 *.tsx text eol=lf
 *.md text eol=lf
 *.yml text eol=lf
+*.html text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
 
 # Keep the language bar on the plugin: the design canvas and the README graphics generator are not plugin code.
 design/** linguist-documentation

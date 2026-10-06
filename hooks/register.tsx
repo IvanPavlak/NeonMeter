@@ -3,10 +3,14 @@ import type { ElementTable, EngineInterface, PluginOptions, Register, SessionCon
 
 import type { NeonMeterContext, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
-import { band, configureDesign, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_RAMPS, flexRow, fmtAge, fmtResetAt, fmtTok, THEMES } from './builder'
+import { band, configureDesign, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, singleVariants, THEMES, timeIndex, weeklyVariants } from './builder'
 import type { BandInput, FlexRow, OptionSegment, WindowInput, WindowKind } from './builder'
 import type { Burst } from './color'
 import { desktopBand } from './desktop'
+
+// Pure layout helpers that live in the builder so the README generator runs them
+// too; re-exported here, where the tests have always found them.
+export { desktopDotCount, singleVariants, weeklyVariants } from './builder'
 
 /** The usage endpoint the built-in /usage command reads; the engine attaches the credential. */
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
@@ -25,25 +29,6 @@ const WINDOW_KINDS: readonly WindowKind[] = ['five_hour', 'seven_day', 'spend_li
 export const RULE = '─'
 export const RULE_COLOR = 'promptBorder'
 
-/**
- * Dots per desktop bar. The desktop font is proportional, so the band holds
- * more characters than its nominal `bodyColumns`: about 1.2 x, measured from
- * two screenshots of the Code tab. What the text leaves, split over the bars
- * at 75% so the dots keep a little air between them instead of overflowing.
- */
-export function desktopDotCount(row: FlexRow, bodyColumns: number): number {
-  let text = (row.segments.length - 1) * 3 + (row.stale ? row.stale.text.length + 2 : 0)
-  let bars = 0
-  for (const seg of row.segments) {
-    text += seg.label.length + 1 + seg.pct.text.length + (seg.extra ? seg.extra.length + 1 : 0)
-    if (seg.bar) {
-      bars++
-      text += 1
-    }
-  }
-  if (bars === 0) return 0
-  return Math.max(4, Math.floor(((bodyColumns * 1.2 - text) / bars) * 0.75))
-}
 
 
 // State the band draws from. Named values the host holds for the session, so
@@ -57,7 +42,7 @@ const theme = atom({ plugin: 'neonmeter', key: 'theme' } as const, 'dark' as Neo
 const tick = atom({ plugin: 'neonmeter', key: 'tick' } as const, 0)
 const appearance = atom({ plugin: 'neonmeter', key: 'appearance' } as const, null as NeonMeterTheme | null)
 
-// The seventeen userConfig options, parsed and clamped once per activation. A
+// The twenty-one userConfig options, parsed and clamped once per activation. A
 // new session reads a changed option; a changed file hot-reloads the module.
 export type SegmentKind = OptionSegment
 
@@ -90,6 +75,14 @@ export type Options = {
   rotateSeconds: number
   /** `all` draws every segment in one row; `single` draws one segment across the row at a time, taking turns. */
   layout: 'all' | 'single'
+  /** How the 5-hour window's reset shows on the full tier: `countdown` (`in 3h13m`) or `clock` (`14:05`). */
+  fiveHourReset: 'countdown' | 'clock'
+  /** How every weekly window's reset (all models and each model's) shows on the full tier: `clock` (`Thu 14:05`) or `countdown` (`in 3d4h`). */
+  weeklyReset: 'countdown' | 'clock'
+  /** `time` colors each window's reset by the share of the window still to run, with the desktop's halo and the pulse; `plain` in the text color. */
+  resetColor: 'plain' | 'time'
+  /** The lower bounds of time ranges 2 to 6 for `resetColor: time`, five strictly ascending integers between 1 and 99. */
+  timeRanges: number[]
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
@@ -112,6 +105,10 @@ const DEFAULTS: Options = {
   glyph: DEFAULT_CELL,
   rotateSeconds: 5,
   layout: 'all',
+  fiveHourReset: 'countdown',
+  weeklyReset: 'countdown',
+  resetColor: 'plain',
+  timeRanges: [...DEFAULT_TIME_BOUNDS],
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -201,6 +198,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
     return value
   }
   const ranges = pick('ranges', parseRanges, [...DEFAULT_BOUNDS], 'five ascending whole numbers from 1 to 99, such as "50,60,70,80,90"')
+  const timeRanges = pick('timeRanges', parseRanges, [...DEFAULT_TIME_BOUNDS], 'five ascending whole numbers from 1 to 99, such as "17,33,50,67,83"')
   const colorsDark = pick('colorsDark', parseColors, [...DEFAULT_RAMPS.dark], 'six colors like "#1E90FF"')
   const colorsLight = pick('colorsLight', parseColors, [...DEFAULT_RAMPS.light], 'six colors like "#1874D2"')
   const glyph = pick('glyph', parseGlyph, DEFAULT_CELL, 'one single-width character')
@@ -208,6 +206,9 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const barColoring = options.barColoring === 'level' || options.barColoring === 'ramp' ? options.barColoring : DEFAULTS.barColoring
   const desktopBars = options.desktopBars === 'dots' ? 'dots' : DEFAULTS.desktopBars
   const layout = options.layout === 'single' ? 'single' : DEFAULTS.layout
+  const fiveHourReset = options.fiveHourReset === 'clock' ? 'clock' : DEFAULTS.fiveHourReset
+  const weeklyReset = options.weeklyReset === 'clock' ? 'clock' : DEFAULTS.weeklyReset
+  const resetColor = options.resetColor === 'time' ? 'time' : DEFAULTS.resetColor
   const pulse = typeof options.pulse === 'boolean' ? options.pulse : DEFAULTS.pulse
   const glow = typeof options.glow === 'boolean' ? options.glow : DEFAULTS.glow
   const pulseMs = clamp(options.pulseMs, DEFAULTS.pulseMs, 400, 3000)
@@ -229,7 +230,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
     }
   }
 
-  return { parsed: { barColoring, desktopBars, pulse, pulseMs, pulseMode, pulseCount, glow, segments, pollSeconds, theme: themeOption, desktopTheme, ranges, colorsDark, colorsLight, glyph, rotateSeconds, layout }, rejected, problems }
+  return { parsed: { barColoring, desktopBars, pulse, pulseMs, pulseMode, pulseCount, glow, segments, pollSeconds, theme: themeOption, desktopTheme, ranges, colorsDark, colorsLight, glyph, rotateSeconds, layout, fiveHourReset, weeklyReset, resetColor, timeRanges }, rejected, problems }
 }
 
 /** Maps Claude Code's `theme` row to a palette; `null` when it names neither. */
@@ -704,11 +705,13 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
     const win: WindowInput = { kind: w.kind as WindowKind, pct: w.percentUsed }
     if (w.label) win.label = { full: w.label, short: w.label.slice(0, 3) }
     if (w.label && fetchStale) win.stale = true
+    if (w.kind === 'five_hour') win.resetAs = options.fiveHourReset
+    else if (w.kind === 'seven_day') win.resetAs = options.weeklyReset
     if (w.resetsAt) {
       const at = Date.parse(w.resetsAt)
       if (Number.isFinite(at)) {
         win.resetMin = Math.max(0, Math.round((at - now) / 60000))
-        win.resetAt = fmtResetAt(at)
+        win.resetAt = fmtResetAt(at, w.kind === 'seven_day')
       }
     }
     windows.push(win)
@@ -721,60 +724,12 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
     windows,
     ctx: c ? { pct: c.percent ?? 0, tokens: c.tokens ?? null, window: c.window } : null,
     segments: options.segments,
+    resetColor: options.resetColor,
   }
 }
 
 
-/**
- * One band input per weekly window, for the Weekly segment to rotate through:
- * the all-models window (`Weekly` / `7d`) first, then each per-model one
- * (`Fable` / `Fab`). Labels are padded to one width per tier so the bars
- * stay put as the windows take turns. A single weekly window is one input,
- * unchanged.
- */
-export function weeklyVariants(input: BandInput): BandInput[] {
-  const weekly = input.windows.filter(w => w.kind === 'seven_day')
-  if (weekly.length <= 1) return [input]
-  const labels = weekly.map(w => w.label ?? { full: 'Weekly', short: '7d' })
-  const full = Math.max(...labels.map(l => l.full.length))
-  const short = Math.max(...labels.map(l => l.short.length))
-  const others = input.windows.filter(w => w.kind !== 'seven_day')
-  return weekly.map((w, i) => ({
-    ...input,
-    windows: [...others, { ...w, label: { full: labels[i]!.full.padEnd(full), short: labels[i]!.short.padEnd(short) } }],
-  }))
-}
 
-/**
- * The single layout's turns: one input per segment, in the `segments` option's
- * order, each drawn alone across the whole row. The Weekly segment gives one
- * turn per weekly window (the all-models week, then one per model); a segment
- * the account has no data for is skipped, as in the full row. With nothing to
- * draw it is the input itself, so the band falls back as before.
- */
-export function singleVariants(input: BandInput): BandInput[] {
-  const out: BandInput[] = []
-  const windowsOf = (kind: WindowInput['kind']) => input.windows.filter(w => w.kind === kind)
-  for (const option of input.segments) {
-    if (option === 'context') {
-      if (input.ctx) out.push({ ...input, segments: ['context'] })
-      continue
-    }
-    if (!input.auth) continue
-    if (input.loading) {
-      // Before the first reading only the two window placeholders exist.
-      if (option === 'five_hour' || option === 'seven_day') out.push({ ...input, segments: [option] })
-      continue
-    }
-    if (option === 'seven_day') {
-      const others = input.windows.filter(w => w.kind !== 'seven_day')
-      for (const w of windowsOf('seven_day')) out.push({ ...input, windows: [...others, w], segments: ['seven_day'] })
-      continue
-    }
-    if (windowsOf(option === 'spend' ? 'spend_limit' : 'five_hour').length > 0) out.push({ ...input, segments: [option] })
-  }
-  return out.length > 0 ? out : [input]
-}
 
 /**
  * What the responsive pulse counts as a change: every percent and label the
@@ -782,14 +737,18 @@ export function singleVariants(input: BandInput): BandInput[] {
  * staleness, loading and the credential. Not a tenth of a percent the band
  * rounds away, which the usage fetch moves every minute, not the reset times
  * and the stale age, and not which weekly window the rotation shows, which is
- * the same reading turned.
+ * the same reading turned. Under `resetColor: time` a reset whose color moves
+ * to the next range is a change too; the minutes in between are not.
  */
 export function changeKey(input: BandInput): string {
   return JSON.stringify([
     input.auth,
     input.loading,
     input.stale,
-    input.windows.map(w => [w.kind, w.label?.full ?? '', Math.round(w.pct)]),
+    input.windows.map(w => {
+      const share = input.resetColor === 'time' ? resetShare(w.kind, w.resetMin) : null
+      return [w.kind, w.label?.full ?? '', Math.round(w.pct), share === null ? null : timeIndex(share)]
+    }),
     input.ctx ? [Math.round(input.ctx.pct), input.ctx.tokens === null ? null : fmtTok(input.ctx.tokens), fmtTok(input.ctx.window)] : null,
   ])
 }
@@ -821,7 +780,7 @@ export const register: Register = (on, options) => {
   env.options = parsed
   env.rejected = rejected
   env.problems = problems
-  configureDesign({ bounds: parsed.ranges, dark: parsed.colorsDark, light: parsed.colorsLight, cell: parsed.glyph })
+  configureDesign({ bounds: parsed.ranges, timeBounds: parsed.timeRanges, dark: parsed.colorsDark, light: parsed.colorsLight, cell: parsed.glyph })
 
   on('session.start', async ($, e, next) => {
     if (!env.loggedOptions) {
