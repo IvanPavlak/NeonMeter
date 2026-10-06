@@ -66,7 +66,7 @@ Requirements:
 2. A terminal with truecolor or the desktop app's Code tab
 3. A Claude subscription for the rate-limit windows (with an API key the windows are hidden and the context takes the whole row)
 
-Inside a Claude Code session, one command adds this repository as a plugin marketplace and installs NeonMeter. Claude Code shows the marketplace's source and asks before adding it, then opens the plugin so you can choose where to install it:
+In a **terminal session** of Claude Code, one command adds this repository as a plugin marketplace and installs NeonMeter. Claude Code shows the marketplace's source and asks before adding it, then opens the plugin so you can choose where to install it.
 
 ```text
 /plugin install neonmeter --marketplace IvanPavlak/NeonMeter
@@ -82,7 +82,13 @@ claude plugin marketplace add IvanPavlak/NeonMeter
 claude plugin install neonmeter@neonmeter
 ```
 
-The desktop app's Code tab has no `/plugin`. Once the marketplace is added, from a terminal with the first command above, NeonMeter is listed under **+** › **Plugins** › **Add plugin**, and **Manage plugins** turns it on, off or uninstalls it. The terminal and the desktop app read the same settings, so a plugin installed in one is installed in the other.
+**In the desktop app**, the Code tab has no `/plugin` command. A message that starts with `/plugin` goes to Claude as ordinary text, so nothing gets installed. Ask Claude to run the two shell commands for you instead. Paste this into the Code tab; it uses the Code tab's own copy of Claude Code, so it works even when `claude` is not on your PATH:
+
+```text
+Install the NeonMeter plugin: run "$CLAUDE_CODE_EXECPATH" plugin marketplace add IvanPavlak/NeonMeter, then "$CLAUDE_CODE_EXECPATH" plugin install neonmeter@neonmeter, and show me the output of both.
+```
+
+You can also run the shell commands above in any terminal that has `claude`. The terminal and the desktop app read the same settings, so a plugin installed in one is installed in the other. Once the marketplace is added, NeonMeter is also listed under **+** › **Plugins** › **Add plugin**, and **Manage plugins** turns it on, off or uninstalls it.
 
 Run `/reload-plugins` in an open session, or start a new one, and the band appears above the prompt, with the last reading at once and the first fetch a moment later. The module loads only in a folder you have trusted.
 
@@ -128,21 +134,13 @@ irm https://raw.githubusercontent.com/IvanPavlak/NeonMeter/master/uninstall.ps1 
 
 **If the band does not appear**, start a session with `claude --debug` and look for `hooks module neonmeter@neonmeter not loaded`: the line says why, the switch being off included. A debug log that says `Unrecognized key(s) in object: 'types', 'userConfig'` comes from a `claude` older than 2.1.286; update it (`npm install -g @anthropic-ai/claude-code@latest` for an npm install, `claude update` otherwise) and install again. A desktop app that shows nothing and logs nothing is on 2.1.286 without the variable, or has lost the plugin's cached copy, which `claude plugin uninstall neonmeter@neonmeter` and `claude plugin install neonmeter@neonmeter` restore.
 
-To run it from a clone instead, for hacking on it or pinning a commit:
+The marketplace install is the one way to use NeonMeter: it works in the terminal and the desktop app alike, keeps the options you set, and updates with `claude plugin update`. A clone is for development only:
 
 ```bash
 git clone https://github.com/IvanPavlak/NeonMeter.git
 ```
 
-Then load it for one session with `claude --plugin-dir /path/to/NeonMeter`, or for every session by adding the path to the `env` block of `~/.claude/settings.json` (several plugin paths are separated by the platform's path-list separator, `;` on Windows and `:` elsewhere):
-
-```json
-{
-	"env": {
-		"CLAUDE_CODE_PLUGIN_DIRS": "/path/to/NeonMeter"
-	}
-}
-```
+Load it for one session with `claude --plugin-dir /path/to/NeonMeter` (see [Development](#development)). Do not list the clone in `CLAUDE_CODE_PLUGIN_DIRS` of `~/.claude/settings.json`: every session would then load a second copy next to the installed one, and that copy ignores your options, because they are saved under `neonmeter@neonmeter` and a folder-loaded copy reads `neonmeter`.
 
 The repository root is the plugin folder: the manifests are in `.claude-plugin/` and the hooks module in `hooks/`.
 
@@ -214,7 +212,7 @@ echo '{"layout":"all","barColoring":"level","desktopBars":"bars","glyph":"━","
 }
 ```
 
-Loaded from a clone instead of installed (`--plugin-dir`, see Install), the key is `neonmeter` instead of `neonmeter@neonmeter`. A value set by hand is not checked when you save the file: an out-of-range number is clamped to its range, and any other invalid value keeps its default and is named in the debug log (`claude --debug`) when the session starts.
+Loaded from a clone for development (`claude --plugin-dir`, see Install), the key is `neonmeter` instead of `neonmeter@neonmeter`. A value set by hand is not checked when you save the file: an out-of-range number is clamped to its range, and any other invalid value keeps its default and is named in the debug log (`claude --debug`) when the session starts.
 
 | Option          | Type                                                 | Default                    | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | --------------- | ---------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

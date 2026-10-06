@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-06
+
 ### Fixed
 
 - The README shows again in the GitHub Android app, which left it blank from 1.3.0 on: the "Every option at a glance" pictures sit under plain headings instead of collapsible sections.
+- The README's install steps work in the desktop app. Its Code tab has no `/plugin` command: a message starting with `/plugin` reaches Claude as plain text and installs nothing. The README now gives a message to paste into the Code tab, which runs `claude plugin marketplace add` and `claude plugin install` through the tab's own copy of Claude Code, so it works even when `claude` is not on your PATH.
 
 ### Added
 
@@ -17,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - The README's sections are reordered: Install and Configuration come right after the introduction, then Using it, The color scheme and the option pictures.
+- The marketplace install is the one way to use NeonMeter, in the terminal and the desktop app alike. A clone is for development only, loaded for one session with `claude --plugin-dir`. The README no longer shows listing a clone in `CLAUDE_CODE_PLUGIN_DIRS` of `~/.claude/settings.json`: every session then loaded a second copy next to the installed one, and that copy ignored your options, because they are saved under `neonmeter@neonmeter` and a folder-loaded copy reads `neonmeter`. If you added such an entry, remove it and start a new session.
 
 ## [1.3.0] - 2026-10-06
 
@@ -109,7 +113,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.1.1...v1.2.0
