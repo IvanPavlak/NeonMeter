@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The README shows again in the GitHub Android app, which left it blank from 1.3.0 on: the "Every option at a glance" pictures sit under plain headings instead of collapsible sections.
 
+### Added
+
+- A contents list at the top of the README, under the hero image, linking to every section.
+
+### Changed
+
+- The README's sections are reordered: Install and Configuration come right after the introduction, then Using it, The color scheme and the option pictures.
+
 ## [1.3.0] - 2026-10-06
 
 ### Added

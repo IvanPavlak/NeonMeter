@@ -11,7 +11,20 @@ NeonMeter is a Claude Code plugin. It puts your 5-hour window, your weekly windo
   <img src="design/readme/hero.svg" alt="NeonMeter in the desktop app on the dark and the light theme, grouped by layout: the default layout and the single layout, each in level bars (the default), ramp bars, level dots and ramp dots; the single layout takes turns through every segment" width="100%">
 </p>
 
-<h2 align="center">Why you want it</h2>
+<h2 align="center" id="contents">Contents</h2>
+
+- [Why you want it](#why-you-want-it)
+- [Install](#install)
+- [Configuration](#configuration)
+- [Using it](#using-it)
+- [The color scheme](#the-color-scheme)
+- [Every option at a glance](#every-option)
+- [How usage is fetched, and what the plugin touches](#how-usage-is-fetched)
+- [Known limitations](#known-limitations)
+- [Development](#development)
+- [Resource use](#resource-use)
+
+<h2 align="center" id="why-you-want-it">Why you want it</h2>
 
 - **Always in view**
 
@@ -45,15 +58,7 @@ Every open session shares one fetch schedule through the plugin store, so ten ch
 
 Twenty-one options cover the colors, the range bounds, the glyph, the segments and their order, the layout (every segment in one row, or one at a time across the whole row), the pulse and when it runs, how each reset reads and whether it is colored by the time left, the polling and the theme. The defaults are the approved design.
 
-<h2 align="center">The color scheme</h2>
-
-<p align="center">
-  <img src="design/readme/palette.svg" alt="The six ranges on the dark and the light theme" width="100%">
-</p>
-
-Filled cells and percents take the color of the range the percent falls in. A range includes its lower bound, so 50 is lime green and anything from 90 up is red. Under the default `level` coloring the whole bar takes the percent's color. With `barColoring` set to `ramp` the filled part runs through every range from the first up to the percent's, in equal stretches, so an 85% bar runs blue, lime, darker green, yellow, orangered and a 69% bar runs blue, lime, darker green. The light palette is the same six hues darkened for a white ground.
-
-<h2 align="center">Install</h2>
+<h2 align="center" id="install">Install</h2>
 
 Requirements:
 
@@ -141,70 +146,11 @@ Then load it for one session with `claude --plugin-dir /path/to/NeonMeter`, or f
 
 The repository root is the plugin folder: the manifests are in `.claude-plugin/` and the hooks module in `hooks/`.
 
-<h2 align="center">Using it</h2>
-
-Left to right the row shows:
-
-- **5-hour**
-- **Weekly**
-- **Spend**
-    - only when your account reports a spend limit
-- **Context**
-
-Each window segment is its label, a bar, the percent used and its reset: every window counts down to it, `in 3h13m` for the 5-hour window and `in 3d4h` for a weekly limit on the widest layout, `3h13m` and `3d4h` on narrower ones. `fiveHourReset` and `weeklyReset` switch either one to the other form, and `resetColor` set to `time` colors the reset by how much of its window is still to run. The context segment shows the percent and the tokens used against the model's window. The band is the strip Claude Code gives the plugin above the prompt; the row is the single line of cells or drawings it holds.
-
-**In the desktop app** the band keeps the full labels and the bars stretch to fill whatever room the text leaves. Bars are smooth with rounded ends by default, or a row of dots with `desktopBars` set to `dots`. Everything filled glows.
-
-**In the terminal** the row is built from character cells and picks the most detailed layout that fits the width, from full labels and wide bars down to a text-only line:
-
-<p align="center">
-  <img src="design/readme/terminal.svg" alt="The terminal band on the dark and the light theme, grouped by layout: the default layout at 120 columns with level coloring, ramp coloring and dotted cells in either coloring, then at 72 and 40 columns, and the single layout at 120 columns in the same four looks, taking turns through every segment" width="100%">
-</p>
-
-The terminal band opens with a rule in the input box's border color, the same line the input box has at its top. The `[-]` at its right end is Claude Code's own button for collapsing the band; `ctrl+x ctrl+a` does the same.
-
-**With `layout` set to `single`** the band shows one segment at a time across the whole row and takes turns, `rotateSeconds` each: 5-hour, Weekly, then each per-model weekly limit, the spend limit when your account has one, and Context, in the order of `segments`. Every bar style works the same way: ramp or level coloring, the terminal's cells, and the desktop's smooth bars or dots. Both graphics group their examples by layout: **Layout: All (Default)** first, then **Layout: Single (One Segment at a Time)**, each in four looks: level bars (the default), ramp bars, and dots in either coloring (on the desktop `desktopBars: dots`, in the terminal `glyph` set to `●`). Dots follow `barColoring` like bars do: under `level` every filled dot takes the percent's color, under `ramp` the filled dots run through the ranges. For one glowing dot bar at a time, colored by its percent (the default level coloring):
-
-```json
-{
-	"pluginConfigs": {
-		"neonmeter": {
-			"options": {
-				"layout": "single",
-				"desktopBars": "dots"
-			}
-		}
-	}
-}
-```
-
-What the states mean:
-
-- **Pulse**
-
-Live cells and percents brighten toward white and back on an 800 ms cycle, all in phase; on the desktop the halo widens with them. Labels, separators and empty cells stay still. By default the pulse runs three cycles each time a value changes and the band holds still in between; a session start and a turn of the Weekly rotation are no change (`pulseMode` and `pulseCount` below).
-
-- **Stale**
-
-The usage fetch failed or the last reading is older than twice the poll interval: the window segments freeze and fade and the row shows the reading's age. Narrow terminal layouts put a `~` before each window percent instead.
-
-- **First load**
-
-Until the first reading lands, the window bars are grey loading cells and the percent is `…`, pulsing under `pulseMode: always`; the reading arriving is a change, so the band pulses then by default.
-
-- **No subscription**
-
-Signed in with an API key or without a first-party credential, the window segments are hidden and the context takes the whole row.
-
-- **Before the first response**
-
-The context bar is empty and shows `--` until the model has answered once.
-
-<h2 align="center">Configuration</h2>
+<h2 align="center" id="configuration">Configuration</h2>
 
 Twenty-one options, listed in the table below, change the look and the behaviour. Every option you leave out keeps its default. Options are saved in Claude Code's settings, not in the plugin's files, so they survive every update; uninstalling the plugin deletes them.
 
-**To see what each option does**, [Every option at a glance](#every-option), below the table, shows each one as a picture.
+**To see what each option does**, [Every option at a glance](#every-option), further down, shows each one as a picture.
 
 **From a shell** (works for the terminal and the desktop app alike), pipe a JSON object of the options you want to change into `claude plugin configure`:
 
@@ -294,6 +240,73 @@ Loaded from a clone instead of installed (`--plugin-dir`, see Install), the key 
 | `colorsLight`   | list of six `#RRGGBB` colors                         | the six light-theme colors | The range colors on a light background, lowest range first.                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `glyph`         | one single-width character                           | `━`                        | The character every terminal bar cell is drawn with, filled and empty alike: `━` runs into a continuous bar; `●`, `■`, `█` or `•` make dotted ones. Wide characters and emoji are refused. The desktop draws vectors and ignores it.                                                                                                                                                                                                                                   |
 
+<h2 align="center" id="using-it">Using it</h2>
+
+Left to right the row shows:
+
+- **5-hour**
+- **Weekly**
+- **Spend**
+    - only when your account reports a spend limit
+- **Context**
+
+Each window segment is its label, a bar, the percent used and its reset: every window counts down to it, `in 3h13m` for the 5-hour window and `in 3d4h` for a weekly limit on the widest layout, `3h13m` and `3d4h` on narrower ones. `fiveHourReset` and `weeklyReset` switch either one to the other form, and `resetColor` set to `time` colors the reset by how much of its window is still to run. The context segment shows the percent and the tokens used against the model's window. The band is the strip Claude Code gives the plugin above the prompt; the row is the single line of cells or drawings it holds.
+
+**In the desktop app** the band keeps the full labels and the bars stretch to fill whatever room the text leaves. Bars are smooth with rounded ends by default, or a row of dots with `desktopBars` set to `dots`. Everything filled glows.
+
+**In the terminal** the row is built from character cells and picks the most detailed layout that fits the width, from full labels and wide bars down to a text-only line:
+
+<p align="center">
+  <img src="design/readme/terminal.svg" alt="The terminal band on the dark and the light theme, grouped by layout: the default layout at 120 columns with level coloring, ramp coloring and dotted cells in either coloring, then at 72 and 40 columns, and the single layout at 120 columns in the same four looks, taking turns through every segment" width="100%">
+</p>
+
+The terminal band opens with a rule in the input box's border color, the same line the input box has at its top. The `[-]` at its right end is Claude Code's own button for collapsing the band; `ctrl+x ctrl+a` does the same.
+
+**With `layout` set to `single`** the band shows one segment at a time across the whole row and takes turns, `rotateSeconds` each: 5-hour, Weekly, then each per-model weekly limit, the spend limit when your account has one, and Context, in the order of `segments`. Every bar style works the same way: ramp or level coloring, the terminal's cells, and the desktop's smooth bars or dots. Both graphics group their examples by layout: **Layout: All (Default)** first, then **Layout: Single (One Segment at a Time)**, each in four looks: level bars (the default), ramp bars, and dots in either coloring (on the desktop `desktopBars: dots`, in the terminal `glyph` set to `●`). Dots follow `barColoring` like bars do: under `level` every filled dot takes the percent's color, under `ramp` the filled dots run through the ranges. For one glowing dot bar at a time, colored by its percent (the default level coloring):
+
+```json
+{
+	"pluginConfigs": {
+		"neonmeter": {
+			"options": {
+				"layout": "single",
+				"desktopBars": "dots"
+			}
+		}
+	}
+}
+```
+
+What the states mean:
+
+- **Pulse**
+
+Live cells and percents brighten toward white and back on an 800 ms cycle, all in phase; on the desktop the halo widens with them. Labels, separators and empty cells stay still. By default the pulse runs three cycles each time a value changes and the band holds still in between; a session start and a turn of the Weekly rotation are no change (`pulseMode` and `pulseCount` below).
+
+- **Stale**
+
+The usage fetch failed or the last reading is older than twice the poll interval: the window segments freeze and fade and the row shows the reading's age. Narrow terminal layouts put a `~` before each window percent instead.
+
+- **First load**
+
+Until the first reading lands, the window bars are grey loading cells and the percent is `…`, pulsing under `pulseMode: always`; the reading arriving is a change, so the band pulses then by default.
+
+- **No subscription**
+
+Signed in with an API key or without a first-party credential, the window segments are hidden and the context takes the whole row.
+
+- **Before the first response**
+
+The context bar is empty and shows `--` until the model has answered once.
+
+<h2 align="center" id="the-color-scheme">The color scheme</h2>
+
+<p align="center">
+  <img src="design/readme/palette.svg" alt="The six ranges on the dark and the light theme" width="100%">
+</p>
+
+Filled cells and percents take the color of the range the percent falls in. A range includes its lower bound, so 50 is lime green and anything from 90 up is red. Under the default `level` coloring the whole bar takes the percent's color. With `barColoring` set to `ramp` the filled part runs through every range from the first up to the percent's, in equal stretches, so an 85% bar runs blue, lime, darker green, yellow, orangered and a 69% bar runs blue, lime, darker green. The light palette is the same six hues darkened for a white ground.
+
 <h2 align="center" id="every-option">Every option at a glance</h2>
 
 Each option below has a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`) and `rotateSeconds` have none; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme.
@@ -375,7 +388,7 @@ Each option below has a picture of its values, the desktop band above the termin
   <img src="design/readme/options/timeRanges-light.svg" alt="The timeRanges option: each value as the desktop band and the terminal band draw it" width="100%">
 </picture>
 
-<h2 align="center">How usage is fetched, and what the plugin touches</h2>
+<h2 align="center" id="how-usage-is-fetched">How usage is fetched, and what the plugin touches</h2>
 
 The rate-limit windows come from the same first-party usage endpoint the built-in `/usage` command reads. NeonMeter asks Claude Code for an opaque credential handle and passes it to the engine's own HTTP call; the engine attaches your account credential to the request itself. The plugin never sees, stores or logs the credential. It also takes the windows the engine reports after each response, and fetches only when the newest reading is older than `pollSeconds`.
 
@@ -385,12 +398,12 @@ The context segment is the size of the last request: the input tokens the model'
 
 To follow the desktop app's appearance under `desktopTheme: auto`, the plugin reads the app's own theme setting from its config file and, when the app follows the system, asks the operating system once a minute: `reg query` on Windows, `defaults read` on macOS, `gsettings get` on GNOME. Besides that it reads Claude Code's own theme setting and the `APPDATA`, `HOME`, `USERPROFILE` and `XDG_CONFIG_HOME` variables to find that file. Nothing else is read or run, and nothing is sent anywhere but the usage endpoint.
 
-<h2 align="center">Known limitations</h2>
+<h2 align="center" id="known-limitations">Known limitations</h2>
 
 - **One band per desktop window.** With several chats side by side in one window of the desktop app, only one of them shows the band. The app draws the band above the prompt for one chat per window whatever a plugin draws. The terminal has no such limit. Reported upstream as [anthropics/claude-code#99265](https://github.com/anthropics/claude-code/issues/99265).
 - **No glow in the terminal.** A terminal paints each cell with one foreground and one background color, so the halo is the desktop's alone. The terminal keeps the pulse.
 
-<h2 align="center">Development</h2>
+<h2 align="center" id="development">Development</h2>
 
 ```bash
 claude plugin validate .claude-plugin/plugin.json --strict
