@@ -88,10 +88,19 @@ function inputFor(o) {
   return o.layout === 'single' ? B.singleVariants(input) : B.weeklyVariants(input).slice(0, 1)
 }
 
-const W = 1040
 const PAD = 16
 const COLS = 120
 const CELL_W = 8.4
+// A terminal box, as the README's terminal.svg draws it: the rule with Claude Code's [-], the band's rows, the input
+// box's rule and the prompt, each a cell row, 8 px inside a 1-px border.
+const CELL_H = 22
+const BOX_PAD = 8
+const BOX_W = COLS * CELL_W + 2 * BOX_PAD
+const PROMPT = '❯ Try "how does <filepath> work?"'
+const W = BOX_W + 2 * PAD
+// The desktop box: the band's rows 12 px inside a rounded box, one row every 28 px.
+const DESK_PAD = 12
+const DESK_ROW = 28
 const MONO = `font-family="'Cascadia Mono', 'JetBrains Mono', Consolas, 'DejaVu Sans Mono', monospace"`
 const SANS = `font-family="'Segoe UI', system-ui, -apple-system, Roboto, sans-serif"`
 const TEXT_SIZE = 13
@@ -132,8 +141,8 @@ function place(svg, x, y) {
   return { body, w }
 }
 
-/** The desktop row, laid out as desktop.tsx's desktopBand lays it out: fixed pieces, and the bars sharing what is left. */
-function desktopRow(turn, o, theme, x0, y) {
+/** The desktop row, `rowW` wide, laid out as desktop.tsx's desktopBand lays it out: fixed pieces, and the bars sharing what is left. */
+function desktopRow(turn, o, theme, x0, y, rowW) {
   const T = B.THEMES[theme]
   const dim = mix(T.text, T.bg, 0.55)
   const plain = B.flexRow(turn, theme, o.barColoring)
@@ -164,7 +173,7 @@ function desktopRow(turn, o, theme, x0, y) {
   const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
   const fixed = items.filter(it => it.kind !== 'grow').reduce((n, it) => n + width(it), 0)
   const grows = items.filter(it => it.kind === 'grow').length
-  const growW = grows ? Math.max(0, (W - 2 * PAD - fixed) / grows) : 0
+  const growW = grows ? Math.max(0, (rowW - fixed) / grows) : 0
   // The app draws its text on the drawings' midline (drawings.ts MIDLINE); digits are about 0.7 em tall.
   const baseline = y + D.MIDLINE * SCALE + TEXT_SIZE * 0.35
   let x = x0
@@ -206,7 +215,40 @@ function terminalRow(turn, o, theme, x0, y) {
   return out
 }
 
-const PANEL = { dark: { line: '#30363D', caption: '#8B949E', key: '#E6EDF3' }, light: { line: '#D0D7DE', caption: '#656D76', key: '#1F2328' } }
+// `box` and `line` are the boxes' fill and border, the panel colors of the README's other graphics.
+const PANEL = {
+  dark: { box: '#161B22', line: '#30363D', caption: '#8B949E', key: '#E6EDF3' },
+  light: { box: '#F6F8FA', line: '#D0D7DE', caption: '#656D76', key: '#1F2328' },
+}
+
+/** The desktop rows in a rounded box, as the app holds its band above the prompt; returns the markup and its height. */
+function desktopBox(turns, o, theme, y) {
+  const P = PANEL[theme]
+  const h = 2 * DESK_PAD + (turns.length - 1) * DESK_ROW + D.DISPLAY_HEIGHT
+  let out = `<rect x="${PAD}" y="${y}" width="${W - 2 * PAD}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
+  turns.forEach((t, k) => {
+    out += desktopRow(t, o, theme, PAD + DESK_PAD, y + DESK_PAD + k * DESK_ROW, W - 2 * PAD - 2 * DESK_PAD)
+  })
+  return { out, h }
+}
+
+/** The terminal rows in a terminal box, as terminal.svg draws one; returns the markup and its height. */
+function terminalBox(turns, o, theme, y) {
+  const P = PANEL[theme]
+  const T = B.THEMES[theme]
+  const h = (turns.length + 3) * CELL_H + 24
+  const x = PAD + BOX_PAD
+  const at = (line) => y + (line + 1) * CELL_H - 6
+  const cells = (n) => `textLength="${(n * CELL_W).toFixed(2)}" lengthAdjust="spacingAndGlyphs"`
+  let out = `<rect x="${PAD}" y="${y}" width="${BOX_W}" height="${h}" rx="6" fill="${P.box}" stroke="${P.line}"/>`
+  out += `<text x="${x}" y="${at(0)}" ${MONO} font-size="14" ${cells(COLS)} xml:space="preserve"><tspan fill="${P.line}">${'─'.repeat(COLS - 3)}</tspan><tspan fill="${P.caption}">[-]</tspan></text>`
+  turns.forEach((t, k) => {
+    out += terminalRow(t, o, theme, x, at(1 + k))
+  })
+  out += `<text x="${x}" y="${at(turns.length + 1)}" ${MONO} font-size="14" ${cells(COLS)} fill="${P.line}" xml:space="preserve">${'─'.repeat(COLS)}</text>`
+  out += `<text x="${x}" y="${at(turns.length + 2)}" ${MONO} font-size="14" ${cells([...PROMPT].length)} xml:space="preserve"><tspan fill="${T.text}">❯ </tspan><tspan fill="${P.caption}">${esc(PROMPT.slice(2))}</tspan></text>`
+  return { out, h }
+}
 
 /** One picture: every value of one option, each as its desktop rows then its terminal rows. */
 function picture(option, theme) {
@@ -234,18 +276,16 @@ function picture(option, theme) {
     }
     if (surfaces.includes('desktop')) {
       surfaceLabel('DESKTOP APP')
-      for (const t of turns) {
-        body += desktopRow(t, o, theme, PAD, y)
-        y += 28
-      }
+      const box = desktopBox(turns, o, theme, y)
+      body += box.out
+      y += box.h
     }
     if (surfaces.includes('terminal')) {
-      if (surfaces.includes('desktop')) y += 8
+      if (surfaces.includes('desktop')) y += 14
       surfaceLabel('TERMINAL')
-      for (const t of turns) {
-        body += terminalRow(t, o, theme, PAD, y + 15)
-        y += 24
-      }
+      const box = terminalBox(turns, o, theme, y)
+      body += box.out
+      y += box.h
     }
     // Room between one value and the next; the last one's is taken back below.
     y += VALUE_GAP
