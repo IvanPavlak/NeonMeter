@@ -29,13 +29,13 @@ jobs:
         run: claude plugin validate .claude-plugin/marketplace.json --strict
       - name: Run the plugin tests
         run: claude plugin test .
-      - name: Check the install and uninstall scripts parse
+      - name: Check the install, uninstall and benchmark scripts parse
         run: |
-          bash -n install.sh
-          bash -n uninstall.sh
+          bash -n scripts/installation/unix/install.sh
+          bash -n scripts/installation/unix/uninstall.sh
           pwsh -NoProfile -Command '
             $failed = $false
-            foreach ($file in "install.ps1", "uninstall.ps1") {
+            foreach ($file in "scripts/installation/windows/install.ps1", "scripts/installation/windows/uninstall.ps1", "scripts/benchmarking/headless.ps1", "scripts/benchmarking/inapp.ps1") {
               $errors = $null
               [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$null, [ref]$errors)
               foreach ($e in $errors) { Write-Host "${file}: $($e.Extent.StartLineNumber): $($e.Message)"; $failed = $true }

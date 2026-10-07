@@ -1,12 +1,13 @@
 import { atom, read, update } from 'claude-code'
-import type { ElementTable, EngineInterface, PluginOptions, Register, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
+import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Register, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
 
-import type { NeonMeterContext, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
+import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
-import { band, configureDesign, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, singleVariants, THEMES, timeIndex, weeklyVariants } from './builder'
-import type { BandInput, FlexRow, OptionSegment, WindowInput, WindowKind } from './builder'
+import { band, configureDesign, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, singleVariants, THEMES, timeIndex, weeklyVariants } from './builder'
+import type { BandInput, CompactPosition, ContextBar, FlexRow, OptionSegment, WindowInput, WindowKind } from './builder'
 import type { Burst } from './color'
 import { desktopBand } from './desktop'
+import type { DesktopExtras } from './desktop'
 
 // Pure layout helpers that live in the builder so the README generator runs them
 // too; re-exported here, where the tests have always found them.
@@ -83,9 +84,28 @@ export type Options = {
   resetColor: 'plain' | 'time'
   /** The lower bounds of time ranges 2 to 6 for `resetColor: time`, five strictly ascending integers between 1 and 99. */
   timeRanges: number[]
+  /** `breakdown` splits the context bar into its categories; `percent` colors it by its percent like every other bar. */
+  contextBar: ContextBar
+  /** Show the context breakdown when the pointer is over the context segment (desktop). */
+  contextPopup: boolean
+  /** The six context category colors on the dark palette, `#RRGGBB`: Messages, System tools, MCP tools, Skills, Other, Autocompact buffer. */
+  contextColorsDark: string[]
+  /** The six context category colors on the light palette, `#RRGGBB`. */
+  contextColorsLight: string[]
+  /** `appear` shows the compact button once the context reaches `compactAt`; `always` whenever the context has a reading; `off` never. */
+  compactButton: 'appear' | 'always' | 'off'
+  /** The context percent at which `compactButton: appear` shows the button, 1 to 100. */
+  compactAt: number
+  /** Where the compact button sits. */
+  compactPosition: CompactPosition
+  /** Draw the compact button's halo (desktop); the `glow` option off draws none either way. */
+  compactGlow: boolean
+  /** Pulse the compact button with the band; the `pulse` option off holds it still either way. */
+  compactPulse: boolean
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
+const COMPACT_POSITIONS: readonly CompactPosition[] = ['outside-left', 'start', 'context', 'end', 'outside-right']
 
 const DEFAULTS: Options = {
   barColoring: 'level',
@@ -109,6 +129,15 @@ const DEFAULTS: Options = {
   weeklyReset: 'countdown',
   resetColor: 'plain',
   timeRanges: [...DEFAULT_TIME_BOUNDS],
+  contextBar: 'breakdown',
+  contextPopup: true,
+  contextColorsDark: [...DEFAULT_PART_COLORS.dark],
+  contextColorsLight: [...DEFAULT_PART_COLORS.light],
+  compactButton: 'appear',
+  compactAt: 75,
+  compactPosition: 'outside-right',
+  compactGlow: true,
+  compactPulse: true,
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -217,6 +246,15 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const pollSeconds = clamp(options.pollSeconds, DEFAULTS.pollSeconds, 10, 3600)
   const themeOption = options.theme === 'dark' || options.theme === 'light' ? options.theme : DEFAULTS.theme
   const desktopTheme = options.desktopTheme === 'dark' || options.desktopTheme === 'light' ? options.desktopTheme : DEFAULTS.desktopTheme
+  const contextBar = options.contextBar === 'percent' ? 'percent' : DEFAULTS.contextBar
+  const contextPopup = typeof options.contextPopup === 'boolean' ? options.contextPopup : DEFAULTS.contextPopup
+  const contextColorsDark = pick('contextColorsDark', parseColors, [...DEFAULT_PART_COLORS.dark], 'six colors like "#1E90FF"')
+  const contextColorsLight = pick('contextColorsLight', parseColors, [...DEFAULT_PART_COLORS.light], 'six colors like "#1874D2"')
+  const compactButton = options.compactButton === 'always' || options.compactButton === 'off' ? options.compactButton : DEFAULTS.compactButton
+  const compactAt = Math.round(clamp(options.compactAt, DEFAULTS.compactAt, 1, 100))
+  const compactPosition = (COMPACT_POSITIONS as readonly unknown[]).includes(options.compactPosition) ? (options.compactPosition as CompactPosition) : DEFAULTS.compactPosition
+  const compactGlow = typeof options.compactGlow === 'boolean' ? options.compactGlow : DEFAULTS.compactGlow
+  const compactPulse = typeof options.compactPulse === 'boolean' ? options.compactPulse : DEFAULTS.compactPulse
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
   const segments: SegmentKind[] = []
@@ -230,7 +268,42 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
     }
   }
 
-  return { parsed: { barColoring, desktopBars, pulse, pulseMs, pulseMode, pulseCount, glow, segments, pollSeconds, theme: themeOption, desktopTheme, ranges, colorsDark, colorsLight, glyph, rotateSeconds, layout, fiveHourReset, weeklyReset, resetColor, timeRanges }, rejected, problems }
+  return {
+    parsed: {
+      barColoring,
+      desktopBars,
+      pulse,
+      pulseMs,
+      pulseMode,
+      pulseCount,
+      glow,
+      segments,
+      pollSeconds,
+      theme: themeOption,
+      desktopTheme,
+      ranges,
+      colorsDark,
+      colorsLight,
+      glyph,
+      rotateSeconds,
+      layout,
+      fiveHourReset,
+      weeklyReset,
+      resetColor,
+      timeRanges,
+      contextBar,
+      contextPopup,
+      contextColorsDark,
+      contextColorsLight,
+      compactButton,
+      compactAt,
+      compactPosition,
+      compactGlow,
+      compactPulse,
+    },
+    rejected,
+    problems,
+  }
 }
 
 /** Maps Claude Code's `theme` row to a palette; `null` when it names neither. */
@@ -352,11 +425,59 @@ function windowsOf(rateLimits: readonly SessionRateLimit[]): NeonMeterWindow[] {
   return out
 }
 
-function contextOf(c: SessionContextUsage): NeonMeterContext {
+function contextOf(c: SessionContextUsage, parts?: NeonMeterContextParts | null): NeonMeterContext {
   const out: NeonMeterContext = { window: c.window }
   if (typeof c.tokens === 'number') out.tokens = c.tokens
   if (typeof c.percent === 'number') out.percent = c.percent
+  if (parts) out.parts = parts
   return out
+}
+
+/** The /context row names the desktop app's own breakdown lists apart; every other row in use counts as Other. */
+const PART_NAMES: Readonly<Record<string, keyof NeonMeterContextParts>> = {
+  Messages: 'messages',
+  'System tools': 'systemTools',
+  'MCP tools': 'mcpTools',
+  Skills: 'skills',
+}
+
+/**
+ * The window by category as the desktop app's breakdown groups /context's
+ * rows: Messages, System tools, MCP tools and Skills by name, every other row
+ * in use (the system prompt, memory files, MCP server instructions, agents)
+ * as Other, and the compaction reserve as the autocompact buffer. Free space
+ * and the tool schemas loaded on demand are outside it. Null when no row is in use.
+ */
+export function partsOf(categories: readonly ContextCategory[] | undefined): NeonMeterContextParts | null {
+  const out: NeonMeterContextParts = { messages: 0, systemTools: 0, mcpTools: 0, skills: 0, other: 0, buffer: 0 }
+  let used = false
+  for (const row of categories ?? []) {
+    const tokens = Number.isFinite(row.tokens) ? Math.max(0, row.tokens) : 0
+    if (row.kind === 'buffer') out.buffer += tokens
+    else if (row.kind === 'used') {
+      out[PART_NAMES[row.name] ?? 'other'] += tokens
+      used = true
+    }
+  }
+  return used ? out : null
+}
+
+/** Whether the band needs the context broken down: for the bar's split or the desktop's hover card. */
+function wantsBreakdown(o: Options): boolean {
+  return o.contextBar === 'breakdown' || o.contextPopup
+}
+
+/**
+ * The context's breakdown, estimated locally (`summary`: no request is sent),
+ * or null when the band does not show it or the engine gives none.
+ */
+async function breakdownOf($: EngineInterface): Promise<NeonMeterContextParts | null> {
+  if (!wantsBreakdown(env.options)) return null
+  try {
+    return partsOf((await $.session.usage({ breakdown: 'summary' })).context.breakdown?.categories)
+  } catch {
+    return null
+  }
 }
 
 /** The name a scoped limit carries: its model's display name, else its surface's. */
@@ -495,9 +616,66 @@ type Env = {
   bandKey: string | null
   /** The responsive pulse of each band, by band key: see `burstOf`. */
   bursts: Map<string, BurstState>
+  /** True while a model turn runs, as the band last saw it: a compaction then waits for the turn to end. */
+  working: boolean
+  /** A press of the compact button that waits for the turn to end. */
+  pendingCompact: boolean
+  /** True while a compaction the button started runs, so a second press does nothing. */
+  compacting: boolean
 }
 
-const env: Env = { options: DEFAULTS, rejected: [], loggedOptions: false, inFlight: false, pollTimer: null, tickTimer: null, turn: 0, rotateTimer: null, onDesktop: false, problems: [], bandKey: null, bursts: new Map() }
+const env: Env = {
+  options: DEFAULTS,
+  rejected: [],
+  loggedOptions: false,
+  inFlight: false,
+  pollTimer: null,
+  tickTimer: null,
+  turn: 0,
+  rotateTimer: null,
+  onDesktop: false,
+  problems: [],
+  bandKey: null,
+  bursts: new Map(),
+  working: false,
+  pendingCompact: false,
+  compacting: false,
+}
+
+/**
+ * The compact button's press: compacts the conversation as `/compact` does,
+ * or, while a turn runs (the engine compacts only between turns), as soon as
+ * it ends. A press while one runs does nothing.
+ */
+function pressCompact($: EngineInterface): void {
+  if (env.compacting) return
+  if (env.working) {
+    env.pendingCompact = true
+    $.ui.toast('NeonMeter: compacting once Claude finishes this turn')
+    return
+  }
+  void runCompact($)
+}
+
+async function runCompact($: EngineInterface): Promise<void> {
+  env.compacting = true
+  env.pendingCompact = false
+  try {
+    $.ui.toast('NeonMeter: compacting the conversation')
+    const result = await $.session.compact()
+    if (result.skip) $.ui.toast(`NeonMeter: the compaction was skipped: ${result.skip}`)
+  } catch (err) {
+    $.ui.toast(`NeonMeter: could not compact: ${err instanceof Error ? err.message : String(err)}`)
+  } finally {
+    env.compacting = false
+  }
+}
+
+/** The hover cards' ground and border on each appearance, as the app draws its own popups. */
+const CARD: Record<NeonMeterTheme, { background: string; border: string }> = {
+  dark: { background: '#20201F', border: '#373736' },
+  light: { background: '#FFFFFF', border: '#D9D7D0' },
+}
 
 
 /**
@@ -722,10 +900,22 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
     stale,
     staleAge: r ? fmtAge((now - r.at) / 60000) : '',
     windows,
-    ctx: c ? { pct: c.percent ?? 0, tokens: c.tokens ?? null, window: c.window } : null,
+    ctx: c ? { pct: c.percent ?? 0, tokens: c.tokens ?? null, window: c.window, ...(c.parts ? { parts: c.parts } : {}) } : null,
     segments: options.segments,
     resetColor: options.resetColor,
+    contextBar: options.contextBar,
+    compact: compactShown(options, c) ? options.compactPosition : null,
   }
+}
+
+/**
+ * Whether the compact button shows: never under `off`; once the context has
+ * a reading, always under `always`, and from `compactAt` percent on under
+ * `appear`. Before the first response there is nothing to compact.
+ */
+export function compactShown(o: Pick<Options, 'compactButton' | 'compactAt'>, c: NeonMeterContext | null): boolean {
+  if (o.compactButton === 'off' || !c || typeof c.tokens !== 'number') return false
+  return o.compactButton === 'always' || (c.percent ?? 0) >= o.compactAt
 }
 
 
@@ -750,6 +940,9 @@ export function changeKey(input: BandInput): string {
       return [w.kind, w.label?.full ?? '', Math.round(w.pct), share === null ? null : timeIndex(share)]
     }),
     input.ctx ? [Math.round(input.ctx.pct), input.ctx.tokens === null ? null : fmtTok(input.ctx.tokens), fmtTok(input.ctx.window)] : null,
+    // The breakdown's split, in whole percents of the window, and the compact button showing up.
+    input.ctx?.parts && input.ctx.window > 0 ? CONTEXT_PARTS.map(k => Math.round((input.ctx!.parts![k] / input.ctx!.window) * 100)) : null,
+    input.compact ?? null,
   ])
 }
 
@@ -780,7 +973,7 @@ export const register: Register = (on, options) => {
   env.options = parsed
   env.rejected = rejected
   env.problems = problems
-  configureDesign({ bounds: parsed.ranges, timeBounds: parsed.timeRanges, dark: parsed.colorsDark, light: parsed.colorsLight, cell: parsed.glyph })
+  configureDesign({ bounds: parsed.ranges, timeBounds: parsed.timeRanges, dark: parsed.colorsDark, light: parsed.colorsLight, partsDark: parsed.contextColorsDark, partsLight: parsed.contextColorsLight, cell: parsed.glyph })
 
   on('session.start', async ($, e, next) => {
     if (!env.loggedOptions) {
@@ -796,8 +989,8 @@ export const register: Register = (on, options) => {
     const restored = storedReading(await $.store.get(STORE_KEY))
     if (restored) await update($, reading, () => restored)
 
-    const usage = await $.session.usage()
-    await update($, context, () => contextOf(usage.context))
+    const usage = await $.session.usage(wantsBreakdown(env.options) ? { breakdown: 'summary' } : undefined)
+    await update($, context, () => contextOf(usage.context, partsOf(usage.context.breakdown?.categories)))
     // The engine reports the all-models windows only; keep the per-model weekly ones (and a spend
     // limit) the stored reading has, or a session start, a module reload included, would drop them
     // for every session until the next fetch.
@@ -814,7 +1007,9 @@ export const register: Register = (on, options) => {
   })
 
   on('session.measure', async ($, e, next) => {
-    await update($, context, () => contextOf(e.context))
+    // The breakdown first, so the percent and its split reach the band in one change.
+    const parts = await breakdownOf($)
+    await update($, context, () => contextOf(e.context, parts))
     if (e.rateLimits.length > 0) {
       // The engine reports the all-models windows only; keep the per-model weekly ones the fetch brought.
       const previous = (await $.state.get({ plugin: 'neonmeter', key: 'reading' })).value
@@ -832,6 +1027,16 @@ export const register: Register = (on, options) => {
     return result
   })
 
+  // The terminal band's Client posts a press on the compact button's cell.
+  on('ui.message', async ($, e, next) => {
+    const data = e.data as { compact?: unknown } | null
+    if (data && typeof data === 'object' && data.compact === true) {
+      pressCompact($)
+      return {}
+    }
+    return next(e)
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const bandKey = await resolveBandKey($)
@@ -839,6 +1044,17 @@ export const register: Register = (on, options) => {
       ensurePolling($)
     } catch {
       // A timer refused from a render dispatch is re-armed at the next session event.
+    }
+    env.working = e.props.isWorking
+    if (env.pendingCompact && !env.working && !env.compacting) {
+      // The turn a press waited for has ended: compact, from a timer, outside the drawing.
+      try {
+        $.clock.after(250, () => {
+          if (env.pendingCompact && !env.working) void runCompact($)
+        })
+      } catch {
+        // A timer refused from a render dispatch: the next drawing tries again.
+      }
     }
 
     // `h` is the JSX factory in this environment, so the health value is not named that here.
@@ -890,16 +1106,21 @@ export const register: Register = (on, options) => {
       const turn = turns[env.turn % Math.max(1, turns.length)]
       const row = turn?.row ?? plain
       const dotCount = turn?.dotCount ?? desktopDotCount(plain, e.props.bodyColumns)
-      const { Text, Svg } = $.ui.resolve(e)
-      return (
-        <Box width="100%">
-          {desktopBand(row, { Box, Text, Svg }, { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, glow: env.options.glow, palette: THEMES[dt], dotCount })}
-        </Box>
-      )
+      const { Text, Svg, Button } = $.ui.resolve(e) as ElementTable<'desktop'>
+      const o = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, glow: env.options.glow, palette: THEMES[dt], dotCount }
+      const extras: DesktopExtras = {
+        onCompact: () => pressCompact($),
+        compact: { ...o, pulse: o.pulse && env.options.compactPulse, glow: o.glow && env.options.compactGlow },
+        popup: env.options.contextPopup,
+        card: CARD[dt],
+      }
+      return <Box width="100%">{desktopBand(row, { Box, Text, Svg, Button }, o, extras)}</Box>
     }
 
     const cols = Math.max(1, e.props.bodyColumns)
     const rows = variants.map(v => band(v, cols, t ?? 'dark', env.options.barColoring)).filter(r => r !== null)
+    // With `compactPulse` off the button's cell holds still while the rest of the row pulses.
+    if (!env.options.compactPulse) for (const r of rows) r.spans = r.spans.map(sp => (sp.button ? { ...sp, live: false } : sp))
     const row = rows[0]
     if (!row) return next(e)
     const props: BandProps = { ...base, layout: 'cells', spans: row.spans }

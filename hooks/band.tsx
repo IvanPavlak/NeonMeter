@@ -43,6 +43,19 @@ const timers = new WeakMap<object, Timer>()
 const rotations = new WeakMap<object, Timer>()
 /** The change each instance last pulsed for, so a redraw within or after it does not start it again. */
 const pulsed = new WeakMap<object, number>()
+/** The row each instance last drew, which its pointer listener reads: where the compact button's cell is. */
+const shown = new WeakMap<object, Span[]>()
+
+/** The columns of the row's compact button cell, or null when the row has none. */
+export function buttonColumns(spans: readonly Span[]): [number, number] | null {
+  let col = 0
+  for (const span of spans) {
+    const len = Array.from(span.text).length
+    if (span.button) return [col, col + len]
+    col += len
+  }
+  return null
+}
 
 /** How many rows take turns: the main one and its alternates. */
 function turnsOf(props: BandProps): number {
@@ -87,6 +100,14 @@ const Band: ClientModule<BandProps, State> = (props, surface) => {
   rotate(props, surface)
   const turn = (surface.state?.turn ?? 0) % turnsOf(props)
   const spans = turn === 0 ? (props.spans ?? []) : (props.alternates?.[turn - 1] ?? props.spans ?? [])
+  if (!shown.has(surface)) {
+    // One listener per instance: a left click on the compact button's cell asks the hooks module to compact.
+    surface.onPointer(event => {
+      const cols = buttonColumns(shown.get(surface) ?? [])
+      if (event.type === 'up' && event.button === 'left' && event.y === 0 && cols && event.x >= cols[0] && event.x < cols[1]) surface.post({ compact: true })
+    })
+  }
+  shown.set(surface, spans)
   const isLive = props.pulse && spans.some(s => s.live)
   const always = props.pulseMode === 'always'
   const frameMs = Math.max(1, Math.round(props.pulseMs / 8))

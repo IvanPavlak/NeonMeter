@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-07
+
+### Added
+
+- The context bar shows what fills the context, as the desktop app's own context indicator does, in neon: Messages in dodgerblue, System tools in orangered, MCP tools in darker green, Skills in yellow and everything else as Other in lime share the percent in proportion to their tokens, then the autocompact buffer follows in grey, without a glow. It is the engine's own breakdown, the one `/context` lists, estimated locally after each response. `contextBar` (`breakdown`, the default, or `percent`, the bar colored by its percent as before) and `contextColorsDark` / `contextColorsLight` set it.
+- In the desktop app, the pointer over the Context segment opens a card with the breakdown, one row per category with its tokens and share of the window (`Messages: 25.5k, 2.6%`), in its color, glowing and pulsing with the band. `contextPopup` turns it off.
+- A compact button: a neon ring of the context percent in its range colors that compacts the conversation on a click, as `/compact` does, or as soon as the turn ends when Claude is working. It appears from 75% of the context on, beside the row on the right. `compactButton` (`appear`, `always`, `off`), `compactAt`, `compactPosition` (`outside-right`, `end`, `context`, `start`, `outside-left`), `compactGlow` and `compactPulse` set it; the `pulse` and `glow` options off hold it still and crisp too. In the terminal it is a `◉` cell, clicked where the terminal reports clicks.
+- A benchmark in `scripts/benchmarking/` that compares the desktop pulse of different versions of hooks/, on Windows: `headless.ps1` in headless Microsoft Edge, with a pixel comparison of the frames, and `inapp.ps1` in the desktop app itself, taking turns between versions with `-Repeat` (README, Development).
+
+### Changed
+
+- The install and uninstall scripts moved to `scripts/installation/windows/` and `scripts/installation/unix/`; the README's one-line install and uninstall commands use the new addresses. A copied command with the old address no longer works.
+
+- The desktop pulse costs less and looks as it did in 1.3.2. A dot's halo was a blur of its own, one offscreen pass per dot on every frame; it is now a radial gradient through the exact profile of that blurred disc, passing through the blur's widths with the pulse, laid over the dots before it as the blur was, so a dot bar draws no blur at all. Live dots of one color share one animated paint, a drawing with nothing live (a 0% bar, a stale segment) carries no animation and is never drawn again, and the blurs that remain cover only their drawing's canvas. A frame differs from 1.3.2 by at most 8 of 255 in any channel, within the halos; the pulse keeps 1.3.2's smooth timing. In the desktop app under `pulseMode: always`, taking turns with 1.3.2 three times, the band with dots fell from 25.2% to 22% of a core and its GPU from 4.6% to 1.4%; with bars it stays at about 21%, and with the new context bar, card and compact button on, at about 1.3.2's cost (README, Resource use). The option pictures in the README are redrawn to match.
+
 ## [1.3.2] - 2026-10-07
 
 ### Fixed
@@ -119,7 +134,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.1...v1.3.0

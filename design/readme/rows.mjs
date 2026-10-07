@@ -28,18 +28,22 @@ const out = new URL('./terminal-rows.json', import.meta.url)
 
 // The account the README shows: 82% of the 5-hour window, 18% of the week and 69% of the
 // Fable week, both resetting in 3d4h (Sunday 18:00), shown as a countdown, the weekly
-// default since 1.3.0, and 930k of a 1M context.
+// default since 1.3.0, and 930k of a 1M context, broken down by category as the defaults
+// since 1.4.0 draw it, with the compact button beside the row (it appears from 75%).
 const fiveHour = { kind: 'five_hour', pct: 82, resetMin: 193 }
 const weekly = { kind: 'seven_day', pct: 18.2, resetMin: 4560, resetAt: 'Sun 18:00', resetAs: 'countdown' }
 const fable = { kind: 'seven_day', pct: 69, resetMin: 4560, resetAt: 'Sun 18:00', resetAs: 'countdown', label: { full: 'Fable', short: 'Fab' } }
+const parts = { messages: 700000, systemTools: 40000, mcpTools: 120000, skills: 10000, other: 60000, buffer: 33000 }
 const input = {
   auth: true,
   loading: false,
   stale: false,
   staleAge: '',
   windows: [fiveHour],
-  ctx: { pct: 93, tokens: 930000, window: 1000000 },
+  ctx: { pct: 93, tokens: 930000, window: 1000000, parts },
   segments: ['five_hour', 'seven_day', 'spend', 'context'],
+  contextBar: 'breakdown',
+  compact: 'outside-right',
 }
 
 // The default layout's turns, as the plugin's weeklyVariants makes them: the weekly labels padded to one width.

@@ -9,3 +9,6 @@ node_modules/
 design/readme/_*.html
 .DS_Store
 Thumbs.db
+
+# The benchmark's pages, screenshots, browser profiles and the installed hooks it backs up
+scripts/benchmarking/out/
