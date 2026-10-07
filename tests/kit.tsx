@@ -38,6 +38,10 @@ export type World = {
   usage: Partial<SessionUsage>
   /** Every `$.session.compact()` the plugin made. */
   compactions: number
+  /** True for a headless (SDK) session, the desktop app's: `$.session.compact()` is refused there. */
+  headless: boolean
+  /** Every slash command the plugin ran, as typed after the slash. */
+  commands: string[]
 }
 
 export type Auth = 'bearer' | 'api-key' | null
@@ -105,6 +109,8 @@ export function setup(on: On, options: Setup = {}): World {
     store,
     usage: { ...options.usage },
     compactions: 0,
+    headless: false,
+    commands: [],
   }
   const auth: Auth = options.auth === undefined ? 'bearer' : options.auth
 
@@ -113,8 +119,13 @@ export function setup(on: On, options: Setup = {}): World {
     value: { startedAt: NOW - HOUR, context: CONTEXT, rateLimits: [], ...world.usage },
   }))
   on('session.compact', () => {
+    if (world.headless) throw new Error('$.session.compact: not available in a headless (-p / SDK) session yet')
     world.compactions += 1
-    return { messages: [] }
+    return { messages: [{ role: 'user' as const, text: 'the summary', toolUses: [] }], tokensBefore: 160000, tokensAfter: 20000 }
+  })
+  on('command.run', ($, e) => {
+    world.commands.push(e.command)
+    return { text: '' }
   })
   on('config.list', () => ({
     value: [

@@ -239,13 +239,13 @@ def segment(x, y, label, pct, extra, T, mode, seg_w, live):
 
 
 def compact_button(x, y, width, T, mode, pct):
-    """The compact button beside the row on the right (it shows from 75% of the context, so at 93% it does),
+    """The compact button at the end of the row (it shows from 75% of the context, so at 93% it does),
     its ring colored as the row's bars are."""
     return ring(x + width - RING_ROOM / 2 + 4, y, pct, T, level=mode in ('level', 'dots'))
 
 
 def band_row(x, y, width, T, mode, windows, stale=False):
-    """One band row: 5-hour, Weekly and Context segments laid out across `width`, the compact button beside them.
+    """One band row: 5-hour, Weekly and Context segments laid out across `width`, the compact button at the end.
     The Weekly segment takes turns with the account's Fable limit, as the band does."""
     out = compact_button(x, y, width, T, mode, windows[2])
     width -= RING_ROOM
@@ -271,7 +271,7 @@ SINGLE_TURNS = [('5-hour', 82, 'in 3h13m'), ('Weekly', 18.2, 'in 3d4h'), ('Fable
 
 def single_row(x, y, width, T, mode):
     """The single layout's row: one segment across the whole width, taking turns through 5-hour, Weekly, Fable
-    and Context, 5 s each, as the band does with `layout` set to `single`; the compact button stays beside it."""
+    and Context, 5 s each, as the band does with `layout` set to `single`; the compact button stays at its end."""
     return compact_button(x, y, width, T, mode, 93) + ''.join(
         turn(segment(x, y, label, pct, extra, T, mode, width - RING_ROOM, True), n, len(SINGLE_TURNS))
         for n, (label, pct, extra) in enumerate(SINGLE_TURNS))

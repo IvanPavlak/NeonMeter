@@ -45,7 +45,12 @@ export type NeonMeterContextParts = {
   other: number
   /** The autocompact buffer, the room the engine keeps free for compacting; 0 with auto-compaction off. */
   buffer: number
+  /** Every row the engine reports, as /context lists them, for the desktop's hover card; absent in a reading from before 1.4.1. */
+  rows?: NeonMeterContextRow[]
 }
+
+/** One row of the engine's context breakdown: its name, tokens and kind (`used`, `free`, `buffer` or `deferred`). */
+export type NeonMeterContextRow = { name: string; tokens: number; kind: 'used' | 'free' | 'buffer' | 'deferred' }
 
 /** The live context window, as `$.session.usage()` reports it. */
 export type NeonMeterContext = {

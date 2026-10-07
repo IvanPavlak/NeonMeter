@@ -157,12 +157,11 @@ export type ResetColor = 'plain' | 'time'
 /** `breakdown` splits the context bar into its categories; `percent` colors it by its percent, as every other bar. */
 export type ContextBar = 'breakdown' | 'percent'
 /**
- * Where the compact button sits: `outside-left` and `outside-right` beside
- * the row, which keeps its own layout whatever it shows; `start`, `context`
- * and `end` inside it, before the first segment, before the Context segment
- * and after the last, taking room from the bars like any other piece.
+ * Where the compact button sits in the row: before the first segment, before
+ * the Context segment or after the last, taking room from the bars like any
+ * other piece.
  */
-export type CompactPosition = 'outside-left' | 'start' | 'context' | 'end' | 'outside-right'
+export type CompactPosition = 'start' | 'context' | 'end'
 
 /** One run of same-styled characters. `color` is final: blends are applied. */
 export type Span = {
@@ -204,7 +203,7 @@ export type ContextInput = {
    * counts them): absent until the engine gave a breakdown, and then the bar
    * is colored by its percent whatever `contextBar` says.
    */
-  parts?: Readonly<Record<ContextPartKey, number>>
+  parts?: Readonly<Record<ContextPartKey, number>> & { rows?: readonly ContextDetailRow[] }
 }
 
 /** The order the `segments` option speaks in; `spend` and `context` map to the builder's kinds. */
@@ -243,7 +242,7 @@ type Segment = {
   tokens?: number | null
   window?: number
   /** The context bar's categories, when it is split by them. */
-  parts?: Readonly<Record<ContextPartKey, number>>
+  parts?: Readonly<Record<ContextPartKey, number>> & { rows?: readonly ContextDetailRow[] }
 }
 
 type Pieces = { label: string; pct: string; extra: string }
@@ -663,10 +662,9 @@ export function band(s: BandInput, cols: number, theme: Theme, bars: BarColoring
   const T = THEMES[theme]
   const segs = segmentsOf(s)
   if (!segs.length) return null
-  // The compact button takes its cell and a gap: one space inside the row, two beside it.
+  // The compact button takes its cell and a space.
   const button = s.compact && s.ctx && s.ctx.tokens != null ? compactSpan(s.ctx, T) : null
-  const outside = s.compact === 'outside-left' || s.compact === 'outside-right'
-  const width = button ? Math.max(1, cols - (outside ? 3 : 2)) : cols
+  const width = button ? Math.max(1, cols - 2) : cols
   const starts: number[] = []
   let spans = layoutBars(segs, 'full', s, width, T, bars, starts)
   let tier: Tier = 'full'
@@ -694,17 +692,14 @@ function compactSpan(ctx: ContextInput, T: Palette): Span {
 }
 
 /**
- * The row with the compact button in its place: beside the row two spaces
- * away (`outside-left`, `outside-right`), or within it one space from its
- * neighbor (`start`, before the Context segment's label at `ctxStart`, `end`).
+ * The row with the compact button in its place, one space from its neighbor:
+ * `start`, before the Context segment's label at `ctxStart`, or `end`.
  * Without a Context segment in the row, `context` is the end.
  */
 function placeButton(spans: Span[], at: CompactPosition, button: Span, T: Palette, ctxStart: number | undefined): Span[] {
   const gap = (n: number) => sp(T, rep(' ', n), T.text)
-  if (at === 'outside-left') return [button, gap(2), ...spans]
   if (at === 'start') return [button, gap(1), ...spans]
   if (at === 'context' && ctxStart !== undefined && ctxStart < spans.length) return [...spans.slice(0, ctxStart), button, gap(1), ...spans.slice(ctxStart)]
-  if (at === 'outside-right') return [...spans, gap(2), button]
   return [...spans, gap(1), button]
 }
 
@@ -748,8 +743,14 @@ export type FlexSegment = {
  */
 export type FlexCompact = { position: CompactPosition; ring: FlexSlice[]; label: string }
 
-/** One row of the context breakdown the desktop shows on hover: `Messages: 25.5k, 2.6%` in its category color. */
-export type ContextRow = { key: ContextPartKey; text: string; color: string; live: boolean; halo: boolean }
+/**
+ * One row of the context breakdown the desktop shows on hover: `Messages:
+ * 25.5k, 2.6%` in its category color, or the card's title line without a dot.
+ */
+export type ContextRow = { key: string; text: string; color: string; live: boolean; halo: boolean; dot?: false }
+
+/** One row of the engine's breakdown, as the hooks module keeps it. */
+export type ContextDetailRow = { name: string; tokens: number; kind: 'used' | 'free' | 'buffer' | 'deferred' }
 
 export type FlexRow = {
   segments: FlexSegment[]
@@ -844,7 +845,7 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   const ring = s.compact && s.ctx ? compactRing(s.ctx, T, bars) : null
   if (ring) row.compact = { position: s.compact!, ring, label: `Compact the conversation (${Math.round(s.ctx!.pct)}% of the context used)` }
   // The hover card hangs on the Context segment, whichever way its bar is colored.
-  if (s.ctx?.parts && s.ctx.tokens != null && usedOf(s.ctx.parts) > 0 && segs.some(seg => seg.kind === 'ctx')) row.context = contextRows(s.ctx.parts, s.ctx.window, T)
+  if (s.ctx?.parts && s.ctx.tokens != null && usedOf(s.ctx.parts) > 0 && segs.some(seg => seg.kind === 'ctx')) row.context = contextRows(s.ctx.parts, s.ctx.window, T, s.ctx.tokens)
   return row
 }
 
@@ -873,7 +874,8 @@ export function fmtShare(pct: number): string {
  * used ones pulse and glow as the bar's slices do; the autocompact buffer is
  * the room kept free, still and without a halo.
  */
-export function contextRows(parts: Readonly<Record<ContextPartKey, number>>, window: number, T: Palette): ContextRow[] {
+export function contextRows(parts: Readonly<Record<ContextPartKey, number>> & { rows?: readonly ContextDetailRow[] }, window: number, T: Palette, tokens?: number): ContextRow[] {
+  if (parts.rows?.length) return everyContextRow(parts.rows, window, T, tokens)
   const out: ContextRow[] = []
   CONTEXT_PARTS.forEach((key, i) => {
     const tokens = Math.max(0, parts[key])
@@ -881,6 +883,32 @@ export function contextRows(parts: Readonly<Record<ContextPartKey, number>>, win
     const used = key !== 'buffer'
     out.push({ key, text: `${CONTEXT_PART_LABELS[key]}: ${fmtTokFine(tokens)}, ${fmtShare(window > 0 ? (tokens / window) * 100 : 0)}`, color: T.parts[i]!, live: used, halo: used })
   })
+  return out
+}
+
+const PART_KEY_OF: Readonly<Record<string, ContextPartKey>> = { Messages: 'messages', 'System tools': 'systemTools', 'MCP tools': 'mcpTools', Skills: 'skills' }
+
+/**
+ * The card as the desktop app's own context panel lists it: a title line
+ * (`Context window: 61.8k / 1M (6%)`), the four named categories in their
+ * colors, largest first, every other row in use in Other's color (the system
+ * prompt, memory files, MCP server instructions, agents), largest first, then
+ * the autocompact buffer, the free space and the tools loaded on demand, which
+ * sit outside the window (`—` for their share). Only the rows in use pulse
+ * and glow.
+ */
+function everyContextRow(rows: readonly ContextDetailRow[], window: number, T: Palette, tokens?: number): ContextRow[] {
+  const share = (n: number) => fmtShare(window > 0 ? (n / window) * 100 : 0)
+  const row = (r: ContextDetailRow, color: string, used: boolean, tail = share(r.tokens)): ContextRow => ({ key: r.name, text: `${r.name}: ${fmtTokFine(r.tokens)}, ${tail}`, color, live: used, halo: used })
+  const big = (a: ContextDetailRow, b: ContextDetailRow) => b.tokens - a.tokens
+  const used = rows.filter(r => r.kind === 'used')
+  const out: ContextRow[] = []
+  if (tokens != null && window > 0) out.push({ key: 'title', text: `Context window: ${fmtTokFine(tokens)} / ${fmtTokFine(window)} (${Math.round((tokens / window) * 100)}%)`, color: T.text, live: false, halo: false, dot: false })
+  for (const r of used.filter(r => PART_KEY_OF[r.name]).sort(big)) out.push(row(r, T.parts[CONTEXT_PARTS.indexOf(PART_KEY_OF[r.name]!)]!, true))
+  for (const r of used.filter(r => !PART_KEY_OF[r.name]).sort(big)) out.push(row(r, T.parts[CONTEXT_PARTS.indexOf('other')]!, true))
+  for (const r of rows.filter(r => r.kind === 'buffer')) out.push(row(r, T.parts[CONTEXT_PARTS.indexOf('buffer')]!, false))
+  for (const r of rows.filter(r => r.kind === 'free')) out.push(row(r, mix(T.text, T.bg, 0.45), false))
+  for (const r of rows.filter(r => r.kind === 'deferred')) out.push(row(r, mix(T.text, T.bg, 0.45), false, '—'))
   return out
 }
 

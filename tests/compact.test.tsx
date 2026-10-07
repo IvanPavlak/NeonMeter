@@ -7,7 +7,7 @@ import { compactShown } from '../hooks/register'
 import { contextWith, mountBand, partsOf, rowOf, setup, spansOf, start } from './kit'
 
 // The compact button compacts the conversation as /compact does. By default it
-// appears once the context reaches 75% and sits beside the row on the right; it
+// appears once the context reaches 75% and sits at the end of the row; it
 // is colored by the context percent on the same six ranges as everything else.
 const HIGH = { context: { tokens: 160000, window: 200000, percent: 80 } }
 const LOW = { context: { tokens: 128000, window: 200000, percent: 64 } }
@@ -38,7 +38,7 @@ async function piecesOf(ui: Awaited<ReturnType<typeof mountBand>>): Promise<stri
 }
 
 describe('the desktop button', () => {
-  test('it is hidden below 75% and shows, outside on the right, from there on', async ($, on) => {
+  test('it is hidden below 75% and shows, at the end of the row, from there on', async ($, on) => {
     const world = setup(on, { usage: LOW })
     await start($, world)
     const low = await mountBand($, 'desktop', 95)
@@ -48,8 +48,7 @@ describe('the desktop button', () => {
     await $.session.measure({ ...HIGH, rateLimits: [], changed: ['context'] })
     const ui = await mountBand($, 'desktop', 95)
     const pieces = await piecesOf(ui)
-    expect(pieces[0], 'the meter row first').toBe('meter[')
-    expect(pieces.slice(-2), 'then a cell of room and the button').toEqual(['compact-gap', 'compact'])
+    expect(pieces.slice(-2), 'a cell of room, then the button').toEqual(['compact-gap', 'compact'])
     const ring = (await ui.find({ type: 'Box', key: 'compact' }))!.children as FoundElement[]
     const svg = ring.find(c => c.type === 'Svg')!
     expect(String(svg.props.alt)).toBe('Compact the conversation (80% of the context used)')
@@ -68,6 +67,30 @@ describe('the desktop button', () => {
     await ui.unmount()
   })
 
+  test('after the compaction the meter shows the context it left', async ($, on) => {
+    const world = setup(on, { usage: HIGH })
+    await start($, world)
+    const ui = await mountBand($, 'desktop', 95)
+    await ui.press({ key: 'compact-press' })
+    await world.clock.advance(1000)
+    expect(world.compactions).toBe(1)
+    await ui.unmount()
+    // 20k of 200k is 10%: below 75% the button goes, before any response.
+    const after = await mountBand($, 'desktop', 95)
+    expect(await after.find({ type: 'Box', key: 'compact' })).toBeUndefined()
+    await after.unmount()
+  })
+
+  test('in the desktop app, a headless session, a press runs /compact', { options: { compactButton: 'always' } }, async ($, on) => {
+    const world = setup(on, { usage: LOW })
+    world.headless = true
+    await start($, world)
+    const ui = await mountBand($, 'desktop', 95)
+    await ui.press({ key: 'compact-press' })
+    expect(world.commands).toEqual(['compact'])
+    await ui.unmount()
+  })
+
   test('a press during a turn waits for the turn to end', { options: { compactButton: 'always' } }, async ($, on) => {
     const world = setup(on, { usage: LOW })
     await start($, world)
@@ -82,7 +105,6 @@ describe('the desktop button', () => {
   })
 
   for (const [position, expected] of [
-    ['outside-left', (p: string[]) => p.slice(0, 3)],
     ['start', (p: string[]) => p.slice(0, 2)],
     ['end', (p: string[]) => p.slice(-2)],
   ] as const) {
@@ -91,7 +113,7 @@ describe('the desktop button', () => {
       await start($, world)
       const ui = await mountBand($, 'desktop', 95)
       const pieces = await piecesOf(ui)
-      expect(expected(pieces)).toEqual(position === 'outside-left' ? ['compact', 'compact-gap', 'meter['] : position === 'start' ? ['compact', 'compact-gap'] : ['compact-gap', 'compact'])
+      expect(expected(pieces)).toEqual(position === 'start' ? ['compact', 'compact-gap'] : ['compact-gap', 'compact'])
       await ui.unmount()
     })
   }
@@ -136,13 +158,13 @@ describe('the desktop button', () => {
 })
 
 describe('the terminal button', () => {
-  test('outside on the right: two spaces after the row, which keeps its full width', async ($, on) => {
+  test('at the end: a space after the row, inside its width', async ($, on) => {
     const world = setup(on, { usage: HIGH })
     await start($, world)
     const ui = await mountBand($, 'terminal', 120)
     const row = await rowOf(ui)
     expect(row).toHaveLength(120)
-    expect(row.endsWith('  ◉')).toBe(true)
+    expect(row.endsWith(' ◉')).toBe(true)
     const spans = await spansOf(ui)
     const button = spans.find(s => s.button)!
     expect(button).toMatchObject({ text: '◉', color: '#FF5F1F', live: true })
