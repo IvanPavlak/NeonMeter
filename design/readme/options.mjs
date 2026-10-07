@@ -34,12 +34,14 @@ const OUT = new URL('./options/', import.meta.url)
 
 // The account every picture shows, the one the other README graphics show: 82% of the
 // 5-hour window, 18% of the week and 69% of the Fable week, both resetting Sunday 18:00
-// (4560 of 10080 minutes away), and 930k of a 1M context. Fixed strings, not the clock,
-// so the pictures are the same on every run.
+// (4560 of 10080 minutes away), and 930k of a 1M context, broken down by category. Fixed
+// strings, not the clock, so the pictures are the same on every run.
 const FIVE = { kind: 'five_hour', pct: 82, resetMin: 193, resetAt: '21:13' }
 const WEEK = { kind: 'seven_day', pct: 18.2, resetMin: 4560, resetAt: 'Sun 18:00' }
 const FABLE = { kind: 'seven_day', pct: 69, resetMin: 4560, resetAt: 'Sun 18:00', label: { full: 'Fable', short: 'Fab' } }
-const CTX = { pct: 93, tokens: 930000, window: 1000000 }
+const CTX = { pct: 93, tokens: 930000, window: 1000000, parts: { messages: 700000, systemTools: 40000, mcpTools: 120000, skills: 10000, other: 60000, buffer: 33000 } }
+// The same context at 42%, for the pictures of when the compact button shows.
+const CTX_MID = { pct: 42, tokens: 420000, window: 1000000, parts: { messages: 300000, systemTools: 40000, mcpTools: 40000, skills: 10000, other: 30000, buffer: 33000 } }
 
 const DEFAULTS = {
   layout: 'all',
@@ -53,6 +55,12 @@ const DEFAULTS = {
   fiveHourReset: 'countdown',
   weeklyReset: 'countdown',
   resetColor: 'plain',
+  contextBar: 'breakdown',
+  contextPopup: true,
+  compactButton: 'appear',
+  compactAt: 75,
+  compactPosition: 'outside-right',
+  compactGlow: true,
 }
 
 // Every option a picture can show. The pulse options (`pulse`, `pulseMode`, `pulseCount`,
@@ -73,17 +81,39 @@ export const OPTIONS = [
   { key: 'weeklyReset', title: 'Weekly Reset', values: ['countdown', 'clock'], names: ['Time Left', 'Day and Time'] },
   { key: 'resetColor', title: 'Reset Color', values: ['plain', 'time'], names: ['Plain Text', 'Colored by Time Left'] },
   { key: 'timeRanges', title: 'Time Range Bounds (with Reset Color: Time)', values: [DEFAULTS.timeRanges, [50, 60, 70, 80, 90]], names: ['Six Even Steps', 'The Percent Ranges'], base: { resetColor: 'time' } },
+  { key: 'contextBar', title: 'Context Bar', values: ['breakdown', 'percent'], names: ['Split by Category', 'Colored by Its Percent'] },
+  { key: 'contextPopup', title: 'Context Breakdown on Hover (Desktop)', values: [true, false], names: ['Shown over the Context Segment', 'Off'], surfaces: ['desktop'], card: true },
+  { key: 'compactButton', title: 'Compact Button (Context at 42%)', values: ['appear', 'always', 'off'], names: ['Appears from compactAt', 'Always', 'Off'], ctx: CTX_MID },
+  { key: 'compactPosition', title: 'Compact Button Position', values: ['outside-right', 'end', 'context', 'start', 'outside-left'], names: ['Outside, Right', 'Inside, at the End', 'Inside, Before Context', 'Inside, at the Start', 'Outside, Left'] },
+  { key: 'compactGlow', title: 'Compact Button Glow (Desktop)', values: [true, false], names: ['Glow On', 'Glow Off'], surfaces: ['desktop'], base: { segments: ['context'] } },
 ]
 
 const shown = v => (Array.isArray(v) ? v.join(',') : String(v))
 const same = (a, b) => shown(a) === shown(b)
 
+/** Whether the compact button shows for a context, as the hooks module decides (register.tsx `compactShown`). */
+function compactShown(o, ctx) {
+  if (o.compactButton === 'off') return false
+  return o.compactButton === 'always' || ctx.pct >= o.compactAt
+}
+
 /** The band input for a set of options: the account above, with each window's reset display. */
-function inputFor(o) {
+function inputFor(o, ctx = CTX) {
   const asFive = { ...FIVE, resetAs: o.fiveHourReset }
   const week = { ...WEEK, resetAs: o.weeklyReset }
   const fable = { ...FABLE, resetAs: o.weeklyReset }
-  const input = { auth: true, loading: false, stale: false, staleAge: '', windows: [asFive, week, fable], ctx: CTX, segments: o.segments, resetColor: o.resetColor }
+  const input = {
+    auth: true,
+    loading: false,
+    stale: false,
+    staleAge: '',
+    windows: [asFive, week, fable],
+    ctx,
+    segments: o.segments,
+    resetColor: o.resetColor,
+    contextBar: o.contextBar,
+    compact: compactShown(o, ctx) ? o.compactPosition : null,
+  }
   // The default layout's first Weekly turn, or every turn of the single layout, as the hooks module takes them.
   return o.layout === 'single' ? B.singleVariants(input) : B.weeklyVariants(input).slice(0, 1)
 }
@@ -141,7 +171,14 @@ function place(svg, x, y) {
   return { body, w }
 }
 
-/** The desktop row, `rowW` wide, laid out as desktop.tsx's desktopBand lays it out: fixed pieces, and the bars sharing what is left. */
+/** A cell of room on the desktop: the gap between the row and a compact button beside it. */
+const CELL_GAP = 9
+
+/**
+ * The desktop row, `rowW` wide, laid out as desktop.tsx's desktopBand lays it
+ * out: fixed pieces, and the bars sharing what is left. Returns the markup and
+ * where the Context segment starts, where the app hangs its breakdown card.
+ */
 function desktopRow(turn, o, theme, x0, y, rowW) {
   const T = B.THEMES[theme]
   const dim = mix(T.text, T.bg, 0.55)
@@ -152,12 +189,28 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const items = []
   const text = (t, color, extra = {}) => items.push({ kind: 'text', t, color, ...extra })
   const draw = svg => items.push({ kind: 'svg', svg })
+  const compact = row.compact
+  const button = () => draw(D.compactSvg(compact.ring, { ...opts, glow: o.glow && o.compactGlow }))
+  const at = compact ? (compact.position === 'context' && !row.segments.some(s => s.kind === 'ctx') ? 'end' : compact.position) : null
+  if (at === 'outside-left') {
+    button()
+    items.push({ kind: 'space', w: CELL_GAP })
+  }
+  if (at === 'start') {
+    button()
+    text(' ', T.text)
+  }
   let lastWin = -1
   row.segments.forEach((seg, n) => {
     if (seg.kind !== 'ctx') lastWin = n
   })
   row.segments.forEach((seg, n) => {
     if (n > 0) text(' │ ', dim)
+    if (seg.kind === 'ctx') items.push({ kind: 'mark' })
+    if (at === 'context' && seg.kind === 'ctx') {
+      button()
+      text(' ', T.text)
+    }
     text(seg.label + ' ', T.text)
     if (seg.dots) items.push({ kind: 'grow', svg: D.dotBarSvg(seg.dots, opts) })
     else if (seg.bar) items.push({ kind: 'grow', svg: D.smoothBarSvg(seg.bar, opts) })
@@ -170,7 +223,15 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
     } else if (seg.extra) text(' ' + seg.extra, T.text)
     if (n === lastWin && row.stale) text('  ' + row.stale.text, dim, { italic: true })
   })
-  const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
+  if (at === 'end') {
+    text(' ', T.text)
+    button()
+  }
+  if (at === 'outside-right') {
+    items.push({ kind: 'space', w: CELL_GAP })
+    button()
+  }
+  const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : it.kind === 'space' ? it.w : it.kind === 'mark' ? 0 : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
   const fixed = items.filter(it => it.kind !== 'grow').reduce((n, it) => n + width(it), 0)
   const grows = items.filter(it => it.kind === 'grow').length
   const growW = grows ? Math.max(0, (rowW - fixed) / grows) : 0
@@ -178,8 +239,13 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const baseline = y + D.MIDLINE * SCALE + TEXT_SIZE * D.BASELINE_DROP
   let x = x0
   let out = ''
+  let ctxX = null
   for (const it of items) {
-    if (it.kind === 'text') {
+    if (it.kind === 'mark') {
+      ctxX = x
+    } else if (it.kind === 'space') {
+      x += it.w
+    } else if (it.kind === 'text') {
       const w = width(it)
       if (it.t.trim()) {
         const style = (it.bold ? ' font-weight="700"' : '') + (it.italic ? ' font-style="italic"' : '')
@@ -196,7 +262,25 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       x += placed.w
     }
   }
-  return out
+  return { out, ctxX, context: row.context ?? null, opts }
+}
+
+// The hover card's ground and border, as register.tsx's CARD draws them.
+const CARD = { dark: { background: '#20201F', border: '#373736' }, light: { background: '#FFFFFF', border: '#D9D7D0' } }
+const CARD_PAD = 9
+const CARD_ROW = 22
+
+/** The breakdown card the app shows over the Context segment, its rows drawn by drawings.ts, its bottom at `bottom`. */
+function contextCard(context, opts, theme, x, bottom) {
+  const placed = context.map(r => place(D.contextRowSvg(r, opts), 0, 0))
+  const w = Math.max(...placed.map(p => p.w)) + 2 * CARD_PAD
+  const h = context.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT)
+  const top = bottom - h
+  let out = `<rect x="${x.toFixed(2)}" y="${top}" width="${w.toFixed(2)}" height="${h}" rx="8" fill="${CARD[theme].background}" stroke="${CARD[theme].border}"/>`
+  context.forEach((r, k) => {
+    out += place(D.contextRowSvg(r, opts), x + CARD_PAD, top + CARD_PAD + k * CARD_ROW).body
+  })
+  return { out, h }
 }
 
 /** The terminal row: the builder's spans, each pinned to its cells. */
@@ -221,15 +305,24 @@ const PANEL = {
   light: { box: '#F6F8FA', line: '#D0D7DE', caption: '#656D76', key: '#1F2328' },
 }
 
-/** The desktop rows in a rounded box, as the app holds its band above the prompt; returns the markup and its height. */
-function desktopBox(turns, o, theme, y) {
+/**
+ * The desktop rows in a rounded box, as the app holds its band above the
+ * prompt; with `card`, the breakdown card the app shows while the pointer is
+ * over the Context segment, open above it. Returns the markup and its height.
+ */
+function desktopBox(turns, o, theme, y, card = false) {
   const P = PANEL[theme]
+  const rows = turns.map((t, k) => desktopRow(t, o, theme, PAD + DESK_PAD, 0, W - 2 * PAD - 2 * DESK_PAD))
+  const open = card && o.contextPopup ? rows.find(r => r.context && r.ctxX !== null) : null
+  const cardH = open ? open.context.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : 0
+  const boxY = y + cardH
   const h = 2 * DESK_PAD + (turns.length - 1) * DESK_ROW + D.DISPLAY_HEIGHT
-  let out = `<rect x="${PAD}" y="${y}" width="${W - 2 * PAD}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
+  let out = `<rect x="${PAD}" y="${boxY}" width="${W - 2 * PAD}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
   turns.forEach((t, k) => {
-    out += desktopRow(t, o, theme, PAD + DESK_PAD, y + DESK_PAD + k * DESK_ROW, W - 2 * PAD - 2 * DESK_PAD)
+    out += desktopRow(t, o, theme, PAD + DESK_PAD, boxY + DESK_PAD + k * DESK_ROW, W - 2 * PAD - 2 * DESK_PAD).out
   })
-  return { out, h }
+  if (open) out += contextCard(open.context, open.opts, theme, open.ctxX, boxY - 8).out
+  return { out, h: h + cardH }
 }
 
 /** The terminal rows in a terminal box, as terminal.svg draws one; returns the markup and its height. */
@@ -268,7 +361,7 @@ function picture(option, theme) {
     body += `<text x="${W / 2}" y="${y + 13}" ${SANS} font-size="13" font-weight="600" fill="${P.caption}" text-anchor="middle">${esc(name)}</text>`
     body += `<text x="${W / 2}" y="${y + 30}" ${MONO} font-size="12" fill="${P.caption}" fill-opacity="0.75" text-anchor="middle" xml:space="preserve">${esc(setting)}</text>`
     y += 40
-    const turns = inputFor(o)
+    const turns = inputFor(o, option.ctx ?? CTX)
     // Each surface under a small label of its own, the terminal set a little apart.
     const surfaceLabel = (text) => {
       body += `<text x="${PAD}" y="${y + 11}" ${SANS} font-size="11" font-weight="600" letter-spacing="0.6" fill="${P.caption}" fill-opacity="0.8">${text}</text>`
@@ -276,7 +369,7 @@ function picture(option, theme) {
     }
     if (surfaces.includes('desktop')) {
       surfaceLabel('DESKTOP APP')
-      const box = desktopBox(turns, o, theme, y)
+      const box = desktopBox(turns, o, theme, y, option.card)
       body += box.out
       y += box.h
     }

@@ -18,6 +18,36 @@ export type Palette = {
   neutral: string
   /** The six neon range colors, in range order. */
   ramp: readonly string[]
+  /** The six context category colors, in `CONTEXT_PARTS` order. */
+  parts: readonly string[]
+}
+
+/**
+ * The context's categories as the desktop app's own breakdown lists them, in
+ * its order: the five that fill the window, then the autocompact buffer, the
+ * room the engine keeps free for compacting.
+ */
+export const CONTEXT_PARTS = ['messages', 'systemTools', 'mcpTools', 'skills', 'other', 'buffer'] as const
+export type ContextPartKey = (typeof CONTEXT_PARTS)[number]
+
+/** Each category's name, as the desktop app's breakdown spells it. */
+export const CONTEXT_PART_LABELS: Record<ContextPartKey, string> = {
+  messages: 'Messages',
+  systemTools: 'System tools',
+  mcpTools: 'MCP tools',
+  skills: 'Skills',
+  other: 'Other',
+  buffer: 'Autocompact buffer',
+}
+
+/**
+ * The default category colors per theme: the desktop app's own hues (blue,
+ * orange, green, amber, and grey for the buffer) in the band's neon, lime for
+ * the rest, which the app draws in no color of its own.
+ */
+export const DEFAULT_PART_COLORS: Record<Theme, readonly string[]> = {
+  dark: ['#1E90FF', '#FF5F1F', '#00D45A', '#FFF01F', '#39FF14', '#6E7681'],
+  light: ['#1874D2', '#E84A00', '#139A43', '#A89200', '#32A800', '#8C959F'],
 }
 
 export const THEMES: Record<Theme, Palette> = {
@@ -27,6 +57,7 @@ export const THEMES: Record<Theme, Palette> = {
     track: '#21262D',
     neutral: '#6E7681',
     ramp: ['#1E90FF', '#39FF14', '#00D45A', '#FFF01F', '#FF5F1F', '#FF073A'],
+    parts: DEFAULT_PART_COLORS.dark,
   },
   light: {
     bg: '#FFFFFF',
@@ -34,6 +65,7 @@ export const THEMES: Record<Theme, Palette> = {
     track: '#EBEDF0',
     neutral: '#8C959F',
     ramp: ['#1874D2', '#32A800', '#139A43', '#A89200', '#E84A00', '#E8001F'],
+    parts: DEFAULT_PART_COLORS.light,
   },
 }
 
@@ -71,15 +103,27 @@ export function timeRangeBounds(): readonly number[] {
 
 /**
  * Sets the configurable parts of the design for this activation: the five
- * range bounds, the five time range bounds, the six colors per theme and the
- * bar cell. Anything left out is the default, so calling it with nothing
- * restores the design.
+ * range bounds, the five time range bounds, the six range colors and the six
+ * context category colors per theme, and the bar cell. Anything left out is
+ * the default, so calling it with nothing restores the design.
  */
-export function configureDesign(design: { bounds?: readonly number[]; timeBounds?: readonly number[]; dark?: readonly string[]; light?: readonly string[]; cell?: string } = {}): void {
+export function configureDesign(
+  design: {
+    bounds?: readonly number[]
+    timeBounds?: readonly number[]
+    dark?: readonly string[]
+    light?: readonly string[]
+    partsDark?: readonly string[]
+    partsLight?: readonly string[]
+    cell?: string
+  } = {},
+): void {
   bounds = design.bounds ?? DEFAULT_BOUNDS
   timeBounds = design.timeBounds ?? DEFAULT_TIME_BOUNDS
   THEMES.dark.ramp = design.dark ?? DEFAULT_RAMPS.dark
   THEMES.light.ramp = design.light ?? DEFAULT_RAMPS.light
+  THEMES.dark.parts = design.partsDark ?? DEFAULT_PART_COLORS.dark
+  THEMES.light.parts = design.partsLight ?? DEFAULT_PART_COLORS.light
   CELL = design.cell ?? DEFAULT_CELL
 }
 
@@ -110,6 +154,15 @@ export type BarColoring = 'level' | 'ramp'
 export type ResetAs = 'countdown' | 'clock'
 /** `time` colors a window's reset by how much of the window is still to run; `plain` draws it in the text color. */
 export type ResetColor = 'plain' | 'time'
+/** `breakdown` splits the context bar into its categories; `percent` colors it by its percent, as every other bar. */
+export type ContextBar = 'breakdown' | 'percent'
+/**
+ * Where the compact button sits: `outside-left` and `outside-right` beside
+ * the row, which keeps its own layout whatever it shows; `start`, `context`
+ * and `end` inside it, before the first segment, before the Context segment
+ * and after the last, taking room from the bars like any other piece.
+ */
+export type CompactPosition = 'outside-left' | 'start' | 'context' | 'end' | 'outside-right'
 
 /** One run of same-styled characters. `color` is final: blends are applied. */
 export type Span = {
@@ -119,6 +172,8 @@ export type Span = {
   italic?: boolean
   /** A live cell run or percent: it pulses in its own color. */
   live?: boolean
+  /** The compact button's cell: a press on it compacts the conversation. */
+  button?: boolean
 }
 
 /** A segment's label in place of the kind's own, for each tier width. */
@@ -144,6 +199,12 @@ export type ContextInput = {
   /** Null before the first response: all cells empty and `--`. */
   tokens: number | null
   window: number
+  /**
+   * The window by category, in tokens (the engine's estimates, as /context
+   * counts them): absent until the engine gave a breakdown, and then the bar
+   * is colored by its percent whatever `contextBar` says.
+   */
+  parts?: Readonly<Record<ContextPartKey, number>>
 }
 
 /** The order the `segments` option speaks in; `spend` and `context` map to the builder's kinds. */
@@ -163,6 +224,10 @@ export type BandInput = {
   segments: readonly OptionSegment[]
   /** `time` colors each window's reset by the share of the window still to run (live, faded when stale); `plain` or absent, the text color. */
   resetColor?: ResetColor
+  /** How the context bar is colored; absent, by its percent. */
+  contextBar?: ContextBar
+  /** Where the compact button sits; absent or null, no button. */
+  compact?: CompactPosition | null
 }
 
 type Segment = {
@@ -177,6 +242,8 @@ type Segment = {
   stale?: boolean
   tokens?: number | null
   window?: number
+  /** The context bar's categories, when it is split by them. */
+  parts?: Readonly<Record<ContextPartKey, number>>
 }
 
 type Pieces = { label: string; pct: string; extra: string }
@@ -291,7 +358,9 @@ function segmentsOf(s: BandInput): Segment[] {
     }
   }
   if (s.ctx) {
-    all.push({ kind: 'ctx', pct: s.ctx.tokens == null ? null : s.ctx.pct, tokens: s.ctx.tokens, window: s.ctx.window, hasBar: true })
+    const ctx: Segment = { kind: 'ctx', pct: s.ctx.tokens == null ? null : s.ctx.pct, tokens: s.ctx.tokens, window: s.ctx.window, hasBar: true }
+    if (s.contextBar === 'breakdown' && s.ctx.parts && s.ctx.tokens != null) ctx.parts = s.ctx.parts
+    all.push(ctx)
   }
   // The `segments` option filters and orders; a kind the account has no segment for is skipped.
   const out: Segment[] = []
@@ -393,9 +462,94 @@ function filledCells(seg: Segment, len: number, T: Palette, bars: BarColoring): 
   return { colors, live: !seg.stale, op: seg.stale ? 0.45 : 1 }
 }
 
+/** The context's tokens in the five categories that fill the window. */
+function usedOf(parts: Readonly<Record<ContextPartKey, number>>): number {
+  let used = 0
+  for (const key of CONTEXT_PARTS) if (key !== 'buffer') used += Math.max(0, parts[key])
+  return used
+}
+
+/** The autocompact buffer's share of the bar, in hundredths, within what the percent leaves. */
+function bufferShare(seg: Segment, pct: number): number {
+  const parts = seg.parts!
+  const share = seg.window ? (Math.max(0, parts.buffer) / seg.window) * 100 : 0
+  return Math.max(0, Math.min(100 - pct, share))
+}
+
+/** One cell of a context bar split by category: its color, whether it pulses and whether it glows. */
+type PartCell = { color: string; live: boolean; halo: boolean }
+
+/**
+ * The filled cells of a context bar of `len` split by category: the percent's
+ * cells shared among the five used categories in proportion to their tokens
+ * (largest remainder, in the breakdown's order), then the autocompact buffer's
+ * cells, still and without a halo, as the room kept free is not use. Null
+ * when the breakdown names no use, so the bar is colored by its percent.
+ */
+function partCells(seg: Segment, len: number, T: Palette): PartCell[] | null {
+  const parts = seg.parts
+  if (!parts) return null
+  const used = usedOf(parts)
+  if (used <= 0) return null
+  const pct = seg.pct == null ? 0 : Math.min(seg.pct, 100)
+  const f = pct <= 0 ? 0 : Math.max(1, Math.round((pct / 100) * len))
+  const keys = CONTEXT_PARTS.filter(k => k !== 'buffer')
+  const quotas = keys.map(k => (f * Math.max(0, parts[k])) / used)
+  const counts = quotas.map(Math.floor)
+  let left = f - counts.reduce((a, b) => a + b, 0)
+  const order = quotas.map((q, i) => ({ i, rest: q - Math.floor(q) })).sort((a, b) => b.rest - a.rest || a.i - b.i)
+  for (const { i } of order) {
+    if (left <= 0) break
+    counts[i]! += 1
+    left -= 1
+  }
+  const out: PartCell[] = []
+  keys.forEach((k, i) => {
+    for (let n = 0; n < counts[i]!; n++) out.push({ color: T.parts[CONTEXT_PARTS.indexOf(k)]!, live: true, halo: true })
+  })
+  const buffer = Math.min(len - out.length, Math.round((bufferShare(seg, pct) / 100) * len))
+  for (let n = 0; n < buffer; n++) out.push({ color: T.parts[5]!, live: false, halo: false })
+  return out
+}
+
+/** The slices of a context bar split by category, weights in hundredths of the bar (see `partCells`). */
+function partSlices(seg: Segment, T: Palette): FlexSlice[] | null {
+  const parts = seg.parts
+  if (!parts) return null
+  const used = usedOf(parts)
+  if (used <= 0) return null
+  const pct = seg.pct == null ? 0 : Math.min(seg.pct, 100)
+  const out: FlexSlice[] = []
+  CONTEXT_PARTS.forEach((k, i) => {
+    if (k === 'buffer' || parts[k] <= 0 || pct <= 0) return
+    out.push({ grow: (pct * parts[k]) / used, color: T.parts[i]!, live: true })
+  })
+  const buffer = bufferShare(seg, pct)
+  if (buffer > 0) out.push({ grow: buffer, color: T.parts[5]!, halo: false })
+  if (pct + buffer < 100) out.push({ grow: 100 - pct - buffer, color: T.track })
+  return out
+}
+
 function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarColoring): void {
   if (seg.loading) {
     out.push(sp(T, rep(CELL, len), T.neutral, { live: true }))
+    return
+  }
+  const cells = partCells(seg, len, T)
+  if (cells) {
+    // Cells of one color and liveness become one span.
+    let run = ''
+    let at: PartCell | null = null
+    for (const c of cells) {
+      if (at && (c.color !== at.color || c.live !== at.live)) {
+        out.push(sp(T, run, at.color, { live: at.live }))
+        run = ''
+      }
+      at = c
+      run += CELL
+    }
+    if (run && at) out.push(sp(T, run, at.color, { live: at.live }))
+    if (len - cells.length > 0) out.push(sp(T, rep(CELL, len - cells.length), T.track))
     return
   }
   const { colors, live, op } = filledCells(seg, len, T, bars)
@@ -414,7 +568,11 @@ function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarCo
   if (len - colors.length > 0) out.push(sp(T, rep(CELL, len - colors.length), T.track))
 }
 
-function layoutBars(segs: Segment[], tier: Tier, s: BandInput, cols: number, T: Palette, bars: BarColoring): Span[] | null {
+/**
+ * The layouts below fill `starts` with the index of the span each segment's
+ * label opens with (after its separator), where the compact button can go.
+ */
+function layoutBars(segs: Segment[], tier: Tier, s: BandInput, cols: number, T: Palette, bars: BarColoring, starts: number[] = []): Span[] | null {
   const min = tier === 'full' ? 8 : 4
   const parts = segs.map((seg, i) => piecesOf(seg, tier, i === segs.length - 1))
   const staleTxt = s.stale && s.auth && !s.loading ? '  stale ' + s.staleAge : ''
@@ -440,6 +598,7 @@ function layoutBars(segs: Segment[], tier: Tier, s: BandInput, cols: number, T: 
   segs.forEach((seg, i) => {
     const p = parts[i]!
     if (i) out.push(sp(T, ' │ ', T.text, { op: 0.4 }))
+    starts[i] = out.length
     out.push(sp(T, p.label + ' ', T.text))
     if (seg.hasBar) {
       pushBar(out, seg, base + (k < rem ? 1 : 0), T, bars)
@@ -454,7 +613,7 @@ function layoutBars(segs: Segment[], tier: Tier, s: BandInput, cols: number, T: 
   return out
 }
 
-function layoutJustified(segs: Segment[], tier: Tier, cols: number, T: Palette, force: boolean, color: ResetColor | undefined): Span[] | null {
+function layoutJustified(segs: Segment[], tier: Tier, cols: number, T: Palette, force: boolean, color: ResetColor | undefined, starts: number[] = []): Span[] | null {
   const parts = segs.map(seg => piecesOf(seg, tier, true))
   let total = 0
   parts.forEach(p => {
@@ -472,6 +631,7 @@ function layoutJustified(segs: Segment[], tier: Tier, cols: number, T: Palette, 
       out.push(sp(T, rep(' ', left) + '·' + rep(' ', g - 1 - left), T.text, { op: 0.4 }))
     }
     const pc = pctColor(seg, T)
+    starts[i] = out.length
     out.push(sp(T, p.label + ' ', T.text))
     out.push(sp(T, p.pct, pc.color, { live: pc.live, op: pc.op, bold: true }))
     if (p.extra) out.push(extraSpan(T, seg, p.extra, color))
@@ -503,21 +663,49 @@ export function band(s: BandInput, cols: number, theme: Theme, bars: BarColoring
   const T = THEMES[theme]
   const segs = segmentsOf(s)
   if (!segs.length) return null
-  let spans = layoutBars(segs, 'full', s, cols, T, bars)
+  // The compact button takes its cell and a gap: one space inside the row, two beside it.
+  const button = s.compact && s.ctx && s.ctx.tokens != null ? compactSpan(s.ctx, T) : null
+  const outside = s.compact === 'outside-left' || s.compact === 'outside-right'
+  const width = button ? Math.max(1, cols - (outside ? 3 : 2)) : cols
+  const starts: number[] = []
+  let spans = layoutBars(segs, 'full', s, width, T, bars, starts)
   let tier: Tier = 'full'
   if (!spans) {
-    spans = layoutBars(segs, 'compact', s, cols, T, bars)
+    spans = layoutBars(segs, 'compact', s, width, T, bars, starts)
     tier = 'compact'
   }
   if (!spans) {
-    spans = layoutJustified(segs, 'narrow', cols, T, false, s.resetColor)
+    spans = layoutJustified(segs, 'narrow', width, T, false, s.resetColor, starts)
     tier = 'narrow'
   }
   if (!spans) {
-    spans = truncate(layoutJustified(segs, 'micro', cols, T, true, s.resetColor)!, cols)
+    spans = truncate(layoutJustified(segs, 'micro', width, T, true, s.resetColor, starts)!, width)
     tier = 'micro'
   }
+  if (button) spans = placeButton(spans, s.compact!, button, T, starts[segs.findIndex(seg => seg.kind === 'ctx')])
   return { tier, spans }
+}
+
+/** The compact button's cell: `◉` in the context percent's range color, pulsing with the band. */
+export const COMPACT_GLYPH = '◉'
+
+function compactSpan(ctx: ContextInput, T: Palette): Span {
+  return { text: COMPACT_GLYPH, color: T.ramp[rampIndex(ctx.pct)]!, bold: true, live: true, button: true }
+}
+
+/**
+ * The row with the compact button in its place: beside the row two spaces
+ * away (`outside-left`, `outside-right`), or within it one space from its
+ * neighbor (`start`, before the Context segment's label at `ctxStart`, `end`).
+ * Without a Context segment in the row, `context` is the end.
+ */
+function placeButton(spans: Span[], at: CompactPosition, button: Span, T: Palette, ctxStart: number | undefined): Span[] {
+  const gap = (n: number) => sp(T, rep(' ', n), T.text)
+  if (at === 'outside-left') return [button, gap(2), ...spans]
+  if (at === 'start') return [button, gap(1), ...spans]
+  if (at === 'context' && ctxStart !== undefined && ctxStart < spans.length) return [...spans.slice(0, ctxStart), button, gap(1), ...spans.slice(ctxStart)]
+  if (at === 'outside-right') return [...spans, gap(2), button]
+  return [...spans, gap(1), button]
 }
 
 /** The row's characters alone, what the golden rows compare against. */
@@ -533,11 +721,11 @@ export function textOf(spans: readonly Span[]): string {
 // every bar has a total weight of 100, its filled part colored by range.
 // ---------------------------------------------------------------------------
 
-/** One stretch of a desktop bar: `grow` of 100, in `color`; `live` pulses. */
-export type FlexSlice = { grow: number; color: string; live?: boolean }
+/** One stretch of a desktop bar: `grow` of 100, in `color`; `live` pulses; `halo: false` draws it without a halo (the autocompact buffer). */
+export type FlexSlice = { grow: number; color: string; live?: boolean; halo?: false }
 
-/** One dot of a desktop dot bar. */
-export type FlexDot = { color: string; live?: boolean }
+/** One dot of a desktop dot bar; `halo: false` draws it without a halo. */
+export type FlexDot = { color: string; live?: boolean; halo?: false }
 
 export type FlexSegment = {
   kind: SegmentKind
@@ -553,16 +741,32 @@ export type FlexSegment = {
   extraSpan?: Span
 }
 
+/**
+ * The compact button as the desktop draws it: where it sits, its ring (the
+ * context percent as slices of 100, colored as the bars are) and its label
+ * for a reader of the drawing.
+ */
+export type FlexCompact = { position: CompactPosition; ring: FlexSlice[]; label: string }
+
+/** One row of the context breakdown the desktop shows on hover: `Messages: 25.5k, 2.6%` in its category color. */
+export type ContextRow = { key: ContextPartKey; text: string; color: string; live: boolean; halo: boolean }
+
 export type FlexRow = {
   segments: FlexSegment[]
   text: string
   separator: string
   /** The stale marker after the last window segment, when the reading is stale. */
   stale: Span | null
+  /** The compact button, when it shows. */
+  compact?: FlexCompact
+  /** The context breakdown's rows, when the context bar is split by category. */
+  context?: ContextRow[]
 }
 
 function slicesOf(seg: Segment, T: Palette, bars: BarColoring): FlexSlice[] {
   if (seg.loading) return [{ grow: 100, color: T.neutral, live: true }]
+  const split = partSlices(seg, T)
+  if (split) return split
   const pct = seg.pct == null ? 0 : Math.min(seg.pct, 100)
   const live = !seg.stale
   const op = seg.stale ? 0.45 : 1
@@ -583,6 +787,12 @@ function slicesOf(seg: Segment, T: Palette, bars: BarColoring): FlexSlice[] {
 /** A bar of `len` dots, colored exactly as the terminal's cells are (`filledCells`). */
 function dotsOf(seg: Segment, len: number, T: Palette, bars: BarColoring): FlexDot[] {
   if (seg.loading) return Array.from({ length: len }, () => ({ color: T.neutral, live: true }))
+  const cells = partCells(seg, len, T)
+  if (cells) {
+    const out: FlexDot[] = cells.map(c => (c.live ? { color: c.color, live: true } : c.halo ? { color: c.color } : { color: c.color, halo: false }))
+    while (out.length < len) out.push({ color: T.track })
+    return out
+  }
   const { colors, live, op } = filledCells(seg, len, T, bars)
   const out: FlexDot[] = colors.map(c => (live ? { color: mix(c, T.bg, op), live: true } : { color: mix(c, T.bg, op) }))
   while (out.length < len) out.push({ color: T.track })
@@ -630,7 +840,48 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
     return out
   })
   const staleTxt = s.stale && s.auth && !s.loading && lastWin >= 0 ? sp(T, 'stale ' + s.staleAge, T.text, { italic: true, op: 0.7 }) : null
-  return { segments, text: T.text, separator: mix(T.text, T.bg, 0.4), stale: staleTxt }
+  const row: FlexRow = { segments, text: T.text, separator: mix(T.text, T.bg, 0.4), stale: staleTxt }
+  const ring = s.compact && s.ctx ? compactRing(s.ctx, T, bars) : null
+  if (ring) row.compact = { position: s.compact!, ring, label: `Compact the conversation (${Math.round(s.ctx!.pct)}% of the context used)` }
+  // The hover card hangs on the Context segment, whichever way its bar is colored.
+  if (s.ctx?.parts && s.ctx.tokens != null && usedOf(s.ctx.parts) > 0 && segs.some(seg => seg.kind === 'ctx')) row.context = contextRows(s.ctx.parts, s.ctx.window, T)
+  return row
+}
+
+/** The compact button's ring: the context percent as a bar's slices, colored by `barColoring`; null before the first response. */
+function compactRing(ctx: ContextInput, T: Palette, bars: BarColoring): FlexSlice[] | null {
+  if (ctx.tokens == null) return null
+  return slicesOf({ kind: 'ctx', pct: ctx.pct, tokens: ctx.tokens, window: ctx.window, hasBar: true }, T, bars)
+}
+
+/** Tokens as the desktop app's own breakdown writes them: `850`, `6.7k`, `25.5k`, `33k`, `1.2M`. */
+export function fmtTokFine(n: number): string {
+  if (n >= 1_000_000) return +(n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1000) return +(n / 1000).toFixed(1) + 'k'
+  return String(Math.round(n))
+}
+
+/** A share of the window to two significant digits, halves up, as the desktop app writes it: `2.6%`, `0.67%`, `29%`. */
+export function fmtShare(pct: number): string {
+  // A hair over the value, so 2.55 (which binary keeps as 2.5499...) rounds up as written.
+  return pct > 0 ? +(pct * (1 + 1e-9)).toPrecision(2) + '%' : '0%'
+}
+
+/**
+ * The breakdown's rows in the desktop app's order, one per category that
+ * holds tokens: `Messages: 25.5k, 2.6%`, the share of the whole window. The
+ * used ones pulse and glow as the bar's slices do; the autocompact buffer is
+ * the room kept free, still and without a halo.
+ */
+export function contextRows(parts: Readonly<Record<ContextPartKey, number>>, window: number, T: Palette): ContextRow[] {
+  const out: ContextRow[] = []
+  CONTEXT_PARTS.forEach((key, i) => {
+    const tokens = Math.max(0, parts[key])
+    if (tokens <= 0) return
+    const used = key !== 'buffer'
+    out.push({ key, text: `${CONTEXT_PART_LABELS[key]}: ${fmtTokFine(tokens)}, ${fmtShare(window > 0 ? (tokens / window) * 100 : 0)}`, color: T.parts[i]!, live: used, halo: used })
+  })
+  return out
 }
 
 // ---------------------------------------------------------------------------
@@ -696,7 +947,8 @@ export function singleVariants(input: BandInput): BandInput[] {
  * at 75% so the dots keep a little air between them instead of overflowing.
  */
 export function desktopDotCount(row: FlexRow, bodyColumns: number): number {
-  let text = (row.segments.length - 1) * 3 + (row.stale ? row.stale.text.length + 2 : 0)
+  // The compact button's drawing and its gap take about three characters.
+  let text = (row.segments.length - 1) * 3 + (row.stale ? row.stale.text.length + 2 : 0) + (row.compact ? 3 : 0)
   let bars = 0
   for (const seg of row.segments) {
     text += seg.label.length + 1 + seg.pct.text.length + (seg.extra ? seg.extra.length + 1 : 0)

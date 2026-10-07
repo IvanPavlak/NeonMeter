@@ -4,7 +4,7 @@
 // plugin: an op event answers `{ value }`, a lifecycle event its result.
 
 import type { On, SessionUsage } from 'claude-code'
-import { mock } from 'claude-code/testing'
+import { expect, mock } from 'claude-code/testing'
 import type { Engine, FoundElement, MockClock, Mounted } from 'claude-code/testing'
 
 import type { BandProps, Span } from '../hooks/band'
@@ -34,6 +34,10 @@ export type World = {
   hangMs: number
   /** The store entries the plugin started with (`mock.store` keeps its own copy; writes are not visible here). */
   store: Record<string, unknown>
+  /** What `$.session.usage()` answers over the defaults; a test reassigns it, its context's breakdown included. */
+  usage: Partial<SessionUsage>
+  /** Every `$.session.compact()` the plugin made. */
+  compactions: number
 }
 
 export type Auth = 'bearer' | 'api-key' | null
@@ -99,13 +103,19 @@ export function setup(on: On, options: Setup = {}): World {
     hang: false,
     hangMs: 10_000,
     store,
+    usage: { ...options.usage },
+    compactions: 0,
   }
   const auth: Auth = options.auth === undefined ? 'bearer' : options.auth
 
   on('session.authorize', () => ({ value: auth ? { handle: HANDLE, kind: auth } : null }))
   on('session.usage', () => ({
-    value: { startedAt: NOW - HOUR, context: CONTEXT, rateLimits: [], ...options.usage },
+    value: { startedAt: NOW - HOUR, context: CONTEXT, rateLimits: [], ...world.usage },
   }))
+  on('session.compact', () => {
+    world.compactions += 1
+    return { messages: [] }
+  })
   on('config.list', () => ({
     value: [
       {
@@ -169,13 +179,13 @@ export async function ruleOf(ui: Drawing) {
   return texts.find(t => /^─+$/.test(t.text))
 }
 
-export function bandProps(bodyColumns: number, hasSurvey = false) {
+export function bandProps(bodyColumns: number, hasSurvey = false, isWorking = false) {
   return {
     plugin: 'neonmeter',
     component: 'AbovePrompt',
     props: {
       hasSurvey,
-      isWorking: false,
+      isWorking,
       maxRows: 4,
       bodyColumns,
       scroll: { offset: 0, bodyRows: 4 },
@@ -186,10 +196,37 @@ export function bandProps(bodyColumns: number, hasSurvey = false) {
 
 export type Drawing = Mounted<Surface, 'AbovePrompt'>
 
-/** Mounts the band so that its row is `rowColumns` wide on `surface`. */
-export async function mountBand($: Engine, surface: Surface, rowColumns: number, hasSurvey = false): Promise<Drawing> {
-  return $.ui.mount({ ...bandProps(bodyColumnsFor(surface, rowColumns), hasSurvey), surface })
+/** Mounts the band so that its row is `rowColumns` wide on `surface`; `isWorking` mounts it while a turn runs. */
+export async function mountBand($: Engine, surface: Surface, rowColumns: number, hasSurvey = false, isWorking = false): Promise<Drawing> {
+  return $.ui.mount({ ...bandProps(bodyColumnsFor(surface, rowColumns), hasSurvey, isWorking), surface })
 }
+
+/** One /context row as the engine's breakdown lists it: its name, tokens and kind. */
+export type BreakdownRow = [name: string, tokens: number, kind?: 'used' | 'free' | 'buffer' | 'deferred']
+
+/**
+ * A context usage with its breakdown, as `$.session.usage({ breakdown })`
+ * answers: `tokens` of `window` in use, broken down into `rows`.
+ */
+export function contextWith(tokens: number, window: number, rows: readonly BreakdownRow[]): SessionUsage['context'] {
+  const categories = rows.map(([name, rowTokens, kind = 'used']) => ({ name, tokens: rowTokens, color: 'inactive', isDeferred: kind === 'deferred', kind }))
+  const breakdown = { categories, totalTokens: tokens, maxTokens: window, rawMaxTokens: window, autocompactSource: 'auto', percentage: Math.round((tokens / window) * 100), gridRows: [], model: 'test', memoryFiles: [], mcpTools: [], agents: [], isAutoCompactEnabled: true, apiUsage: null }
+  return { tokens, window, percent: Math.round((tokens / window) * 100), breakdown } as SessionUsage['context']
+}
+
+/** The desktop app's own example: 73k of 1M, as its context indicator broke it down. */
+export const BREAKDOWN_ROWS: readonly BreakdownRow[] = [
+  ['System prompt', 4100],
+  ['System tools', 24300],
+  ['MCP tools', 11800],
+  ['MCP server instructions', 600],
+  ['MCP tools (deferred)', 64300, 'deferred'],
+  ['Memory files', 900],
+  ['Skills', 6700],
+  ['Messages', 25500],
+  ['Autocompact buffer', 33000, 'buffer'],
+  ['Free space', 893100, 'free'],
+]
 
 type Node = { type?: string; props?: Record<string, unknown>; children?: unknown[] } | string
 
@@ -253,18 +290,32 @@ export function partsOf(markup: string, role: string): Part[] {
   return out
 }
 
-/** The pulse's peak color of a drawing's part, the middle value of its SMIL `fill` animation; undefined when it does not pulse. */
+/** The pulse's peak color of a drawing's part, the middle value of its SMIL color animation (`C;P;C`); undefined when it does not pulse. */
 export function peakOf(markup: string): string | undefined {
   for (const m of markup.matchAll(/<animate\b([^>]*)\/>/g)) {
     const name = /attributeName="([^"]*)"/.exec(m[1]!)?.[1]
     const values = /values="([^"]*)"/.exec(m[1]!)?.[1]
-    // The peak is the middle value: of `C;P;C`, or of a stepped cycle, an even number of steps.
-    if (name === 'fill' && values) {
+    if ((name === 'fill' || name === 'stroke' || name === 'stop-color') && values) {
       const steps = values.split(';')
       return steps[Math.floor(steps.length / 2)]
     }
   }
   return undefined
+}
+
+/** The color a drawn part paints: its own fill, or, for a live part filled with a shared paint (`url(#p0)`), its `data-color`. */
+export function colorOfPart(part: Part): string {
+  return part.attrs['data-color'] ?? part.attrs.fill ?? part.attrs.stroke ?? ''
+}
+
+/** A drawn part's pulse peak: its own color animation's, or that of the shared paint it fills with; undefined when it holds still. */
+export function peakOfPart(markup: string, part: Part): string | undefined {
+  const own = peakOf(part.inner)
+  if (own) return own
+  const id = /^url\(#(\w+)\)$/.exec(part.attrs.fill ?? part.attrs.stroke ?? '')?.[1]
+  if (!id) return undefined
+  const paint = new RegExp(`<linearGradient id="${id}">([\\s\\S]*?)</linearGradient>`).exec(markup)
+  return paint ? peakOf(paint[1]!) : undefined
 }
 
 /** The Client's props: the spans with their live flags, and the pulse settings. */
@@ -287,7 +338,7 @@ export async function dotBarsOf(ui: Drawing): Promise<DotBar[]> {
     .filter(s => s.key.startsWith('dots-'))
     .map(s => {
       const dots = partsOf(s.source, 'dot')
-      return { kind: s.key.slice(5), colors: dots.map(d => d.attrs.fill!), peaks: dots.map(d => peakOf(d.inner)), source: s.source }
+      return { kind: s.key.slice(5), colors: dots.map(colorOfPart), peaks: dots.map(d => peakOfPart(s.source, d)), source: s.source }
     })
 }
 
@@ -306,9 +357,9 @@ export async function barsOf(ui: Drawing): Promise<Bar[]> {
       const slices = partsOf(s.source, 'slice')
       return {
         kind: s.key.slice(4),
-        slices: slices.map(sl => ({ grow: Math.round(Number(sl.attrs['data-grow']) * 10) / 10, color: sl.attrs.fill! })),
+        slices: slices.map(sl => ({ grow: Math.round(Number(sl.attrs['data-grow']) * 10) / 10, color: colorOfPart(sl) })),
         track: partsOf(s.source, 'track')[0]?.attrs.fill ?? '',
-        peaks: slices.map(sl => peakOf(sl.inner)),
+        peaks: slices.map(sl => peakOfPart(s.source, sl)),
         source: s.source,
       }
     })
@@ -336,6 +387,12 @@ export async function textOf(ui: Drawing, text: string): Promise<TextProps | und
   const peak = peakOf(main.inner)
   if (peak) props.peak = peak
   return props
+}
+
+/** Expects `actual` within half a unit of the `digits`-th decimal of `expected`, as jest's `toBeCloseTo` (which the kit has not). */
+export function near(actual: number | undefined, expected: number, digits = 2, message?: string): void {
+  expect(actual, message).toBeDefined()
+  expect(Math.abs(actual! - expected), `${message ? message + ': ' : ''}${actual} is near ${expected}`).toBeLessThan(0.5 * 10 ** -digits)
 }
 
 /** True when the engine's own row is what the drawing shows: the plugin yielded. */

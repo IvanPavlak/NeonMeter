@@ -32,6 +32,21 @@ export type NeonMeterReading = {
   fetchedAt?: number
 }
 
+/**
+ * The context window by category, in tokens, as the desktop app's own
+ * breakdown groups /context's rows (the engine's local estimates).
+ */
+export type NeonMeterContextParts = {
+  messages: number
+  systemTools: number
+  mcpTools: number
+  skills: number
+  /** Every other row in use: the system prompt, memory files, MCP server instructions, agents. */
+  other: number
+  /** The autocompact buffer, the room the engine keeps free for compacting; 0 with auto-compaction off. */
+  buffer: number
+}
+
 /** The live context window, as `$.session.usage()` reports it. */
 export type NeonMeterContext = {
   /** Input tokens of the last response; absent before the first response. */
@@ -40,6 +55,8 @@ export type NeonMeterContext = {
   window: number
   /** `tokens` over `window`, 0 to 100; absent before the first response. */
   percent?: number
+  /** The window by category; absent when the band shows no breakdown or the engine gave none. */
+  parts?: NeonMeterContextParts
 }
 
 /** Whether the account can be read and whether the reading is current. */

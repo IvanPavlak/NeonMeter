@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.3.2",
+  "version": "1.4.0",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -65,7 +65,7 @@
     "pulseMode": {
       "type": "string",
       "title": "Pulse mode",
-      "description": "responsive pulses pulseCount cycles each time a value changes (a percent, the context, staleness) and otherwise holds the glow still, which costs next to nothing; always pulses without a stop, which costs about a third of a CPU core in the desktop app",
+      "description": "responsive pulses pulseCount cycles each time a value changes (a percent, the context, staleness) and otherwise holds the glow still, which costs next to nothing; always pulses without a stop, which costs about a fifth of a CPU core in the desktop app",
       "options": [
         "responsive",
         "always"
@@ -213,6 +213,94 @@
       "title": "Time range bounds",
       "description": "Where each of the six colors starts for resetColor time, as the share of the window still to run: five ascending whole numbers from 1 to 99, separated by commas; the default splits the window into six even steps",
       "default": "17,33,50,67,83"
+    },
+    "contextBar": {
+      "type": "string",
+      "title": "Context bar",
+      "description": "breakdown splits the context bar into its categories in neon, as the desktop app's own context indicator does (Messages, System tools, MCP tools, Skills, Other, then the autocompact buffer in grey); percent colors it by its percent like every other bar",
+      "options": [
+        "breakdown",
+        "percent"
+      ],
+      "default": "breakdown"
+    },
+    "contextPopup": {
+      "type": "boolean",
+      "title": "Context breakdown on hover",
+      "description": "In the desktop app, show the context breakdown (each category's tokens and share of the window, in its color) while the pointer is over the Context segment",
+      "default": true
+    },
+    "contextColorsDark": {
+      "type": "string",
+      "multiple": true,
+      "title": "Context colors (dark)",
+      "description": "The six context category colors on a dark background, as #RRGGBB: Messages, System tools, MCP tools, Skills, Other, Autocompact buffer",
+      "default": [
+        "#1E90FF",
+        "#FF5F1F",
+        "#00D45A",
+        "#FFF01F",
+        "#39FF14",
+        "#6E7681"
+      ]
+    },
+    "contextColorsLight": {
+      "type": "string",
+      "multiple": true,
+      "title": "Context colors (light)",
+      "description": "The six context category colors on a light background, as #RRGGBB: Messages, System tools, MCP tools, Skills, Other, Autocompact buffer",
+      "default": [
+        "#1874D2",
+        "#E84A00",
+        "#139A43",
+        "#A89200",
+        "#32A800",
+        "#8C959F"
+      ]
+    },
+    "compactButton": {
+      "type": "string",
+      "title": "Compact button",
+      "description": "A round button colored by the context percent that compacts the conversation, as /compact does: appear shows it once the context reaches compactAt, always whenever the context has a reading, off never",
+      "options": [
+        "appear",
+        "always",
+        "off"
+      ],
+      "default": "appear"
+    },
+    "compactAt": {
+      "type": "number",
+      "title": "Compact button appears at (%)",
+      "description": "The context percent from which compactButton appear shows the button, 1 to 100",
+      "default": 75,
+      "min": 1,
+      "max": 100
+    },
+    "compactPosition": {
+      "type": "string",
+      "title": "Compact button position",
+      "description": "outside-right and outside-left put the button beside the row, which keeps its own layout whatever it shows; end, context and start put it inside the row, after the last segment, before the Context segment or before the first, taking room from the bars",
+      "options": [
+        "outside-right",
+        "end",
+        "context",
+        "start",
+        "outside-left"
+      ],
+      "default": "outside-right"
+    },
+    "compactGlow": {
+      "type": "boolean",
+      "title": "Compact button glow",
+      "description": "Draw the compact button's halo in the desktop app; glow off draws none either way",
+      "default": true
+    },
+    "compactPulse": {
+      "type": "boolean",
+      "title": "Compact button pulse",
+      "description": "Pulse the compact button with the band; pulse off holds it still either way",
+      "default": true
     }
   }
 }

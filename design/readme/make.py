@@ -23,10 +23,17 @@ HERE = Path(__file__).resolve().parent
 
 THEMES = {
     'dark': dict(bg='#0D1117', panel='#161B22', text='#E6EDF3', dim='#8B949E', track='#21262D',
-                 ramp=['#1E90FF', '#39FF14', '#00D45A', '#FFF01F', '#FF5F1F', '#FF073A']),
+                 ramp=['#1E90FF', '#39FF14', '#00D45A', '#FFF01F', '#FF5F1F', '#FF073A'],
+                 parts=['#1E90FF', '#FF5F1F', '#00D45A', '#FFF01F', '#39FF14', '#6E7681']),
     'light': dict(bg='#FFFFFF', panel='#F6F8FA', text='#1F2328', dim='#656D76', track='#EBEDF0',
-                  ramp=['#1874D2', '#32A800', '#139A43', '#A89200', '#E84A00', '#E8001F']),
+                  ramp=['#1874D2', '#32A800', '#139A43', '#A89200', '#E84A00', '#E8001F'],
+                  parts=['#1874D2', '#E84A00', '#139A43', '#A89200', '#32A800', '#8C959F']),
 }
+# The context the graphics show, 930k of a 1M window, by category as the default context bar splits it
+# (Messages, System tools, MCP tools, Skills, Other), and the autocompact buffer kept free after it.
+PARTS = [700000, 40000, 120000, 10000, 60000]
+BUFFER = 33000
+WINDOW = 1000000
 BOUNDS = [50, 60, 70, 80, 90]
 RANGES = ['0 to 49', '50 to 59', '60 to 69', '70 to 79', '80 to 89', '90 and up']
 NAMES = ['dodgerblue', 'lime green', 'darker green', 'yellow', 'orangered', 'red']
@@ -96,6 +103,86 @@ def dot_bar(x, y, w, pct, T, live=True, level=True):
     return out
 
 
+def part_cells(n, pct):
+    """The context bar's n cells by category, as the builder splits them: the percent's cells shared among the used
+    categories by their tokens (largest remainder), then the buffer's cells. Returns (category index, glows) pairs."""
+    f = max(1, round(pct / 100 * n)) if pct > 0 else 0
+    used = sum(PARTS)
+    quotas = [f * t / used for t in PARTS]
+    counts = [int(q) for q in quotas]
+    left = f - sum(counts)
+    for i in sorted(range(len(PARTS)), key=lambda i: (-(quotas[i] - int(quotas[i])), i))[:left]:
+        counts[i] += 1
+    cells = [(i, True) for i, c in enumerate(counts) for _ in range(c)]
+    buffer = min(n - len(cells), round(BUFFER / WINDOW * n))
+    return cells + [(5, False)] * buffer
+
+
+def parts_bar(x, y, w, pct, T, thickness=10.5):
+    """The context bar split by category: the used categories in their colors up to the percent, then the
+    autocompact buffer in grey without a halo, clipped to one pill, as the desktop draws it."""
+    rx = thickness / 2
+    used = sum(PARTS)
+    buffer = min(100 - pct, BUFFER / WINDOW * 100)
+    filled = max(thickness, w * (pct + buffer) / 100)
+    global _clip_n
+    _clip_n += 1
+    cid = f'c{_clip_n}'
+    at = 0
+    glow = ''
+    for i, t in enumerate(PARTS):
+        span = pct * t / used
+        glow += f'<rect x="{x + w * at / 100:.2f}" y="{y}" width="{w * span / 100 + 0.5:.2f}" height="{thickness}" fill="{T["parts"][i]}"/>'
+        at += span
+    body = glow + f'<rect x="{x + w * at / 100:.2f}" y="{y}" width="{w * buffer / 100:.2f}" height="{thickness}" fill="{T["parts"][5]}"/>'
+    clipped = f'<g clip-path="url(#{cid})">'
+    return (f'<clipPath id="{cid}"><rect x="{x}" y="{y}" width="{filled:.2f}" height="{thickness}" rx="{rx}"/></clipPath>'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{thickness}" rx="{rx}" fill="{T["track"]}"/>'
+            + halo(clipped + glow + '</g>') + clipped + body + '</g>')
+
+
+def parts_dots(x, y, w, pct, T):
+    """The context's dots by category, then the buffer's in grey without a halo, then the track."""
+    n = int(w // 15)
+    cells = part_cells(n, pct)
+    out = ''
+    for k in range(n):
+        cx = x + k * 15 + 7.5
+        if k < len(cells):
+            i, glows = cells[k]
+            color = T['parts'][i]
+            if glows:
+                out += halo(f'<circle cx="{cx}" cy="{y}" r="6" fill="{color}"/>')
+            out += f'<circle cx="{cx}" cy="{y}" r="4.8" fill="{color}"/>'
+        else:
+            out += f'<circle cx="{cx}" cy="{y}" r="4.8" fill="{T["track"]}"/>'
+    return out
+
+
+RING_R = 6.2
+RING_W = 1.6
+RING_ROOM = 30
+
+
+def ring(cx, cy, pct, T, level=True):
+    """The compact button: a ring of the track's color with the context percent drawn over it clockwise from the
+    top, in its range color (or every range up to it under ramp coloring), on its halo."""
+    import math
+    length = 2 * math.pi * RING_R
+    top = range_of(pct)
+    parts = 1 if level else top + 1
+    arcs = ''
+    for i in range(parts):
+        at = pct * i / parts
+        span = pct / parts
+        color = T['ramp'][top if level else i]
+        arcs += (f'<circle cx="{cx}" cy="{cy}" r="{RING_R}" fill="none" stroke="{color}" stroke-width="{RING_W}" '
+                 f'stroke-dasharray="{length * span / 100:.2f} {length:.2f}" stroke-dashoffset="{-length * at / 100:.2f}" '
+                 f'transform="rotate(-90 {cx} {cy})"/>')
+    return (f'<circle cx="{cx}" cy="{cy}" r="{RING_R}" fill="none" stroke="{T["track"]}" stroke-width="{RING_W}"/>'
+            + halo(arcs) + arcs)
+
+
 def glow_text(x, y, text, color, size=19.5, live=True, anchor='start'):
     attrs = f'x="{x}" y="{y}" {FONT} font-size="{size}" font-weight="700" fill="{color}" text-anchor="{anchor}"'
     return halo(f'<text {attrs}>{text}</text>') + f'<text {attrs}>{text}</text>'
@@ -133,7 +220,10 @@ def segment(x, y, label, pct, extra, T, mode, seg_w, live):
     lab_w = 72 if label not in ('Context',) else 80
     bar_x = x + lab_w
     bar_w = seg_w - lab_w - 150
-    if mode == 'bars':
+    if label == 'Context':
+        # The context bar splits by category whatever the coloring (contextBar: breakdown, the default).
+        out += parts_bar(bar_x, y - 5.25, bar_w, pct, T) if mode in ('bars', 'level') else parts_dots(bar_x, y, bar_w, pct, T)
+    elif mode == 'bars':
         out += pill_bar(bar_x, y - 5.25, bar_w, pct, T, live=live)
     elif mode == 'level':
         out += pill_bar(bar_x, y - 5.25, bar_w, pct, T, live=live, level=True)
@@ -148,10 +238,17 @@ def segment(x, y, label, pct, extra, T, mode, seg_w, live):
     return out
 
 
+def compact_button(x, y, width, T, mode, pct):
+    """The compact button beside the row on the right (it shows from 75% of the context, so at 93% it does),
+    its ring colored as the row's bars are."""
+    return ring(x + width - RING_ROOM / 2 + 4, y, pct, T, level=mode in ('level', 'dots'))
+
+
 def band_row(x, y, width, T, mode, windows, stale=False):
-    """One band row: 5-hour, Weekly and Context segments laid out across `width`.
+    """One band row: 5-hour, Weekly and Context segments laid out across `width`, the compact button beside them.
     The Weekly segment takes turns with the account's Fable limit, as the band does."""
-    out = ''
+    out = compact_button(x, y, width, T, mode, windows[2])
+    width -= RING_ROOM
     labels = ['5-hour', 'Weekly', 'Context']
     extras = ['in 3h13m', 'in 3d4h', '930k/1M']
     seg_w = (width - 2 * 30) / 3
@@ -174,9 +271,10 @@ SINGLE_TURNS = [('5-hour', 82, 'in 3h13m'), ('Weekly', 18.2, 'in 3d4h'), ('Fable
 
 def single_row(x, y, width, T, mode):
     """The single layout's row: one segment across the whole width, taking turns through 5-hour, Weekly, Fable
-    and Context, 5 s each, as the band does with `layout` set to `single`."""
-    return ''.join(turn(segment(x, y, label, pct, extra, T, mode, width, True), n, len(SINGLE_TURNS))
-                   for n, (label, pct, extra) in enumerate(SINGLE_TURNS))
+    and Context, 5 s each, as the band does with `layout` set to `single`; the compact button stays beside it."""
+    return compact_button(x, y, width, T, mode, 93) + ''.join(
+        turn(segment(x, y, label, pct, extra, T, mode, width - RING_ROOM, True), n, len(SINGLE_TURNS))
+        for n, (label, pct, extra) in enumerate(SINGLE_TURNS))
 
 
 def mix_toward(color, ground, strength):

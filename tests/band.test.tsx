@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { dotBarSvg } from '../hooks/drawings'
+import { blurredDisc, dotBarSvg, haloProfile } from '../hooks/drawings'
 
-import { CONTEXT, FAIL, MINUTE, NOW, SURFACES, barsOf, clientProps, dotBarsOf, isEngineRow, mountBand, ok, partsOf, peakOf, rowOf, setup, spansOf, start, textOf, usageBody } from './kit'
+import { CONTEXT, FAIL, MINUTE, NOW, SURFACES, barsOf, clientProps, dotBarsOf, isEngineRow, mountBand, near, ok, partsOf, peakOf, rowOf, setup, spansOf, start, textOf, usageBody } from './kit'
 
 // The terminal draws the cell row: one character per cell, exactly as wide as
 // the row's columns, the golden rows' layout.
@@ -378,10 +378,12 @@ describe('desktop, desktopBars: dots', () => {
     const bar = (await dotBarsOf(ui))[0]!
     // A live dot's fill animates to its peak and back; its halo widens with it.
     expect(bar.peaks[0]).toBe('#83C2FF')
-    const blur = /attributeName="stdDeviation" values="([^"]*)"[^>]*dur="800ms"[^>]*calcMode="discrete"/.exec(bar.source)?.[1]?.split(';')
-    expect(blur?.[0]).toBe('3')
-    expect(blur?.[blur.length / 2], 'the widest blur, halfway through the cycle').toBe('6')
-    expect(blur, 'a step for every frame at 30 fps').toHaveLength(24)
+    expect(bar.source, 'a dot halo is a gradient, not a blur').not.toContain('feGaussianBlur')
+    // The halo's centre stop runs from the rest blur's opacity down to the widest blur's, halfway through the cycle, and back.
+    const centre = /<stop offset="0"[^>]*><animate attributeName="stop-opacity" values="([^"]*)" dur="800ms"/.exec(bar.source)?.[1]?.split(';').map(Number)
+    near(centre?.[0], blurredDisc(0, 6, 3) * 0.7, 3)
+    near(centre?.[(centre.length - 1) / 2], blurredDisc(0, 6, 6) * 0.95, 3, 'the widest blur, halfway through the cycle')
+    expect(centre?.[centre.length - 1], 'back at rest').toBe(centre?.[0])
     expect(bar.peaks[bar.peaks.length - 1], 'empty dot still').toBeUndefined()
     expect(bar.colors[bar.colors.length - 1]).toBe('#21262D')
     await ui.unmount()
@@ -666,14 +668,33 @@ test('drawing parts are found by role whatever their attribute order', () => {
   expect(partsOf(a, 'track')).toEqual([])
 })
 
-// The pulse steps at 30 fps while the steps fit the engine's limit on a drawing
-// (131072 characters); a wide dot bar on a long cycle takes fewer, then none.
-test('a wide dot bar on a long pulse stays within the engine limit on a drawing', () => {
+// The engine takes a drawing of at most 131072 characters. A dot bar's halos
+// share one gradient per color and its live dots one paint per color; a bar so
+// wide that it would still pass the limit (800 dots fill an 8K screen) holds its
+// halos at rest, then draws them crisp, and its dots keep pulsing.
+test('a very wide ramp dot bar stays within the engine limit on a drawing', () => {
   const palette = { track: '#21262D', text: '#E6EDF3', bg: '#0D1117' } as Parameters<typeof dotBarSvg>[1]['palette']
-  for (const [count, pulseMs] of [[40, 800], [250, 800], [250, 3000]] as const) {
-    const dots = Array.from({ length: count }, () => ({ color: '#1E90FF', live: true }))
+  const ramp = ['#1E90FF', '#39FF14', '#00D45A', '#FFF01F', '#FF5F1F', '#FF073A']
+  for (const [count, pulseMs] of [[40, 800], [400, 800], [400, 3000], [800, 800]] as const) {
+    const dots = Array.from({ length: count }, (_, k) => ({ color: ramp[Math.floor((k * 6) / count)]!, live: true }))
     const svg = dotBarSvg(dots, { pulse: true, pulseMs, pulseMode: 'always', burst: { gen: 0, elapsedMs: 0, totalMs: 0 }, glow: true, palette, dotCount: count })
     expect(svg.length, `${count} dots, ${pulseMs} ms`).toBeLessThan(131072)
     expect(peakOf(svg), `${count} dots, ${pulseMs} ms still pulses to the peak`).toBe('#83C2FF')
+    if (count === 40) expect(svg, 'a bar of usual width keeps its halos pulsing').toContain('attributeName="stop-opacity"')
   }
+})
+
+// A dot's halo is a gradient through the profile of the blurred disc the blur
+// filter drew: the share of a Gaussian that falls on the disc, which a sharp
+// disc of the halo's size has at 1 inside and 0 outside, and the filter's 3 to
+// 6 px blur spreads.
+test('the halo profile is the blurred disc', () => {
+  near(blurredDisc(0, 6, 0.5), 1, 3)
+  near(blurredDisc(12, 6, 0.5), 0, 3)
+  near(blurredDisc(6, 6, 0.5), 0.5, 1, 'about half on the edge of a nearly sharp disc')
+  // At the centre a Gaussian of deviation s keeps 1 - exp(-R^2 / 2s^2) on a disc of radius R.
+  for (const sd of [3, 4.5, 6]) near(blurredDisc(0, 6, sd), 1 - Math.exp(-36 / (2 * sd * sd)), 3, `deviation ${sd}`)
+  // Further out it falls, and wider with a wider blur.
+  expect(blurredDisc(10, 6, 3)).toBeLessThan(blurredDisc(10, 6, 6))
+  near(haloProfile(3, 0.7)[0], 0.7 * (1 - Math.exp(-2)), 3)
 })
