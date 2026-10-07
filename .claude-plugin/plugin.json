@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",

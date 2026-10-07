@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-07
+
+### Fixed
+
+- The desktop band's drawings sit on the labels' centre line again. The app centres each drawing on the middle of its own text, so the lift NeonMeter 1.3.0 gave them put the dots about 0.75 px, and the percents and colored resets about 2 px, above the labels beside them. The option pictures in the README are redrawn to match.
+
 ## [1.3.1] - 2026-10-06
 
 ### Fixed
@@ -113,7 +119,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.2.0...v1.2.1

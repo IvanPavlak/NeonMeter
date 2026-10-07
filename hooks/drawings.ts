@@ -56,19 +56,18 @@ export const DISPLAY_HEIGHT = 20
 export const BAR_THICKNESS = 10.5
 /**
  * The line every bar, dot and percent is centered on, in a drawing's own pixels.
- * The app centers each drawing in the row, but its own text sits above the
- * row's middle (the line keeps room for descenders), so a drawing centered on
- * its canvas showed about 1.5 px below the labels beside it. Measured on the
- * desktop app at 1.3.0: lifting the midline by 2.25 (1.5 px shown) puts the
- * dots and bars on the labels' centre line.
+ * The app centers each drawing on the middle of its own digits beside it, so
+ * the canvas's middle is that line. Measured on the desktop app at 1.3.1: the
+ * 2.25 lift from 1.3.0 showed the dots about 0.75 px and the percents and
+ * resets about 2 px above the labels.
  */
-export const MIDLINE = ROW_HEIGHT / 2 - 2.25
+export const MIDLINE = ROW_HEIGHT / 2
 /**
  * Where a text drawing's baseline sits below `MIDLINE`, as a share of its font
- * size: digits are about 0.64 em tall, so their middle lands on the midline,
+ * size: digits are about 0.7 em tall, so their middle lands on the midline,
  * level with the app's own digits (`13:00`) beside them.
  */
-export const BASELINE_DROP = 0.32
+export const BASELINE_DROP = 0.35
 /** Room on either side of a drawing, so the halo at its ends is not cut by the drawing's bounds. */
 export const PAD = 12
 export const PCT_FONT_SIZE = 19.5

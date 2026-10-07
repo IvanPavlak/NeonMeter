@@ -175,7 +175,7 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const grows = items.filter(it => it.kind === 'grow').length
   const growW = grows ? Math.max(0, (rowW - fixed) / grows) : 0
   // The app draws its text on the drawings' midline (drawings.ts MIDLINE); digits are about 0.7 em tall.
-  const baseline = y + D.MIDLINE * SCALE + TEXT_SIZE * 0.35
+  const baseline = y + D.MIDLINE * SCALE + TEXT_SIZE * D.BASELINE_DROP
   let x = x0
   let out = ''
   for (const it of items) {
