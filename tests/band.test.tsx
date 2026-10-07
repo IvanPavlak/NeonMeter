@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
+import { dotBarSvg } from '../hooks/drawings'
+
 import { CONTEXT, FAIL, MINUTE, NOW, SURFACES, barsOf, clientProps, dotBarsOf, isEngineRow, mountBand, ok, partsOf, peakOf, rowOf, setup, spansOf, start, textOf, usageBody } from './kit'
 
 // The terminal draws the cell row: one character per cell, exactly as wide as
@@ -376,7 +378,10 @@ describe('desktop, desktopBars: dots', () => {
     const bar = (await dotBarsOf(ui))[0]!
     // A live dot's fill animates to its peak and back; its halo widens with it.
     expect(bar.peaks[0]).toBe('#83C2FF')
-    expect(bar.source).toContain('attributeName="stdDeviation" values="3;6;3" dur="800ms"')
+    const blur = /attributeName="stdDeviation" values="([^"]*)"[^>]*dur="800ms"[^>]*calcMode="discrete"/.exec(bar.source)?.[1]?.split(';')
+    expect(blur?.[0]).toBe('3')
+    expect(blur?.[blur.length / 2], 'the widest blur, halfway through the cycle').toBe('6')
+    expect(blur, 'a step for every frame at 30 fps').toHaveLength(24)
     expect(bar.peaks[bar.peaks.length - 1], 'empty dot still').toBeUndefined()
     expect(bar.colors[bar.colors.length - 1]).toBe('#21262D')
     await ui.unmount()
@@ -650,14 +655,25 @@ test("the last filled cell or dot takes the percent's range color", { options: {
 // The kit reads the desktop drawings by `data-role`, so attribute order and
 // position in the markup do not matter to any assertion above.
 test('drawing parts are found by role whatever their attribute order', () => {
-  const lift = '<g data-role="pulse" fill="#FFFFFF" opacity="0"><animate attributeName="opacity" values="0;0.45;0"/>'
-  const a = `<svg><g><rect data-role="slice" fill="#1E90FF" x="12.00" data-grow="42.0"/></g>${lift}<rect data-role="slice-pulse" x="12.00"/></g></svg>`
-  const b = `<svg><g><rect data-grow="42.0" x="12.00" fill="#1E90FF" data-role="slice"/></g>${lift}<rect x="12.00" data-role="slice-pulse"/></g></svg>`
+  const a = '<svg><g><rect data-role="slice" fill="#1E90FF" data-grow="42.0"><animate attributeName="fill" values="#1E90FF;#83C2FF;#1E90FF"/></rect></g></svg>'
+  const b = '<svg><g><rect data-grow="42.0" fill="#1E90FF" x="1" data-role="slice"><animate values="#1E90FF;#83C2FF;#1E90FF" attributeName="fill"/></rect></g></svg>'
   for (const markup of [a, b]) {
     const [slice] = partsOf(markup, 'slice')
     expect(slice?.attrs.fill).toBe('#1E90FF')
     expect(slice?.attrs['data-grow']).toBe('42.0')
-    expect(peakOf(markup, 'slice', slice!)).toBe('#83C2FF')
+    expect(peakOf(slice!.inner)).toBe('#83C2FF')
   }
   expect(partsOf(a, 'track')).toEqual([])
+})
+
+// The pulse steps at 30 fps while the steps fit the engine's limit on a drawing
+// (131072 characters); a wide dot bar on a long cycle takes fewer, then none.
+test('a wide dot bar on a long pulse stays within the engine limit on a drawing', () => {
+  const palette = { track: '#21262D', text: '#E6EDF3', bg: '#0D1117' } as Parameters<typeof dotBarSvg>[1]['palette']
+  for (const [count, pulseMs] of [[40, 800], [250, 800], [250, 3000]] as const) {
+    const dots = Array.from({ length: count }, () => ({ color: '#1E90FF', live: true }))
+    const svg = dotBarSvg(dots, { pulse: true, pulseMs, pulseMode: 'always', burst: { gen: 0, elapsedMs: 0, totalMs: 0 }, glow: true, palette, dotCount: count })
+    expect(svg.length, `${count} dots, ${pulseMs} ms`).toBeLessThan(131072)
+    expect(peakOf(svg), `${count} dots, ${pulseMs} ms still pulses to the peak`).toBe('#83C2FF')
+  }
 })

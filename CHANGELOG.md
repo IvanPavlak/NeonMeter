@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- A benchmark in `scripts/benchmarking/` that compares the desktop pulse of different versions of hooks/, on Windows: `headless.ps1` in headless Microsoft Edge, with a pixel comparison of the frames, and `inapp.ps1` in the desktop app itself, taking turns between versions with `-Repeat` (README, Development).
+
 ### Changed
 
-- The desktop pulse costs less to draw and looks the same. Each drawing now brightens through one white copy of its live shapes whose opacity breathes, instead of one color animation per dot or slice; all of a dot bar's halos are blurred as one group instead of one blur per dot; and every glow filter covers only the drawing's own canvas instead of three times the element's width and five times its height. A rendered frame differs from 1.3.2 by at most a few shades, where neighbouring dot halos overlap. The option pictures in the README are redrawn to match.
+- The install and uninstall scripts moved to `scripts/installation/windows/` and `scripts/installation/unix/`; the README's one-line install and uninstall commands use the new addresses. A copied command with the old address stops working once this release is on `master`.
+
+- The desktop pulse costs less and looks the same. It moves in 30 steps a second instead of on every display frame (fewer when a very wide dot bar on a long `pulseMs` would make a drawing too big for the app, and smooth as before when even 12 would not fit), all of a dot bar's halos are blurred as one group instead of one blur per dot, and every glow filter covers only the drawing's own canvas instead of three times the element's width and five times its height. In the desktop app under `pulseMode: always`, taking turns with 1.3.2 over three rounds, the band's CPU fell from 36% to 30% of a core with dots and from 31.5% to 29% with bars, and the GPU from 11.9% to 8.3% with dots (README, Resource use). A frame differs from 1.3.2 by at most 32 of 255 in any channel, mostly where neighbouring dot halos overlap. The option pictures in the README are redrawn to match.
 
 ## [1.3.2] - 2026-10-07
 
