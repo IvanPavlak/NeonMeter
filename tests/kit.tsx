@@ -8,6 +8,7 @@ import { mock } from 'claude-code/testing'
 import type { Engine, FoundElement, MockClock, Mounted } from 'claude-code/testing'
 
 import type { BandProps, Span } from '../hooks/band'
+import { mix } from '../hooks/color'
 
 /** 2026-10-01 12:00:00 UTC. */
 export const NOW = Date.UTC(2026, 9, 1, 12, 0, 0)
@@ -253,14 +254,20 @@ export function partsOf(markup: string, role: string): Part[] {
   return out
 }
 
-/** The pulse's peak color of a drawing's part, from its SMIL `fill` animation; undefined when it does not pulse. */
-export function peakOf(markup: string): string | undefined {
-  for (const m of markup.matchAll(/<animate\b([^>]*)\/>/g)) {
-    const name = /attributeName="([^"]*)"/.exec(m[1]!)?.[1]
-    const values = /values="([^"]*)"/.exec(m[1]!)?.[1]
-    if (name === 'fill' && values) return values.split(';')[1]
-  }
-  return undefined
+/**
+ * The pulse's peak color of `part`, one of the `role` parts of drawing
+ * `markup`: its color blended toward white by the peak opacity of the white
+ * group over it, when the group holds a `<role>-pulse` copy at the part's
+ * place; undefined when it does not pulse.
+ */
+export function peakOf(markup: string, role: string, part: Part): string | undefined {
+  const group = partsOf(markup, 'pulse')[0]
+  const values = group && /attributeName="opacity"[^>]*values="([^"]*)"|values="([^"]*)"[^>]*attributeName="opacity"/.exec(group.inner)
+  const peak = values ? Number((values[1] ?? values[2])!.split(';')[1]) : 0
+  if (!peak) return undefined
+  const at = (p: Part) => `${p.attrs.cx ?? p.attrs.x}`
+  if (!partsOf(markup, `${role}-pulse`).some(copy => at(copy) === at(part))) return undefined
+  return mix(part.attrs.fill!, '#FFFFFF', 1 - peak)
 }
 
 /** The Client's props: the spans with their live flags, and the pulse settings. */
@@ -283,7 +290,7 @@ export async function dotBarsOf(ui: Drawing): Promise<DotBar[]> {
     .filter(s => s.key.startsWith('dots-'))
     .map(s => {
       const dots = partsOf(s.source, 'dot')
-      return { kind: s.key.slice(5), colors: dots.map(d => d.attrs.fill!), peaks: dots.map(d => peakOf(d.inner)), source: s.source }
+      return { kind: s.key.slice(5), colors: dots.map(d => d.attrs.fill!), peaks: dots.map(d => peakOf(s.source, 'dot', d)), source: s.source }
     })
 }
 
@@ -304,7 +311,7 @@ export async function barsOf(ui: Drawing): Promise<Bar[]> {
         kind: s.key.slice(4),
         slices: slices.map(sl => ({ grow: Math.round(Number(sl.attrs['data-grow']) * 10) / 10, color: sl.attrs.fill! })),
         track: partsOf(s.source, 'track')[0]?.attrs.fill ?? '',
-        peaks: slices.map(sl => peakOf(sl.inner)),
+        peaks: slices.map(sl => peakOf(s.source, 'slice', sl)),
         source: s.source,
       }
     })
@@ -329,7 +336,7 @@ export async function textOf(ui: Drawing, text: string): Promise<TextProps | und
   const main = partsOf(svg.source, role)[0]
   if (!main) return undefined
   const props: TextProps = { color: main.attrs.fill, bold: main.attrs['font-weight'] === '700', glow: partsOf(svg.source, `${role}-halo`).length > 0 }
-  const peak = peakOf(main.inner)
+  const peak = peakOf(svg.source, role, main)
   if (peak) props.peak = peak
   return props
 }

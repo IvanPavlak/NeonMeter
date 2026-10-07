@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- The desktop pulse costs less to draw and looks the same. Each drawing now brightens through one white copy of its live shapes whose opacity breathes, instead of one color animation per dot or slice; all of a dot bar's halos are blurred as one group instead of one blur per dot; and every glow filter covers only the drawing's own canvas instead of three times the element's width and five times its height. A rendered frame differs from 1.3.2 by at most a few shades, where neighbouring dot halos overlap. The option pictures in the README are redrawn to match.
+
 ## [1.3.2] - 2026-10-07
 
 ### Fixed

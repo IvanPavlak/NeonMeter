@@ -5,7 +5,10 @@
 // filled dot, bar and percent sits under a blurred halo of its own color (the
 // design's `text-shadow` glow). The pulse is a SMIL animation inside each
 // drawing: the color toward white and the halo wider, on one cycle, with no
-// redraw. The app draws each drawing as an image, and an animated image is
+// redraw. The color is one white copy of the live shapes over them whose
+// opacity breathes, and every halo of a drawing is one blurred group over the
+// drawing's own canvas, so a frame costs one animation and one blur per
+// drawing, not one per dot. The app draws each drawing as an image, and an animated image is
 // rasterized again on every display frame, so a breath that never stops
 // measured about a third of a CPU core (README, Resource use). Under
 // `pulseMode: responsive` the drawings breathe only for the `burst` the hooks
@@ -22,7 +25,7 @@
 
 import type { FlexDot, FlexRow, FlexSegment, FlexSlice, Palette, Span } from './builder'
 import type { Burst } from './color'
-import { pulseForeground } from './color'
+import { PULSE_LIFT } from './color'
 
 export type DesktopOptions = {
   /** The `pulse` option: false draws every drawing at rest with no animation. */
@@ -97,24 +100,21 @@ function beatOf(o: DesktopOptions): Beat {
   return { ms: o.pulseMs, timing: `begin="-${Math.round(elapsedMs)}ms" repeatDur="${Math.round(totalMs)}ms"`, mark: ` data-burst="${gen}"` }
 }
 
-/** `C;P;C`: the color, its pulse peak and back, for a SMIL `values`. */
-function pulseValues(color: string): string {
-  return `${color};${pulseForeground(color, 1)};${color}`
-}
-
 function animate(attr: string, values: string, beat: NonNullable<Beat>): string {
   return `<animate attributeName="${attr}" values="${values}" dur="${beat.ms}ms" ${beat.timing} calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"/>`
 }
 
 /**
  * The glow filters: `g` pulses between the rest and the peak blur when the
- * drawing pulses, `r` is the rest blur alone (stale drawings, or the pulse off).
+ * drawing pulses, `r` is the rest blur alone (stale drawings, or the pulse
+ * off). Their region is the drawing's canvas, `w` by `h`: a halo past it is
+ * cut by the canvas anyway, and a region the size of the element's bounds
+ * times three, the default, blurred pixels nobody sees.
  */
-function defs(beat: Beat): string {
-  const g = beat
-    ? `<filter id="g" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="${GLOW.restBlur}">${animate('stdDeviation', `${GLOW.restBlur};${GLOW.peakBlur};${GLOW.restBlur}`, beat)}</feGaussianBlur></filter>`
-    : ''
-  const r = `<filter id="r" x="-100%" y="-200%" width="300%" height="500%"><feGaussianBlur stdDeviation="${GLOW.restBlur}"/></filter>`
+function defs(w: number, h: number, beat: Beat): string {
+  const region = `filterUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"`
+  const g = beat ? `<filter id="g" ${region}><feGaussianBlur stdDeviation="${GLOW.restBlur}">${animate('stdDeviation', `${GLOW.restBlur};${GLOW.peakBlur};${GLOW.restBlur}`, beat)}</feGaussianBlur></filter>` : ''
+  const r = `<filter id="r" ${region}><feGaussianBlur stdDeviation="${GLOW.restBlur}"/></filter>`
   return `<defs>${g}${r}</defs>`
 }
 
@@ -124,30 +124,53 @@ function halo(live: boolean, beat: Beat): string {
   return `filter="url(#r)" opacity="${GLOW.restHalo}">`
 }
 
+/**
+ * The pulse over `shapes`, white copies of the live shapes with no fill of
+ * their own: a group whose opacity runs from 0 to `PULSE_LIFT` and back. White
+ * at opacity `PULSE_LIFT x i` over a color is that color blended toward white
+ * by the same share, which is `pulseForeground(color, i)`, so one animation
+ * brightens every live shape of the drawing. Empty when nothing pulses.
+ */
+function lift(role: string, shapes: string, beat: Beat): string {
+  if (!shapes || !beat) return ''
+  return `<g data-role="${role}" fill="#FFFFFF" opacity="0">${animate('opacity', `0;${PULSE_LIFT};0`, beat)}${shapes}</g>`
+}
+
 function open(w: number, h: number, beat: Beat): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMid meet"${beat?.mark ?? ''}>${defs(beat)}`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMinYMid meet"${beat?.mark ?? ''}>${defs(w, h, beat)}`
 }
 
 /**
  * A dot bar: one circle per dot, every filled one (any color but the track)
- * under a halo; live ones pulse. Every element carries a `data-role`
- * (`dot`, `dot-halo`) for a reader of the markup.
+ * under a halo; live ones pulse. The halos are one blurred group, the live
+ * ones' and the still ones' apart. Every element carries a `data-role`
+ * (`dot`, `dot-halo`, and `dot-pulse` for a live dot's white copy) for a
+ * reader of the markup.
  */
 export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions): string {
   const beat = beatOf(o)
   const w = dots.length * DOT_UNIT + 2 * PAD
   const h = ROW_HEIGHT
   const cy = MIDLINE
+  let liveHalos = ''
+  let stillHalos = ''
   let body = ''
+  let pulse = ''
   dots.forEach((d, k) => {
     const cx = (PAD + k * DOT_UNIT + DOT_UNIT / 2).toFixed(1)
     const color = HEX.test(d.color) ? d.color : o.palette.track
     const filled = color.toUpperCase() !== o.palette.track.toUpperCase()
     const live = Boolean(d.live) && beat !== null
-    if (filled && o.glow) body += `<circle data-role="dot-halo" cx="${cx}" cy="${cy}" r="${DOT_RADIUS + 1.2}" fill="${color}" ${halo(live, beat)}</circle>`
-    body += `<circle data-role="dot" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${color}">${live ? animate('fill', pulseValues(color), beat!) : ''}</circle>`
+    const haloDot = `<circle data-role="dot-halo" cx="${cx}" cy="${cy}" r="${DOT_RADIUS + 1.2}" fill="${color}"/>`
+    if (filled && o.glow) {
+      if (live) liveHalos += haloDot
+      else stillHalos += haloDot
+    }
+    body += `<circle data-role="dot" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${color}"/>`
+    if (live) pulse += `<circle data-role="dot-pulse" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}"/>`
   })
-  return open(w, h, beat) + body + '</svg>'
+  const halos = (stillHalos ? `<g ${halo(false, beat)}${stillHalos}</g>` : '') + (liveHalos ? `<g ${halo(true, beat)}${liveHalos}</g>` : '')
+  return open(w, h, beat) + halos + body + lift('pulse', pulse, beat) + '</svg>'
 }
 
 /**
@@ -155,7 +178,8 @@ export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions): string {
  * to a pill of its own (never shorter than it is thick, so a small percent is
  * a round dot, not a sliver), each slice a rect of its color (class `s`, in
  * pixels; `data-grow` holds its hundredths of the bar), and the filled part's
- * halo under it. Live slices pulse.
+ * halo under it. Live slices pulse, in the halo too: their white copies
+ * (`slice-pulse`, `slice-halo-pulse`) sit over them inside the clip.
  */
 export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): string {
   const beat = beatOf(o)
@@ -168,22 +192,28 @@ export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): s
   const px = bar / 100
   let at = 0
   let filledTo = 0
-  let rects = ''
+  const filled: { x: string; width: string; color: string; grow: string; live: boolean }[] = []
   for (const sl of slices) {
     const color = HEX.test(sl.color) ? sl.color : track
     const isFilled = color.toUpperCase() !== track.toUpperCase()
     if (isFilled) {
       filledTo = at + sl.grow
-      const live = Boolean(sl.live) && beat !== null
-      rects += `<rect data-role="slice" x="${(PAD + at * px).toFixed(2)}" y="${y}" width="${(sl.grow * px).toFixed(2)}" height="${BAR_THICKNESS}" fill="${color}" data-grow="${sl.grow.toFixed(1)}">${live ? animate('fill', pulseValues(color), beat!) : ''}</rect>`
+      filled.push({ x: (PAD + at * px).toFixed(2), width: (sl.grow * px).toFixed(2), color, grow: sl.grow.toFixed(1), live: Boolean(sl.live) && beat !== null })
     }
     at += sl.grow
   }
-  const anyLive = slices.some(sl => sl.live) && beat !== null
+  const anyLive = filled.some(sl => sl.live)
   const filledPx = Math.min(bar, Math.max(BAR_THICKNESS, filledTo * px))
   const clip = `<clipPath id="c"><rect x="${PAD}" y="${y}" width="${filledPx.toFixed(2)}" height="${BAR_THICKNESS}" rx="${rx}"/></clipPath>`
   // The last slice reaches the pill's end, so a small percent fills its round dot.
-  const fill = (role: string) => `<g clip-path="url(#c)"><rect data-role="${role}-tip" x="${PAD}" y="${y}" width="${filledPx.toFixed(2)}" height="${BAR_THICKNESS}" fill="${lastColor(slices, track)}"/>${rects.replaceAll('data-role="slice"', `data-role="${role}"`)}</g>`
+  const fill = (role: string) => {
+    const rects = filled.map(sl => `<rect data-role="${role}" x="${sl.x}" y="${y}" width="${sl.width}" height="${BAR_THICKNESS}" fill="${sl.color}" data-grow="${sl.grow}"/>`).join('')
+    const pulse = filled
+      .filter(sl => sl.live)
+      .map(sl => `<rect data-role="${role}-pulse" x="${sl.x}" y="${y}" width="${sl.width}" height="${BAR_THICKNESS}"/>`)
+      .join('')
+    return `<g clip-path="url(#c)"><rect data-role="${role}-tip" x="${PAD}" y="${y}" width="${filledPx.toFixed(2)}" height="${BAR_THICKNESS}" fill="${lastColor(slices, track)}"/>${rects}${lift(role === 'slice' ? 'pulse' : `${role}-lift`, pulse, beat)}</g>`
+  }
   const glow = filledTo > 0 && o.glow ? `<g ${halo(anyLive, beat)}${fill('slice-halo')}</g>` : ''
   return (
     open(w, h, beat) +
@@ -208,18 +238,20 @@ function lastColor(slices: readonly FlexSlice[], track: string): string {
  */
 type TextLook = { role: string; weight: number; charWidth: number }
 
-/** Text in its color under a halo of the same color; live, it pulses. */
+/** Text in its color under a halo of the same color; live, it pulses under a white copy (`<role>-pulse`). */
 function textSvg(span: Span, look: TextLook, o: DesktopOptions): string {
   const beat = beatOf(o)
   const live = Boolean(span.live) && beat !== null
   const w = Math.ceil(span.text.length * look.charWidth) + 2 * PAD
   const h = ROW_HEIGHT
-  const attrs = `x="${PAD}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${look.weight}" fill="${span.color}"`
+  const shape = `x="${PAD}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${look.weight}"`
+  const attrs = `${shape} fill="${span.color}"`
   const text = esc(span.text)
   return (
     open(w, h, beat) +
     (o.glow ? `<text data-role="${look.role}-halo" ${attrs} ${halo(live, beat)}${text}</text>` : '') +
-    `<text data-role="${look.role}" ${attrs}>${text}${live ? animate('fill', pulseValues(span.color), beat!) : ''}</text>` +
+    `<text data-role="${look.role}" ${attrs}>${text}</text>` +
+    (live ? lift('pulse', `<text data-role="${look.role}-pulse" ${shape}>${text}</text>`, beat) : '') +
     '</svg>'
   )
 }

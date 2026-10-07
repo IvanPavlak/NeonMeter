@@ -650,13 +650,14 @@ test("the last filled cell or dot takes the percent's range color", { options: {
 // The kit reads the desktop drawings by `data-role`, so attribute order and
 // position in the markup do not matter to any assertion above.
 test('drawing parts are found by role whatever their attribute order', () => {
-  const a = '<svg><g><rect data-role="slice" fill="#1E90FF" data-grow="42.0"><animate attributeName="fill" values="#1E90FF;#83C2FF;#1E90FF"/></rect></g></svg>'
-  const b = '<svg><g><rect data-grow="42.0" fill="#1E90FF" x="1" data-role="slice"><animate values="#1E90FF;#83C2FF;#1E90FF" attributeName="fill"/></rect></g></svg>'
+  const lift = '<g data-role="pulse" fill="#FFFFFF" opacity="0"><animate attributeName="opacity" values="0;0.45;0"/>'
+  const a = `<svg><g><rect data-role="slice" fill="#1E90FF" x="12.00" data-grow="42.0"/></g>${lift}<rect data-role="slice-pulse" x="12.00"/></g></svg>`
+  const b = `<svg><g><rect data-grow="42.0" x="12.00" fill="#1E90FF" data-role="slice"/></g>${lift}<rect x="12.00" data-role="slice-pulse"/></g></svg>`
   for (const markup of [a, b]) {
     const [slice] = partsOf(markup, 'slice')
     expect(slice?.attrs.fill).toBe('#1E90FF')
     expect(slice?.attrs['data-grow']).toBe('42.0')
-    expect(peakOf(slice!.inner)).toBe('#83C2FF')
+    expect(peakOf(markup, 'slice', slice!)).toBe('#83C2FF')
   }
   expect(partsOf(a, 'track')).toEqual([])
 })
