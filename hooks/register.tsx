@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Register, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
+import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Register, SessionCompactResult, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
 
 import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
@@ -105,7 +105,7 @@ export type Options = {
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
-const COMPACT_POSITIONS: readonly CompactPosition[] = ['outside-left', 'start', 'context', 'end', 'outside-right']
+const COMPACT_POSITIONS: readonly CompactPosition[] = ['start', 'context', 'end']
 
 const DEFAULTS: Options = {
   barColoring: 'level',
@@ -135,7 +135,7 @@ const DEFAULTS: Options = {
   contextColorsLight: [...DEFAULT_PART_COLORS.light],
   compactButton: 'appear',
   compactAt: 75,
-  compactPosition: 'outside-right',
+  compactPosition: 'end',
   compactGlow: true,
   compactPulse: true,
 }
@@ -434,7 +434,7 @@ function contextOf(c: SessionContextUsage, parts?: NeonMeterContextParts | null)
 }
 
 /** The /context row names the desktop app's own breakdown lists apart; every other row in use counts as Other. */
-const PART_NAMES: Readonly<Record<string, keyof NeonMeterContextParts>> = {
+const PART_NAMES: Readonly<Record<string, Exclude<keyof NeonMeterContextParts, 'rows'>>> = {
   Messages: 'messages',
   'System tools': 'systemTools',
   'MCP tools': 'mcpTools',
@@ -449,10 +449,11 @@ const PART_NAMES: Readonly<Record<string, keyof NeonMeterContextParts>> = {
  * and the tool schemas loaded on demand are outside it. Null when no row is in use.
  */
 export function partsOf(categories: readonly ContextCategory[] | undefined): NeonMeterContextParts | null {
-  const out: NeonMeterContextParts = { messages: 0, systemTools: 0, mcpTools: 0, skills: 0, other: 0, buffer: 0 }
+  const out: NeonMeterContextParts = { messages: 0, systemTools: 0, mcpTools: 0, skills: 0, other: 0, buffer: 0, rows: [] }
   let used = false
   for (const row of categories ?? []) {
     const tokens = Number.isFinite(row.tokens) ? Math.max(0, row.tokens) : 0
+    if (tokens > 0) out.rows!.push({ name: row.name, tokens, kind: row.kind })
     if (row.kind === 'buffer') out.buffer += tokens
     else if (row.kind === 'used') {
       out[PART_NAMES[row.name] ?? 'other'] += tokens
@@ -657,6 +658,27 @@ function pressCompact($: EngineInterface): void {
   void runCompact($)
 }
 
+/**
+ * The context a compaction leaves, shown at once: it ends without a response,
+ * so no session.measure follows it, and the band would keep the old count
+ * until the next reply. The usage still holds the last response's input, so
+ * the compaction's own count wins where the engine recorded one.
+ */
+async function showCompacted($: EngineInterface, result: SessionCompactResult): Promise<void> {
+  if (result.skip !== undefined) return
+  try {
+    const usage = await $.session.usage(wantsBreakdown(env.options) ? { breakdown: 'summary' } : undefined)
+    const after = contextOf(usage.context, partsOf(usage.context.breakdown?.categories))
+    if (typeof result.tokensAfter === 'number') {
+      after.tokens = result.tokensAfter
+      after.percent = Math.min(100, Math.round((result.tokensAfter / after.window) * 100))
+    }
+    await update($, context, () => after)
+  } catch {
+    // The next response's measure brings it.
+  }
+}
+
 async function runCompact($: EngineInterface): Promise<void> {
   env.compacting = true
   env.pendingCompact = false
@@ -664,8 +686,19 @@ async function runCompact($: EngineInterface): Promise<void> {
     $.ui.toast('NeonMeter: compacting the conversation')
     const result = await $.session.compact()
     if (result.skip) $.ui.toast(`NeonMeter: the compaction was skipped: ${result.skip}`)
-  } catch (err) {
-    $.ui.toast(`NeonMeter: could not compact: ${err instanceof Error ? err.message : String(err)}`)
+    else await showCompacted($, result)
+  } catch {
+    // A headless (SDK) session, the desktop app's, compacts only inside a turn: run /compact as
+    // the person would, queued until the session is idle, as a command or else as a prompt.
+    try {
+      await $.command.run({ command: 'compact' })
+    } catch {
+      try {
+        await $.prompt.submit({ text: '/compact', asUser: true })
+      } catch (err) {
+        $.ui.toast(`NeonMeter: could not compact: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
   } finally {
     env.compacting = false
   }
@@ -1017,6 +1050,14 @@ export const register: Register = (on, options) => {
     }
     ensurePolling($)
     return next(e)
+  })
+
+  // /compact, the engine's own and the button's /compact in the desktop app, ends without a
+  // response: show the context it leaves at once (the button's direct call reads it itself).
+  on('session.compact', async ($, e, next) => {
+    const result = await next(e)
+    if (e.trigger !== 'precompute' && !e.agentId) await showCompacted($, result)
+    return result
   })
 
   on('config.set', { key: 'theme' }, async ($, e, next) => {

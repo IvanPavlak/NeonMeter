@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -280,15 +280,13 @@
     "compactPosition": {
       "type": "string",
       "title": "Compact button position",
-      "description": "outside-right and outside-left put the button beside the row, which keeps its own layout whatever it shows; end, context and start put it inside the row, after the last segment, before the Context segment or before the first, taking room from the bars",
+      "description": "end, context and start put the button after the last segment, before the Context segment or before the first, taking room from the bars",
       "options": [
-        "outside-right",
         "end",
         "context",
-        "start",
-        "outside-left"
+        "start"
       ],
-      "default": "outside-right"
+      "default": "end"
     },
     "compactGlow": {
       "type": "boolean",

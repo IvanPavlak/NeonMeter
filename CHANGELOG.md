@@ -6,13 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-07
+
+### Fixed
+
+- The compact button compacts in the desktop app. Its sessions refuse a plugin's direct compaction, so the button runs `/compact` there, as typed, and it still waits for a running turn to end.
+- The Context segment shows the context a compaction leaves at once, after `/compact`, the button or an automatic compaction, instead of the count from before it until the next response.
+
+### Changed
+
+- The desktop's context card lists everything the app's own context panel lists: the window's fill as a title, the named categories in their colors, the system prompt, memory files, MCP server instructions and agents each on its own row instead of one Other row, then the autocompact buffer, the free space and the tools loaded on demand (`—` for their share, as they sit outside the window). The bar still groups those rows as Other.
+- The README's option pictures show both hover cards: the full context card over the Context segment and the compact button's card naming what it does.
+
+### Removed
+
+- `compactPosition: outside-right` and `outside-left`. The desktop app clips the band to its card, so they drew the button where `end` and `start` do, a cell further out. `end` is the default now; a saved outside value reads as the default.
+
 ## [1.4.0] - 2026-10-07
 
 ### Added
 
 - The context bar shows what fills the context, as the desktop app's own context indicator does, in neon: Messages in dodgerblue, System tools in orangered, MCP tools in darker green, Skills in yellow and everything else as Other in lime share the percent in proportion to their tokens, then the autocompact buffer follows in grey, without a glow. It is the engine's own breakdown, the one `/context` lists, estimated locally after each response. `contextBar` (`breakdown`, the default, or `percent`, the bar colored by its percent as before) and `contextColorsDark` / `contextColorsLight` set it.
 - In the desktop app, the pointer over the Context segment opens a card with the breakdown, one row per category with its tokens and share of the window (`Messages: 25.5k, 2.6%`), in its color, glowing and pulsing with the band. `contextPopup` turns it off.
-- A compact button: a neon ring of the context percent in its range colors that compacts the conversation on a click, as `/compact` does, or as soon as the turn ends when Claude is working. It appears from 75% of the context on, beside the row on the right. `compactButton` (`appear`, `always`, `off`), `compactAt`, `compactPosition` (`outside-right`, `end`, `context`, `start`, `outside-left`), `compactGlow` and `compactPulse` set it; the `pulse` and `glow` options off hold it still and crisp too. In the terminal it is a `◉` cell, clicked where the terminal reports clicks.
+- A compact button: a neon ring of the context percent in its range colors that compacts the conversation on a click, as `/compact` does, or as soon as the turn ends when Claude is working. It appears from 75% of the context on, beside the row on the right. `compactButton` (`appear`, `always`, `off`), `compactAt`, `compactPosition` (`end`, `context`, `start`), `compactGlow` and `compactPulse` set it; the `pulse` and `glow` options off hold it still and crisp too. In the terminal it is a `◉` cell, clicked where the terminal reports clicks.
 - A benchmark in `scripts/benchmarking/` that compares the desktop pulse of different versions of hooks/, on Windows: `headless.ps1` in headless Microsoft Edge, with a pixel comparison of the frames, and `inapp.ps1` in the desktop app itself, taking turns between versions with `-Repeat` (README, Development).
 
 ### Changed
@@ -134,7 +150,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.0...v1.3.1

@@ -39,7 +39,7 @@ const OUT = new URL('./options/', import.meta.url)
 const FIVE = { kind: 'five_hour', pct: 82, resetMin: 193, resetAt: '21:13' }
 const WEEK = { kind: 'seven_day', pct: 18.2, resetMin: 4560, resetAt: 'Sun 18:00' }
 const FABLE = { kind: 'seven_day', pct: 69, resetMin: 4560, resetAt: 'Sun 18:00', label: { full: 'Fable', short: 'Fab' } }
-const CTX = { pct: 93, tokens: 930000, window: 1000000, parts: { messages: 700000, systemTools: 40000, mcpTools: 120000, skills: 10000, other: 60000, buffer: 33000 } }
+const CTX = { pct: 93, tokens: 930000, window: 1000000, parts: { messages: 700000, systemTools: 40000, mcpTools: 120000, skills: 10000, other: 60000, buffer: 33000, rows: [['Messages', 700000], ['MCP tools', 120000], ['System tools', 40000], ['System prompt', 30000], ['Memory files', 20000], ['MCP server instructions', 10000], ['Skills', 10000], ['Autocompact buffer', 33000, 'buffer'], ['Free space', 37000, 'free'], ['MCP tools (deferred)', 46000, 'deferred']].map(([name, tokens, kind = 'used']) => ({ name, tokens, kind })) } }
 // The same context at 42%, for the pictures of when the compact button shows.
 const CTX_MID = { pct: 42, tokens: 420000, window: 1000000, parts: { messages: 300000, systemTools: 40000, mcpTools: 40000, skills: 10000, other: 30000, buffer: 33000 } }
 
@@ -59,7 +59,7 @@ const DEFAULTS = {
   contextPopup: true,
   compactButton: 'appear',
   compactAt: 75,
-  compactPosition: 'outside-right',
+  compactPosition: 'end',
   compactGlow: true,
 }
 
@@ -83,8 +83,8 @@ export const OPTIONS = [
   { key: 'timeRanges', title: 'Time Range Bounds (with Reset Color: Time)', values: [DEFAULTS.timeRanges, [50, 60, 70, 80, 90]], names: ['Six Even Steps', 'The Percent Ranges'], base: { resetColor: 'time' } },
   { key: 'contextBar', title: 'Context Bar', values: ['breakdown', 'percent'], names: ['Split by Category', 'Colored by Its Percent'] },
   { key: 'contextPopup', title: 'Context Breakdown on Hover (Desktop)', values: [true, false], names: ['Shown over the Context Segment', 'Off'], surfaces: ['desktop'], card: true },
-  { key: 'compactButton', title: 'Compact Button (Context at 42%)', values: ['appear', 'always', 'off'], names: ['Appears from compactAt', 'Always', 'Off'], ctx: CTX_MID },
-  { key: 'compactPosition', title: 'Compact Button Position', values: ['outside-right', 'end', 'context', 'start', 'outside-left'], names: ['Outside, Right', 'Inside, at the End', 'Inside, Before Context', 'Inside, at the Start', 'Outside, Left'] },
+  { key: 'compactButton', title: 'Compact Button (Context at 42%)', values: ['appear', 'always', 'off'], names: ['Appears from compactAt', 'Always', 'Off'], ctx: CTX_MID, card: 'compact' },
+  { key: 'compactPosition', title: 'Compact Button Position', values: ['end', 'context', 'start'], names: ['At the End', 'Before Context', 'At the Start'] },
   { key: 'compactGlow', title: 'Compact Button Glow (Desktop)', values: [true, false], names: ['Glow On', 'Glow Off'], surfaces: ['desktop'], base: { segments: ['context'] } },
 ]
 
@@ -171,9 +171,6 @@ function place(svg, x, y) {
   return { body, w }
 }
 
-/** A cell of room on the desktop: the gap between the row and a compact button beside it. */
-const CELL_GAP = 9
-
 /**
  * The desktop row, `rowW` wide, laid out as desktop.tsx's desktopBand lays it
  * out: fixed pieces, and the bars sharing what is left. Returns the markup and
@@ -190,12 +187,8 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const text = (t, color, extra = {}) => items.push({ kind: 'text', t, color, ...extra })
   const draw = svg => items.push({ kind: 'svg', svg })
   const compact = row.compact
-  const button = () => draw(D.compactSvg(compact.ring, { ...opts, glow: o.glow && o.compactGlow }))
+  const button = () => items.push({ kind: 'button' }) && draw(D.compactSvg(compact.ring, { ...opts, glow: o.glow && o.compactGlow }))
   const at = compact ? (compact.position === 'context' && !row.segments.some(s => s.kind === 'ctx') ? 'end' : compact.position) : null
-  if (at === 'outside-left') {
-    button()
-    items.push({ kind: 'space', w: CELL_GAP })
-  }
   if (at === 'start') {
     button()
     text(' ', T.text)
@@ -227,11 +220,7 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
     text(' ', T.text)
     button()
   }
-  if (at === 'outside-right') {
-    items.push({ kind: 'space', w: CELL_GAP })
-    button()
-  }
-  const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : it.kind === 'space' ? it.w : it.kind === 'mark' ? 0 : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
+  const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : it.kind === 'space' ? it.w : it.kind === 'mark' || it.kind === 'button' ? 0 : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
   const fixed = items.filter(it => it.kind !== 'grow').reduce((n, it) => n + width(it), 0)
   const grows = items.filter(it => it.kind === 'grow').length
   const growW = grows ? Math.max(0, (rowW - fixed) / grows) : 0
@@ -240,8 +229,11 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   let x = x0
   let out = ''
   let ctxX = null
+  let buttonX = null
   for (const it of items) {
-    if (it.kind === 'mark') {
+    if (it.kind === 'button') {
+      buttonX = x
+    } else if (it.kind === 'mark') {
       ctxX = x
     } else if (it.kind === 'space') {
       x += it.w
@@ -262,7 +254,7 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       x += placed.w
     }
   }
-  return { out, ctxX, context: row.context ?? null, opts }
+  return { out, ctxX, context: row.context ?? null, opts, buttonX, compact: compact ?? null }
 }
 
 // The hover card's ground and border, as register.tsx's CARD draws them.
@@ -281,6 +273,23 @@ function contextCard(context, opts, theme, x, bottom) {
     out += place(D.contextRowSvg(r, opts), x + CARD_PAD, top + CARD_PAD + k * CARD_ROW).body
   })
   return { out, h }
+}
+
+/**
+ * The card the app shows over the compact button, naming what it does: one
+ * line in the text color, its right edge at the button's when it would run
+ * past the picture, its bottom at `bottom`.
+ */
+function compactCard(label, theme, x, bottom) {
+  const w = textWidth(label, false) + 2 * CARD_PAD
+  const h = D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4
+  const left = Math.max(PAD, Math.min(x, W - PAD - w))
+  const top = bottom - h
+  const T = B.THEMES[theme]
+  return (
+    `<rect x="${left.toFixed(2)}" y="${top}" width="${w.toFixed(2)}" height="${h}" rx="8" fill="${CARD[theme].background}" stroke="${CARD[theme].border}"/>` +
+    `<text x="${(left + CARD_PAD).toFixed(2)}" y="${(top + h / 2 + TEXT_SIZE * 0.35).toFixed(2)}" ${SANS} font-size="${TEXT_SIZE}" fill="${T.text}">${esc(label)}</text>`
+  )
 }
 
 /** The terminal row: the builder's spans, each pinned to its cells. */
@@ -313,8 +322,9 @@ const PANEL = {
 function desktopBox(turns, o, theme, y, card = false) {
   const P = PANEL[theme]
   const rows = turns.map((t, k) => desktopRow(t, o, theme, PAD + DESK_PAD, 0, W - 2 * PAD - 2 * DESK_PAD))
-  const open = card && o.contextPopup ? rows.find(r => r.context && r.ctxX !== null) : null
-  const cardH = open ? open.context.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : 0
+  const open = card === true && o.contextPopup ? rows.find(r => r.context && r.ctxX !== null) : null
+  const pressed = card === 'compact' ? rows.find(r => r.compact && r.buttonX !== null) : null
+  const cardH = open ? open.context.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : pressed ? D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4 + 8 : 0
   const boxY = y + cardH
   const h = 2 * DESK_PAD + (turns.length - 1) * DESK_ROW + D.DISPLAY_HEIGHT
   let out = `<rect x="${PAD}" y="${boxY}" width="${W - 2 * PAD}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
@@ -322,6 +332,7 @@ function desktopBox(turns, o, theme, y, card = false) {
     out += desktopRow(t, o, theme, PAD + DESK_PAD, boxY + DESK_PAD + k * DESK_ROW, W - 2 * PAD - 2 * DESK_PAD).out
   })
   if (open) out += contextCard(open.context, open.opts, theme, open.ctxX, boxY - 8).out
+  if (pressed) out += compactCard(pressed.compact.label, theme, pressed.buttonX, boxY - 8)
   return { out, h: h + cardH }
 }
 

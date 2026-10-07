@@ -480,18 +480,19 @@ const ROW_CHAR_WIDTH = 10.6
 export function contextRowSvg(row: ContextRow, o: DesktopOptions): string {
   const beat = beatOf(o, row.live)
   const live = row.live && beat !== null
-  const textX = PAD + DOT_UNIT
+  const textX = row.dot === false ? PAD : PAD + DOT_UNIT
   const w = Math.ceil(textX + row.text.length * ROW_CHAR_WIDTH) + PAD
   const h = ROW_HEIGHT
   const dot = `cx="${PAD + DOT_UNIT / 2 - 3}" cy="${MIDLINE}" r="${DOT_RADIUS}"`
-  const attrs = `x="${textX}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="400" fill="${row.color}"`
+  const attrs = `x="${textX}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${row.dot === false ? 600 : 400}" fill="${row.color}"`
   const pulse = live ? animate('fill', row.color, peakOf(row.color), beat!) : ''
   const text = esc(row.text)
   const glow = row.halo && o.glow ? `<g data-role="row-halo" ${halo(live, beat)}<circle ${dot} fill="${row.color}"/><text ${attrs}>${text}</text></g>` : ''
   return (
     open(w, h, beat, row.halo && o.glow ? filters(w, h, beat) : '') +
     glow +
-    `<circle data-role="row-dot" ${dot} fill="${row.color}">${pulse}</circle><text data-role="row" ${attrs}>${text}${pulse}</text>` +
+    (row.dot === false ? '' : `<circle data-role="row-dot" ${dot} fill="${row.color}">${pulse}</circle>`) +
+    `<text data-role="row" ${attrs}>${text}${pulse}</text>` +
     '</svg>'
   )
 }

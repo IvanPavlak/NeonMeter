@@ -145,20 +145,6 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
     children.push(...pieces)
   })
   if (compact && at === 'end') children.push(gap('compact-gap'), compactButton(compact, els, x))
-  if (compact && (at === 'outside-left' || at === 'outside-right')) {
-    // Beside the row, a cell away: the row keeps its own layout, only narrower.
-    const meter = (
-      <Box key="meter" flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} alignItems="center">
-        {children}
-      </Box>
-    )
-    const space = <Box key="compact-gap" width={1} flexShrink={0} />
-    return (
-      <Box key="band" flexDirection="row" width="100%" alignItems="center">
-        {at === 'outside-left' ? [compactButton(compact, els, x), space, meter] : [meter, space, compactButton(compact, els, x)]}
-      </Box>
-    )
-  }
   return (
     <Box key="band" flexDirection="row" width="100%" alignItems="center">
       {children}

@@ -16,7 +16,8 @@ const DARK = ['#1E90FF', '#FF5F1F', '#00D45A', '#FFF01F', '#39FF14', '#6E7681']
 test('the engine breakdown groups as the desktop app groups it', () => {
   const parts = partsOf(CONTEXT.breakdown!.categories)
   // Other is the system prompt, the MCP server instructions and the memory files; deferred tools and free space are outside.
-  expect(parts).toEqual({ messages: 25500, systemTools: 24300, mcpTools: 11800, skills: 6700, other: 5600, buffer: 33000 })
+  expect({ ...parts, rows: undefined }).toEqual({ messages: 25500, systemTools: 24300, mcpTools: 11800, skills: 6700, other: 5600, buffer: 33000, rows: undefined })
+  expect(parts!.rows, 'every row in use, kept for the hover card').toHaveLength(BREAKDOWN_ROWS.length)
   expect(partsOf([]), 'nothing in use').toBeNull()
   expect(partsOf(undefined)).toBeNull()
 })
@@ -89,7 +90,7 @@ describe('the desktop context bar', () => {
 })
 
 describe('the desktop hover card', () => {
-  test('the Context segment carries the breakdown, revealed on hover, a row per category in its color', { options: { segments: 'context' } }, async ($, on) => {
+  test('the Context segment carries the breakdown, revealed on hover, every row the app lists', { options: { segments: 'context' } }, async ($, on) => {
     const world = setup(on, { usage: { context: CONTEXT } })
     await start($, world)
 
@@ -100,7 +101,20 @@ describe('the desktop hover card', () => {
     expect(card?.props?.display).toBe('none')
     expect(card?.hover?.display).toBe('flex')
     const rows = (card?.children ?? []).filter(c => c.type === 'Svg').map(c => String(c.props?.alt))
-    expect(rows).toEqual(['Messages: 25.5k, 2.6%', 'System tools: 24.3k, 2.4%', 'MCP tools: 11.8k, 1.2%', 'Skills: 6.7k, 0.67%', 'Other: 5.6k, 0.56%', 'Autocompact buffer: 33k, 3.3%'])
+    // As the app's own panel: the title, the named categories largest first, the rest in use, the buffer, the free space, the deferred tools.
+    expect(rows).toEqual([
+      'Context window: 73.9k / 1M (7%)',
+      'Messages: 25.5k, 2.6%',
+      'System tools: 24.3k, 2.4%',
+      'MCP tools: 11.8k, 1.2%',
+      'Skills: 6.7k, 0.67%',
+      'System prompt: 4.1k, 0.41%',
+      'Memory files: 900, 0.09%',
+      'MCP server instructions: 600, 0.06%',
+      'Autocompact buffer: 33k, 3.3%',
+      'Free space: 893.1k, 89%',
+      'MCP tools (deferred): 64.3k, —',
+    ])
     await ui.unmount()
   })
 
