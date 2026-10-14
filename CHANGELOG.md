@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-14
+
+### Changed
+
+- The button submits a prompt instead of compacting. A click sends `buttonPrompt` as if you had typed it, a turn of its own once the session is idle, so a click while Claude works runs it as soon as the turn ends. By default the prompt writes a handoff: `HANDOFF.md` in the project root, for a reader who has the repository but not the conversation, with the task, the state of the work (done and verified, done but not verified, in progress, not started, and what the working tree holds uncommitted), the decisions and why, the files and commands that matter, the open problems with their exact output, the next steps in order and the dead ends, as facts, specific and honest about what is not verified, free of secrets, and as short as it can be while complete; it reads an existing handoff first and keeps what is still true, commits nothing, and ends with the line to paste into the next session. The prompt is sent exactly as typed, a slash command included (`buttonPrompt: /compact` asks for what the 1.4 button did); whether the engine runs a slash command a plugin sends as a command, rather than reading it as text, is not confirmed in this release. The desktop's hover card names what the button does, from `buttonLabel`, else the built-in prompt's name or a custom prompt's first line.
+- The `compact*` options are `button*`: `button` (`appear`, `always`, `off`), `buttonAt`, `buttonPosition`, `buttonGlow` and `buttonPulse`, with `buttonPrompt` and `buttonLabel` new. A saved `compactButton`, `compactAt`, `compactPosition`, `compactGlow` or `compactPulse` is no longer read: set the `button*` option again. The README's option pictures are renamed with them.
+
+### Removed
+
+- The button's direct compaction and its wait for a running turn to end: the engine queues the button's prompt itself. The Context segment still shows the context a compaction leaves at once, whether `/compact` was typed, sent by the button or run by the engine.
+
 ## [1.4.1] - 2026-10-07
 
 ### Fixed
@@ -150,7 +161,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.1...v1.3.2
