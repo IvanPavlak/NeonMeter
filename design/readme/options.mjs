@@ -40,7 +40,7 @@ const FIVE = { kind: 'five_hour', pct: 82, resetMin: 193, resetAt: '21:13' }
 const WEEK = { kind: 'seven_day', pct: 18.2, resetMin: 4560, resetAt: 'Sun 18:00' }
 const FABLE = { kind: 'seven_day', pct: 69, resetMin: 4560, resetAt: 'Sun 18:00', label: { full: 'Fable', short: 'Fab' } }
 const CTX = { pct: 93, tokens: 930000, window: 1000000, parts: { messages: 700000, systemTools: 40000, mcpTools: 120000, skills: 10000, other: 60000, buffer: 33000, rows: [['Messages', 700000], ['MCP tools', 120000], ['System tools', 40000], ['System prompt', 30000], ['Memory files', 20000], ['MCP server instructions', 10000], ['Skills', 10000], ['Autocompact buffer', 33000, 'buffer'], ['Free space', 37000, 'free'], ['MCP tools (deferred)', 46000, 'deferred']].map(([name, tokens, kind = 'used']) => ({ name, tokens, kind })) } }
-// The same context at 42%, for the pictures of when the compact button shows.
+// The same context at 42%, for the pictures of when the button shows.
 const CTX_MID = { pct: 42, tokens: 420000, window: 1000000, parts: { messages: 300000, systemTools: 40000, mcpTools: 40000, skills: 10000, other: 30000, buffer: 33000 } }
 
 const DEFAULTS = {
@@ -57,16 +57,17 @@ const DEFAULTS = {
   resetColor: 'plain',
   contextBar: 'breakdown',
   contextPopup: true,
-  compactButton: 'appear',
-  compactAt: 75,
-  compactPosition: 'end',
-  compactGlow: true,
+  button: 'appear',
+  buttonAt: 75,
+  buttonPosition: 'end',
+  buttonGlow: true,
 }
 
 // Every option a picture can show. The pulse options (`pulse`, `pulseMode`, `pulseCount`,
 // `pulseMs`), `rotateSeconds` and `pollSeconds` move over time, which a still picture cannot show;
 // `theme` and `desktopTheme` are the dark and light pictures themselves; the colors are
-// your own. `base` sets other options the values need to show anything.
+// your own; `buttonPrompt` and `buttonLabel` are text, and the `button` picture's card shows
+// the built-in prompt's label. `base` sets other options the values need to show anything.
 // `title` heads the picture and `names` title each value, in the hero's style
 // ("Layout: All (Default)", "Level Bars (Default)").
 export const OPTIONS = [
@@ -83,18 +84,18 @@ export const OPTIONS = [
   { key: 'timeRanges', title: 'Time Range Bounds (with Reset Color: Time)', values: [DEFAULTS.timeRanges, [50, 60, 70, 80, 90]], names: ['Six Even Steps', 'The Percent Ranges'], base: { resetColor: 'time' } },
   { key: 'contextBar', title: 'Context Bar', values: ['breakdown', 'percent'], names: ['Split by Category', 'Colored by Its Percent'] },
   { key: 'contextPopup', title: 'Context Breakdown on Hover (Desktop)', values: [true, false], names: ['Shown over the Context Segment', 'Off'], surfaces: ['desktop'], card: true },
-  { key: 'compactButton', title: 'Compact Button (Context at 42%)', values: ['appear', 'always', 'off'], names: ['Appears from compactAt', 'Always', 'Off'], ctx: CTX_MID, card: 'compact' },
-  { key: 'compactPosition', title: 'Compact Button Position', values: ['end', 'context', 'start'], names: ['At the End', 'Before Context', 'At the Start'] },
-  { key: 'compactGlow', title: 'Compact Button Glow (Desktop)', values: [true, false], names: ['Glow On', 'Glow Off'], surfaces: ['desktop'], base: { segments: ['context'] } },
+  { key: 'button', title: 'Button (Context at 42%)', values: ['appear', 'always', 'off'], names: ['Appears from buttonAt', 'Always', 'Off'], ctx: CTX_MID, card: 'button' },
+  { key: 'buttonPosition', title: 'Button Position', values: ['end', 'context', 'start'], names: ['At the End', 'Before Context', 'At the Start'] },
+  { key: 'buttonGlow', title: 'Button Glow (Desktop)', values: [true, false], names: ['Glow On', 'Glow Off'], surfaces: ['desktop'], base: { segments: ['context'] } },
 ]
 
 const shown = v => (Array.isArray(v) ? v.join(',') : String(v))
 const same = (a, b) => shown(a) === shown(b)
 
-/** Whether the compact button shows for a context, as the hooks module decides (register.tsx `compactShown`). */
-function compactShown(o, ctx) {
-  if (o.compactButton === 'off') return false
-  return o.compactButton === 'always' || ctx.pct >= o.compactAt
+/** Whether the button shows for a context, as the hooks module decides (register.tsx `buttonShown`). */
+function buttonShown(o, ctx) {
+  if (o.button === 'off') return false
+  return o.button === 'always' || ctx.pct >= o.buttonAt
 }
 
 /** The band input for a set of options: the account above, with each window's reset display. */
@@ -112,7 +113,7 @@ function inputFor(o, ctx = CTX) {
     segments: o.segments,
     resetColor: o.resetColor,
     contextBar: o.contextBar,
-    compact: compactShown(o, ctx) ? o.compactPosition : null,
+    button: buttonShown(o, ctx) ? o.buttonPosition : null,
   }
   // The default layout's first Weekly turn, or every turn of the single layout, as the hooks module takes them.
   return o.layout === 'single' ? B.singleVariants(input) : B.weeklyVariants(input).slice(0, 1)
@@ -186,9 +187,9 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const items = []
   const text = (t, color, extra = {}) => items.push({ kind: 'text', t, color, ...extra })
   const draw = svg => items.push({ kind: 'svg', svg })
-  const compact = row.compact
-  const button = () => items.push({ kind: 'button' }) && draw(D.compactSvg(compact.ring, { ...opts, glow: o.glow && o.compactGlow }))
-  const at = compact ? (compact.position === 'context' && !row.segments.some(s => s.kind === 'ctx') ? 'end' : compact.position) : null
+  const btn = row.button
+  const button = () => items.push({ kind: 'button' }) && draw(D.buttonSvg(btn.ring, { ...opts, glow: o.glow && o.buttonGlow }))
+  const at = btn ? (btn.position === 'context' && !row.segments.some(s => s.kind === 'ctx') ? 'end' : btn.position) : null
   if (at === 'start') {
     button()
     text(' ', T.text)
@@ -254,7 +255,7 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       x += placed.w
     }
   }
-  return { out, ctxX, context: row.context ?? null, opts, buttonX, compact: compact ?? null }
+  return { out, ctxX, context: row.context ?? null, opts, buttonX, button: btn ?? null }
 }
 
 // The hover card's ground and border, as register.tsx's CARD draws them.
@@ -276,11 +277,11 @@ function contextCard(context, opts, theme, x, bottom) {
 }
 
 /**
- * The card the app shows over the compact button, naming what it does: one
+ * The card the app shows over the button, naming what it does: one
  * line in the text color, its right edge at the button's when it would run
  * past the picture, its bottom at `bottom`.
  */
-function compactCard(label, theme, x, bottom) {
+function buttonCard(label, theme, x, bottom) {
   const w = textWidth(label, false) + 2 * CARD_PAD
   const h = D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4
   const left = Math.max(PAD, Math.min(x, W - PAD - w))
@@ -323,7 +324,7 @@ function desktopBox(turns, o, theme, y, card = false) {
   const P = PANEL[theme]
   const rows = turns.map((t, k) => desktopRow(t, o, theme, PAD + DESK_PAD, 0, W - 2 * PAD - 2 * DESK_PAD))
   const open = card === true && o.contextPopup ? rows.find(r => r.context && r.ctxX !== null) : null
-  const pressed = card === 'compact' ? rows.find(r => r.compact && r.buttonX !== null) : null
+  const pressed = card === 'button' ? rows.find(r => r.button && r.buttonX !== null) : null
   const cardH = open ? open.context.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : pressed ? D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4 + 8 : 0
   const boxY = y + cardH
   const h = 2 * DESK_PAD + (turns.length - 1) * DESK_ROW + D.DISPLAY_HEIGHT
@@ -332,7 +333,7 @@ function desktopBox(turns, o, theme, y, card = false) {
     out += desktopRow(t, o, theme, PAD + DESK_PAD, boxY + DESK_PAD + k * DESK_ROW, W - 2 * PAD - 2 * DESK_PAD).out
   })
   if (open) out += contextCard(open.context, open.opts, theme, open.ctxX, boxY - 8).out
-  if (pressed) out += compactCard(pressed.compact.label, theme, pressed.buttonX, boxY - 8)
+  if (pressed) out += buttonCard(pressed.button.label, theme, pressed.buttonX, boxY - 8)
   return { out, h: h + cardH }
 }
 

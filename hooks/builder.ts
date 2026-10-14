@@ -5,6 +5,7 @@
 // text. Pure functions from a reading to the spans of one row; no `$`, no elements.
 
 import { mix } from './color'
+import { HANDOFF_LABEL } from './handoff'
 
 export type Theme = 'dark' | 'light'
 
@@ -157,11 +158,11 @@ export type ResetColor = 'plain' | 'time'
 /** `breakdown` splits the context bar into its categories; `percent` colors it by its percent, as every other bar. */
 export type ContextBar = 'breakdown' | 'percent'
 /**
- * Where the compact button sits in the row: before the first segment, before
+ * Where the button sits in the row: before the first segment, before
  * the Context segment or after the last, taking room from the bars like any
  * other piece.
  */
-export type CompactPosition = 'start' | 'context' | 'end'
+export type ButtonPosition = 'start' | 'context' | 'end'
 
 /** One run of same-styled characters. `color` is final: blends are applied. */
 export type Span = {
@@ -171,7 +172,7 @@ export type Span = {
   italic?: boolean
   /** A live cell run or percent: it pulses in its own color. */
   live?: boolean
-  /** The compact button's cell: a press on it compacts the conversation. */
+  /** The button's cell: a press on it compacts the conversation. */
   button?: boolean
 }
 
@@ -225,8 +226,10 @@ export type BandInput = {
   resetColor?: ResetColor
   /** How the context bar is colored; absent, by its percent. */
   contextBar?: ContextBar
-  /** Where the compact button sits; absent or null, no button. */
-  compact?: CompactPosition | null
+  /** Where the button sits; absent or null, no button. */
+  button?: ButtonPosition | null
+  /** What the button's hover card says it does; absent, the built-in handoff prompt's name. */
+  buttonLabel?: string
 }
 
 type Segment = {
@@ -569,7 +572,7 @@ function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarCo
 
 /**
  * The layouts below fill `starts` with the index of the span each segment's
- * label opens with (after its separator), where the compact button can go.
+ * label opens with (after its separator), where the button can go.
  */
 function layoutBars(segs: Segment[], tier: Tier, s: BandInput, cols: number, T: Palette, bars: BarColoring, starts: number[] = []): Span[] | null {
   const min = tier === 'full' ? 8 : 4
@@ -662,8 +665,8 @@ export function band(s: BandInput, cols: number, theme: Theme, bars: BarColoring
   const T = THEMES[theme]
   const segs = segmentsOf(s)
   if (!segs.length) return null
-  // The compact button takes its cell and a space.
-  const button = s.compact && s.ctx && s.ctx.tokens != null ? compactSpan(s.ctx, T) : null
+  // The button takes its cell and a space.
+  const button = s.button && s.ctx && s.ctx.tokens != null ? buttonSpan(s.ctx, T) : null
   const width = button ? Math.max(1, cols - 2) : cols
   const starts: number[] = []
   let spans = layoutBars(segs, 'full', s, width, T, bars, starts)
@@ -680,23 +683,23 @@ export function band(s: BandInput, cols: number, theme: Theme, bars: BarColoring
     spans = truncate(layoutJustified(segs, 'micro', width, T, true, s.resetColor, starts)!, width)
     tier = 'micro'
   }
-  if (button) spans = placeButton(spans, s.compact!, button, T, starts[segs.findIndex(seg => seg.kind === 'ctx')])
+  if (button) spans = placeButton(spans, s.button!, button, T, starts[segs.findIndex(seg => seg.kind === 'ctx')])
   return { tier, spans }
 }
 
-/** The compact button's cell: `◉` in the context percent's range color, pulsing with the band. */
-export const COMPACT_GLYPH = '◉'
+/** The button's cell: `◉` in the context percent's range color, pulsing with the band. */
+export const BUTTON_GLYPH = '◉'
 
-function compactSpan(ctx: ContextInput, T: Palette): Span {
-  return { text: COMPACT_GLYPH, color: T.ramp[rampIndex(ctx.pct)]!, bold: true, live: true, button: true }
+function buttonSpan(ctx: ContextInput, T: Palette): Span {
+  return { text: BUTTON_GLYPH, color: T.ramp[rampIndex(ctx.pct)]!, bold: true, live: true, button: true }
 }
 
 /**
- * The row with the compact button in its place, one space from its neighbor:
+ * The row with the button in its place, one space from its neighbor:
  * `start`, before the Context segment's label at `ctxStart`, or `end`.
  * Without a Context segment in the row, `context` is the end.
  */
-function placeButton(spans: Span[], at: CompactPosition, button: Span, T: Palette, ctxStart: number | undefined): Span[] {
+function placeButton(spans: Span[], at: ButtonPosition, button: Span, T: Palette, ctxStart: number | undefined): Span[] {
   const gap = (n: number) => sp(T, rep(' ', n), T.text)
   if (at === 'start') return [button, gap(1), ...spans]
   if (at === 'context' && ctxStart !== undefined && ctxStart < spans.length) return [...spans.slice(0, ctxStart), button, gap(1), ...spans.slice(ctxStart)]
@@ -737,11 +740,11 @@ export type FlexSegment = {
 }
 
 /**
- * The compact button as the desktop draws it: where it sits, its ring (the
+ * The button as the desktop draws it: where it sits, its ring (the
  * context percent as slices of 100, colored as the bars are) and its label
  * for a reader of the drawing.
  */
-export type FlexCompact = { position: CompactPosition; ring: FlexSlice[]; label: string }
+export type FlexButton = { position: ButtonPosition; ring: FlexSlice[]; label: string }
 
 /**
  * One row of the context breakdown the desktop shows on hover: `Messages:
@@ -758,8 +761,8 @@ export type FlexRow = {
   separator: string
   /** The stale marker after the last window segment, when the reading is stale. */
   stale: Span | null
-  /** The compact button, when it shows. */
-  compact?: FlexCompact
+  /** The button, when it shows. */
+  button?: FlexButton
   /** The context breakdown's rows, when the context bar is split by category. */
   context?: ContextRow[]
 }
@@ -842,15 +845,15 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   })
   const staleTxt = s.stale && s.auth && !s.loading && lastWin >= 0 ? sp(T, 'stale ' + s.staleAge, T.text, { italic: true, op: 0.7 }) : null
   const row: FlexRow = { segments, text: T.text, separator: mix(T.text, T.bg, 0.4), stale: staleTxt }
-  const ring = s.compact && s.ctx ? compactRing(s.ctx, T, bars) : null
-  if (ring) row.compact = { position: s.compact!, ring, label: `Compact the conversation (${Math.round(s.ctx!.pct)}% of the context used)` }
+  const ring = s.button && s.ctx ? buttonRing(s.ctx, T, bars) : null
+  if (ring) row.button = { position: s.button!, ring, label: `${s.buttonLabel ?? HANDOFF_LABEL} (${Math.round(s.ctx!.pct)}% of the context used)` }
   // The hover card hangs on the Context segment, whichever way its bar is colored.
   if (s.ctx?.parts && s.ctx.tokens != null && usedOf(s.ctx.parts) > 0 && segs.some(seg => seg.kind === 'ctx')) row.context = contextRows(s.ctx.parts, s.ctx.window, T, s.ctx.tokens)
   return row
 }
 
-/** The compact button's ring: the context percent as a bar's slices, colored by `barColoring`; null before the first response. */
-function compactRing(ctx: ContextInput, T: Palette, bars: BarColoring): FlexSlice[] | null {
+/** The button's ring: the context percent as a bar's slices, colored by `barColoring`; null before the first response. */
+function buttonRing(ctx: ContextInput, T: Palette, bars: BarColoring): FlexSlice[] | null {
   if (ctx.tokens == null) return null
   return slicesOf({ kind: 'ctx', pct: ctx.pct, tokens: ctx.tokens, window: ctx.window, hasBar: true }, T, bars)
 }
@@ -975,8 +978,8 @@ export function singleVariants(input: BandInput): BandInput[] {
  * at 75% so the dots keep a little air between them instead of overflowing.
  */
 export function desktopDotCount(row: FlexRow, bodyColumns: number): number {
-  // The compact button's drawing and its gap take about three characters.
-  let text = (row.segments.length - 1) * 3 + (row.stale ? row.stale.text.length + 2 : 0) + (row.compact ? 3 : 0)
+  // The button's drawing and its gap take about three characters.
+  let text = (row.segments.length - 1) * 3 + (row.stale ? row.stale.text.length + 2 : 0) + (row.button ? 3 : 0)
   let bars = 0
   for (const seg of row.segments) {
     text += seg.label.length + 1 + seg.pct.text.length + (seg.extra ? seg.extra.length + 1 : 0)

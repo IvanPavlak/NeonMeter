@@ -431,20 +431,20 @@ export function resetSvg(reset: Span, o: DesktopOptions): string {
 }
 
 /**
- * The compact button's ring, in the drawing's own pixels: 14 px across on
+ * The button's ring, in the drawing's own pixels: 14 px across on
  * screen, the size of the app's own context ring beside the model picker.
  */
 export const RING_RADIUS = 9.3
 export const RING_WIDTH = 2.4
 
 /**
- * The compact button: a ring of the track's color with the context percent
+ * The button: a ring of the track's color with the context percent
  * drawn over it clockwise from the top, as the bars draw it (the percent's
  * range color, or every range up to it under ramp coloring), under a halo of
  * its own colors; live arcs pulse with the band. Every part carries a
  * `data-role` (`ring-track`, `ring`, `ring-halo`).
  */
-export function compactSvg(ring: readonly FlexSlice[], o: DesktopOptions): string {
+export function buttonSvg(ring: readonly FlexSlice[], o: DesktopOptions): string {
   const beat = beatOf(o, ring.some(sl => sl.live))
   const w = ROW_HEIGHT
   const h = ROW_HEIGHT

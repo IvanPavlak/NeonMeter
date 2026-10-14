@@ -4,10 +4,11 @@ import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Reg
 import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
 import { band, configureDesign, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, singleVariants, THEMES, timeIndex, weeklyVariants } from './builder'
-import type { BandInput, CompactPosition, ContextBar, FlexRow, OptionSegment, WindowInput, WindowKind } from './builder'
+import type { BandInput, ButtonPosition, ContextBar, FlexRow, OptionSegment, WindowInput, WindowKind } from './builder'
 import type { Burst } from './color'
 import { desktopBand } from './desktop'
 import type { DesktopExtras } from './desktop'
+import { buttonAction } from './handoff'
 
 // Pure layout helpers that live in the builder so the README generator runs them
 // too; re-exported here, where the tests have always found them.
@@ -92,20 +93,24 @@ export type Options = {
   contextColorsDark: string[]
   /** The six context category colors on the light palette, `#RRGGBB`. */
   contextColorsLight: string[]
-  /** `appear` shows the compact button once the context reaches `compactAt`; `always` whenever the context has a reading; `off` never. */
-  compactButton: 'appear' | 'always' | 'off'
-  /** The context percent at which `compactButton: appear` shows the button, 1 to 100. */
-  compactAt: number
-  /** Where the compact button sits. */
-  compactPosition: CompactPosition
-  /** Draw the compact button's halo (desktop); the `glow` option off draws none either way. */
-  compactGlow: boolean
-  /** Pulse the compact button with the band; the `pulse` option off holds it still either way. */
-  compactPulse: boolean
+  /** `appear` shows the button once the context reaches `buttonAt`; `always` whenever the context has a reading; `off` never. */
+  button: 'appear' | 'always' | 'off'
+  /** The context percent at which `button: appear` shows the button, 1 to 100. */
+  buttonAt: number
+  /** Where the button sits. */
+  buttonPosition: ButtonPosition
+  /** Draw the button's halo (desktop); the `glow` option off draws none either way. */
+  buttonGlow: boolean
+  /** Pulse the button with the band; the `pulse` option off holds it still either way. */
+  buttonPulse: boolean
+  /** The prompt a press submits, sent exactly as typed; empty, the built-in handoff prompt (handoff.ts). */
+  buttonPrompt: string
+  /** What the hover card says the button does; empty, the built-in prompt's name or a custom prompt's first line. */
+  buttonLabel: string
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
-const COMPACT_POSITIONS: readonly CompactPosition[] = ['start', 'context', 'end']
+const BUTTON_POSITIONS: readonly ButtonPosition[] = ['start', 'context', 'end']
 
 const DEFAULTS: Options = {
   barColoring: 'level',
@@ -133,11 +138,13 @@ const DEFAULTS: Options = {
   contextPopup: true,
   contextColorsDark: [...DEFAULT_PART_COLORS.dark],
   contextColorsLight: [...DEFAULT_PART_COLORS.light],
-  compactButton: 'appear',
-  compactAt: 75,
-  compactPosition: 'end',
-  compactGlow: true,
-  compactPulse: true,
+  button: 'appear',
+  buttonAt: 75,
+  buttonPosition: 'end',
+  buttonGlow: true,
+  buttonPulse: true,
+  buttonPrompt: '',
+  buttonLabel: '',
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -250,11 +257,13 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const contextPopup = typeof options.contextPopup === 'boolean' ? options.contextPopup : DEFAULTS.contextPopup
   const contextColorsDark = pick('contextColorsDark', parseColors, [...DEFAULT_PART_COLORS.dark], 'six colors like "#1E90FF"')
   const contextColorsLight = pick('contextColorsLight', parseColors, [...DEFAULT_PART_COLORS.light], 'six colors like "#1874D2"')
-  const compactButton = options.compactButton === 'always' || options.compactButton === 'off' ? options.compactButton : DEFAULTS.compactButton
-  const compactAt = Math.round(clamp(options.compactAt, DEFAULTS.compactAt, 1, 100))
-  const compactPosition = (COMPACT_POSITIONS as readonly unknown[]).includes(options.compactPosition) ? (options.compactPosition as CompactPosition) : DEFAULTS.compactPosition
-  const compactGlow = typeof options.compactGlow === 'boolean' ? options.compactGlow : DEFAULTS.compactGlow
-  const compactPulse = typeof options.compactPulse === 'boolean' ? options.compactPulse : DEFAULTS.compactPulse
+  const button = options.button === 'always' || options.button === 'off' ? options.button : DEFAULTS.button
+  const buttonAt = Math.round(clamp(options.buttonAt, DEFAULTS.buttonAt, 1, 100))
+  const buttonPosition = (BUTTON_POSITIONS as readonly unknown[]).includes(options.buttonPosition) ? (options.buttonPosition as ButtonPosition) : DEFAULTS.buttonPosition
+  const buttonGlow = typeof options.buttonGlow === 'boolean' ? options.buttonGlow : DEFAULTS.buttonGlow
+  const buttonPulse = typeof options.buttonPulse === 'boolean' ? options.buttonPulse : DEFAULTS.buttonPulse
+  const buttonPrompt = typeof options.buttonPrompt === 'string' ? options.buttonPrompt : DEFAULTS.buttonPrompt
+  const buttonLabel = typeof options.buttonLabel === 'string' ? options.buttonLabel : DEFAULTS.buttonLabel
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
   const segments: SegmentKind[] = []
@@ -295,11 +304,13 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       contextPopup,
       contextColorsDark,
       contextColorsLight,
-      compactButton,
-      compactAt,
-      compactPosition,
-      compactGlow,
-      compactPulse,
+      button,
+      buttonAt,
+      buttonPosition,
+      buttonGlow,
+      buttonPulse,
+      buttonPrompt,
+      buttonLabel,
     },
     rejected,
     problems,
@@ -617,12 +628,12 @@ type Env = {
   bandKey: string | null
   /** The responsive pulse of each band, by band key: see `burstOf`. */
   bursts: Map<string, BurstState>
-  /** True while a model turn runs, as the band last saw it: a compaction then waits for the turn to end. */
+  /** True while a model turn runs, as the band last saw it: a press then tells that its prompt waits for the turn to end. */
   working: boolean
-  /** A press of the compact button that waits for the turn to end. */
-  pendingCompact: boolean
-  /** True while a compaction the button started runs, so a second press does nothing. */
-  compacting: boolean
+  /** `$.clock.now()` of the last press that submitted, so a double click submits once. */
+  pressedAt: number
+  /** True while a press's submission is in flight, so a second press does nothing. */
+  submitting: boolean
 }
 
 const env: Env = {
@@ -639,23 +650,37 @@ const env: Env = {
   bandKey: null,
   bursts: new Map(),
   working: false,
-  pendingCompact: false,
-  compacting: false,
+  pressedAt: 0,
+  submitting: false,
 }
 
+/** Presses closer together than this are one press: a double click submits the prompt once. */
+const PRESS_GAP_MS = 1000
+
 /**
- * The compact button's press: compacts the conversation as `/compact` does,
- * or, while a turn runs (the engine compacts only between turns), as soon as
- * it ends. A press while one runs does nothing.
+ * The button's press: submits its prompt as the person's own words, the way a
+ * typed prompt enters, the text sent exactly as given. The engine runs a
+ * plugin's prompt once the session is idle, so a press while a turn runs
+ * queues it and says so. A press while one is in flight, or within
+ * `PRESS_GAP_MS` of the last, does nothing.
  */
-function pressCompact($: EngineInterface): void {
-  if (env.compacting) return
-  if (env.working) {
-    env.pendingCompact = true
-    $.ui.toast('NeonMeter: compacting once Claude finishes this turn')
-    return
-  }
-  void runCompact($)
+function pressButton($: EngineInterface): void {
+  if (env.submitting) return
+  void (async () => {
+    env.submitting = true
+    try {
+      const now = await $.clock.now()
+      if (now - env.pressedAt < PRESS_GAP_MS) return
+      env.pressedAt = now
+      const action = buttonAction(env.options.buttonPrompt, env.options.buttonLabel)
+      if (env.working) $.ui.toast(`NeonMeter: ${action.label}, once Claude finishes this turn`)
+      await $.prompt.submit({ text: action.prompt, asUser: true })
+    } catch (err) {
+      $.ui.toast(`NeonMeter: could not submit the prompt: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      env.submitting = false
+    }
+  })()
 }
 
 /**
@@ -676,31 +701,6 @@ async function showCompacted($: EngineInterface, result: SessionCompactResult): 
     await update($, context, () => after)
   } catch {
     // The next response's measure brings it.
-  }
-}
-
-async function runCompact($: EngineInterface): Promise<void> {
-  env.compacting = true
-  env.pendingCompact = false
-  try {
-    $.ui.toast('NeonMeter: compacting the conversation')
-    const result = await $.session.compact()
-    if (result.skip) $.ui.toast(`NeonMeter: the compaction was skipped: ${result.skip}`)
-    else await showCompacted($, result)
-  } catch {
-    // A headless (SDK) session, the desktop app's, compacts only inside a turn: run /compact as
-    // the person would, queued until the session is idle, as a command or else as a prompt.
-    try {
-      await $.command.run({ command: 'compact' })
-    } catch {
-      try {
-        await $.prompt.submit({ text: '/compact', asUser: true })
-      } catch (err) {
-        $.ui.toast(`NeonMeter: could not compact: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
-  } finally {
-    env.compacting = false
   }
 }
 
@@ -937,18 +937,19 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
     segments: options.segments,
     resetColor: options.resetColor,
     contextBar: options.contextBar,
-    compact: compactShown(options, c) ? options.compactPosition : null,
+    button: buttonShown(options, c) ? options.buttonPosition : null,
+    buttonLabel: buttonAction(options.buttonPrompt, options.buttonLabel).label,
   }
 }
 
 /**
- * Whether the compact button shows: never under `off`; once the context has
- * a reading, always under `always`, and from `compactAt` percent on under
- * `appear`. Before the first response there is nothing to compact.
+ * Whether the button shows: never under `off`; once the context has
+ * a reading, always under `always`, and from `buttonAt` percent on under
+ * `appear`. Before the first response there is no conversation to hand on.
  */
-export function compactShown(o: Pick<Options, 'compactButton' | 'compactAt'>, c: NeonMeterContext | null): boolean {
-  if (o.compactButton === 'off' || !c || typeof c.tokens !== 'number') return false
-  return o.compactButton === 'always' || (c.percent ?? 0) >= o.compactAt
+export function buttonShown(o: Pick<Options, 'button' | 'buttonAt'>, c: NeonMeterContext | null): boolean {
+  if (o.button === 'off' || !c || typeof c.tokens !== 'number') return false
+  return o.button === 'always' || (c.percent ?? 0) >= o.buttonAt
 }
 
 
@@ -973,9 +974,9 @@ export function changeKey(input: BandInput): string {
       return [w.kind, w.label?.full ?? '', Math.round(w.pct), share === null ? null : timeIndex(share)]
     }),
     input.ctx ? [Math.round(input.ctx.pct), input.ctx.tokens === null ? null : fmtTok(input.ctx.tokens), fmtTok(input.ctx.window)] : null,
-    // The breakdown's split, in whole percents of the window, and the compact button showing up.
+    // The breakdown's split, in whole percents of the window, and the button showing up.
     input.ctx?.parts && input.ctx.window > 0 ? CONTEXT_PARTS.map(k => Math.round((input.ctx!.parts![k] / input.ctx!.window) * 100)) : null,
-    input.compact ?? null,
+    input.button ?? null,
   ])
 }
 
@@ -1052,8 +1053,8 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // /compact, the engine's own and the button's /compact in the desktop app, ends without a
-  // response: show the context it leaves at once (the button's direct call reads it itself).
+  // A compaction (/compact, typed or as the button's prompt, or the engine's own) ends without
+  // a response: show the context it leaves at once.
   on('session.compact', async ($, e, next) => {
     const result = await next(e)
     if (e.trigger !== 'precompute' && !e.agentId) await showCompacted($, result)
@@ -1068,11 +1069,11 @@ export const register: Register = (on, options) => {
     return result
   })
 
-  // The terminal band's Client posts a press on the compact button's cell.
+  // The terminal band's Client posts a press on the button's cell.
   on('ui.message', async ($, e, next) => {
-    const data = e.data as { compact?: unknown } | null
-    if (data && typeof data === 'object' && data.compact === true) {
-      pressCompact($)
+    const data = e.data as { press?: unknown } | null
+    if (data && typeof data === 'object' && data.press === true) {
+      pressButton($)
       return {}
     }
     return next(e)
@@ -1087,16 +1088,6 @@ export const register: Register = (on, options) => {
       // A timer refused from a render dispatch is re-armed at the next session event.
     }
     env.working = e.props.isWorking
-    if (env.pendingCompact && !env.working && !env.compacting) {
-      // The turn a press waited for has ended: compact, from a timer, outside the drawing.
-      try {
-        $.clock.after(250, () => {
-          if (env.pendingCompact && !env.working) void runCompact($)
-        })
-      } catch {
-        // A timer refused from a render dispatch: the next drawing tries again.
-      }
-    }
 
     // `h` is the JSX factory in this environment, so the health value is not named that here.
     const [r, c, hv, t, now] = await Promise.all([read($, reading), read($, context), read($, health), read($, theme), $.clock.now()])
@@ -1150,8 +1141,8 @@ export const register: Register = (on, options) => {
       const { Text, Svg, Button } = $.ui.resolve(e) as ElementTable<'desktop'>
       const o = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, glow: env.options.glow, palette: THEMES[dt], dotCount }
       const extras: DesktopExtras = {
-        onCompact: () => pressCompact($),
-        compact: { ...o, pulse: o.pulse && env.options.compactPulse, glow: o.glow && env.options.compactGlow },
+        onPress: () => pressButton($),
+        button: { ...o, pulse: o.pulse && env.options.buttonPulse, glow: o.glow && env.options.buttonGlow },
         popup: env.options.contextPopup,
         card: CARD[dt],
       }
@@ -1160,8 +1151,8 @@ export const register: Register = (on, options) => {
 
     const cols = Math.max(1, e.props.bodyColumns)
     const rows = variants.map(v => band(v, cols, t ?? 'dark', env.options.barColoring)).filter(r => r !== null)
-    // With `compactPulse` off the button's cell holds still while the rest of the row pulses.
-    if (!env.options.compactPulse) for (const r of rows) r.spans = r.spans.map(sp => (sp.button ? { ...sp, live: false } : sp))
+    // With `buttonPulse` off the button's cell holds still while the rest of the row pulses.
+    if (!env.options.buttonPulse) for (const r of rows) r.spans = r.spans.map(sp => (sp.button ? { ...sp, live: false } : sp))
     const row = rows[0]
     if (!row) return next(e)
     const props: BandProps = { ...base, layout: 'cells', spans: row.spans }

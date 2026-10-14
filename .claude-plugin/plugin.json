@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -258,10 +258,10 @@
         "#8C959F"
       ]
     },
-    "compactButton": {
+    "button": {
       "type": "string",
-      "title": "Compact button",
-      "description": "A round button colored by the context percent that compacts the conversation, as /compact does: appear shows it once the context reaches compactAt, always whenever the context has a reading, off never",
+      "title": "Button",
+      "description": "A round button colored by the context percent that submits buttonPrompt on a click, by default a prompt that writes a handoff file for the next session: appear shows it once the context reaches buttonAt, always whenever the context has a reading, off never",
       "options": [
         "appear",
         "always",
@@ -269,17 +269,29 @@
       ],
       "default": "appear"
     },
-    "compactAt": {
+    "buttonAt": {
       "type": "number",
-      "title": "Compact button appears at (%)",
-      "description": "The context percent from which compactButton appear shows the button, 1 to 100",
+      "title": "Button appears at (%)",
+      "description": "The context percent from which button appear shows the button, 1 to 100",
       "default": 75,
       "min": 1,
       "max": 100
     },
-    "compactPosition": {
+    "buttonPrompt": {
       "type": "string",
-      "title": "Compact button position",
+      "title": "Button prompt",
+      "description": "The prompt a click submits, sent exactly as typed (a slash command such as /compact included); empty submits the built-in handoff prompt, which writes HANDOFF.md for the next session",
+      "default": ""
+    },
+    "buttonLabel": {
+      "type": "string",
+      "title": "Button label",
+      "description": "What the desktop app's card over the button says it does; empty names the built-in prompt (Write a handoff for the next session) or a custom prompt by its first line",
+      "default": ""
+    },
+    "buttonPosition": {
+      "type": "string",
+      "title": "Button position",
       "description": "end, context and start put the button after the last segment, before the Context segment or before the first, taking room from the bars",
       "options": [
         "end",
@@ -288,16 +300,16 @@
       ],
       "default": "end"
     },
-    "compactGlow": {
+    "buttonGlow": {
       "type": "boolean",
-      "title": "Compact button glow",
-      "description": "Draw the compact button's halo in the desktop app; glow off draws none either way",
+      "title": "Button glow",
+      "description": "Draw the button's halo in the desktop app; glow off draws none either way",
       "default": true
     },
-    "compactPulse": {
+    "buttonPulse": {
       "type": "boolean",
-      "title": "Compact button pulse",
-      "description": "Pulse the compact button with the band; pulse off holds it still either way",
+      "title": "Button pulse",
+      "description": "Pulse the button with the band; pulse off holds it still either way",
       "default": true
     }
   }
