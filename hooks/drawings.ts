@@ -7,7 +7,7 @@
 // drawing: the color toward white and the halo wider, on one cycle, with no
 // redraw. The app draws each drawing as an image, and an animated image is
 // drawn again on every display frame, so a breath that never stops costs
-// about a fifth of a CPU core (README, Resource use). Under
+// about a fifth of a CPU core (docs/resource-use.md). Under
 // `pulseMode: responsive` the drawings breathe only for the `burst` the hooks
 // module hands them after a value changed: each carries the change's number,
 // so every drawing is a new image and they all start together, and the

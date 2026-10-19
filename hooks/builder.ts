@@ -964,6 +964,8 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   segs.forEach((seg, i) => {
     if (seg.kind !== 'ctx') lastWin = i
   })
+  // The outline frames the whole band: while it shows, neither the segments nor the row draw a frame of their own.
+  const outline = outlineOf(segs, s.border, T)
   const segments: FlexSegment[] = segs.map(seg => {
     const label = seg.label ? seg.label.full : LABELS.full[seg.kind]
     const pctText = seg.loading ? '…' : seg.pct == null ? '--' : Math.round(seg.pct) + '%'
@@ -983,7 +985,7 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
       extra,
     }
     if (seg.hasBar && dotCount && dotCount > 0) out.dots = dotsOf(seg, dotCount, T, bars)
-    const frame = s.border?.scope === 'segment' && !seg.loading ? frameOf(seg.pct, seg.stale === true, s.border, T) : null
+    const frame = s.border?.scope === 'segment' && !seg.loading && !outline ? frameOf(seg.pct, seg.stale === true, s.border, T) : null
     if (frame) out.frame = frame
     if (extra && s.resetColor === 'time' && seg.kind !== 'ctx' && seg.resetMin != null) {
       const tc = timeColor(seg, T)
@@ -993,8 +995,6 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   })
   const staleTxt = s.stale && s.auth && !s.loading && lastWin >= 0 ? sp(T, 'stale ' + s.staleAge, T.text, { italic: true, op: 0.7 }) : null
   const row: FlexRow = { segments, text: T.text, separator: mix(T.text, T.bg, 0.4), stale: staleTxt }
-  // The outline frames the whole band already: while it shows, scope `band` draws no row frame inside it.
-  const outline = outlineOf(segs, s.border, T)
   if (outline) row.outline = outline
   const frame = s.border?.scope === 'band' && !outline ? bandFrame(segs, s.border, T) : null
   if (frame) row.frame = frame

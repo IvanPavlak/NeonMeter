@@ -1,0 +1,46 @@
+# The documentation site, published by .github/workflows/pages.yml with GitHub Pages. Its pages are docs/*.md,
+# which read on GitHub as they are; the pictures come from design/readme/, as the README's do.
+title: NeonMeter
+description: Neon rate-limit and context meter for Claude Code, drawn above the prompt
+baseurl: /NeonMeter
+url: https://ivanpavlak.github.io
+remote_theme: just-the-docs/just-the-docs@v0.10.1
+color_scheme: dark
+search_enabled: true
+heading_anchors: true
+aux_links:
+  GitHub: https://github.com/IvanPavlak/NeonMeter
+  Changelog: https://github.com/IvanPavlak/NeonMeter/blob/master/CHANGELOG.md
+footer_content: 'NeonMeter is a Claude Code plugin. <a href="https://github.com/IvanPavlak/NeonMeter/blob/master/LICENSE">MIT license</a>.'
+plugins:
+  - jekyll-remote-theme
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: false
+markdown: kramdown
+kramdown:
+  input: GFM
+defaults:
+  - scope:
+      path: docs
+    values:
+      layout: default
+# Only the pages and the pictures they show; the plugin, its tests and the design canvas stay out.
+exclude:
+  - README.md
+  - CHANGELOG.md
+  - LICENSE
+  - tsconfig.json
+  - hooks/
+  - tests/
+  - scripts/
+  - types/
+  - design/artboards/
+  - design/screenshots/
+  - design/index.html
+  - design/README.md
+  - design/readme/make.py
+  - design/readme/options.mjs
+  - design/readme/rows.mjs
+  - design/readme/terminal-rows.json

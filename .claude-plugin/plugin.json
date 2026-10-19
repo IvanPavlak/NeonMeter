@@ -334,7 +334,7 @@
     "borderScope": {
       "type": "string",
       "title": "Border scope",
-      "description": "segment draws a border around each segment that reaches borderAt; band draws one border around the band's row, colored by its fullest segment; none draws neither, for the outline alone",
+      "description": "segment draws a border around each segment that reaches borderAt; band draws one border around the band's row, colored by its fullest segment; none draws neither; while the outline shows it replaces both",
       "options": [
         "segment",
         "band",
@@ -345,7 +345,7 @@
     "outline": {
       "type": "string",
       "title": "Outline",
-      "description": "A glowing border around the band's whole card in the desktop app (the whole rule in the terminal), shown by the border rule once any segment qualifies: single in its fullest segment's color (or borderColor), sections with each section's stretch in its own segment's color; off never",
+      "description": "A glowing border around the band's whole card in the desktop app (the whole rule in the terminal), shown by the border rule once any segment qualifies, in place of the segment and row borders: single in its fullest segment's color (or borderColor), sections with each section's stretch in its own segment's color; off never",
       "options": [
         "off",
         "single",

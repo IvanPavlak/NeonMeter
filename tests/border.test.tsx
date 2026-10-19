@@ -166,7 +166,7 @@ describe('the outline', () => {
     const right = (await ui.find({ type: 'Box', key: 'outline-right' }))!.children as FoundElement[]
     expect(partsOf(String(left.find(c => c.type === 'Svg')!.props.source), 'frame')[0]?.attrs.stroke).toBe('#FF073A')
     expect(partsOf(String(right.find(c => c.type === 'Svg')!.props.source), 'frame')[0]?.attrs.stroke).toBe('#00D45A')
-    expect(await framesOf(ui), 'the segment frames stay').toEqual(['frame-five_hour'])
+    expect(await framesOf(ui), 'the outline replaces the segment frames').toEqual([])
     await ui.unmount()
   })
 
@@ -225,9 +225,11 @@ test('a narrow desktop band steps down until it fits: frames, labels, fields, th
     ctx: { pct: 57, tokens: 566000, window: 1000000 },
     segments: ['five_hour', 'seven_day', 'spend', 'context'] as ('five_hour' | 'seven_day' | 'spend' | 'context')[],
     button: 'end' as const,
-    border: { show: 'always' as const, at: 90, scope: 'segment' as const, outline: 'single' as const },
+    border: { show: 'always' as const, at: 90, scope: 'segment' as const },
   }
   const row = flexRow(input, 'dark', 'level')!
+  expect(row.segments.every(seg => seg.frame), 'framed, with no outline').toBe(true)
+  const outlined = flexRow({ ...input, border: { ...input.border, outline: 'single' as const } }, 'dark', 'level')!
   const text = (r: typeof row) => r.segments.map(seg => `${seg.label} ${seg.bar ? '[bar] ' : ''}${seg.pct.text}${seg.extra ? ' ' + seg.extra : ''}`).join(' | ')
   expect(fitDesktop(row, 160), 'room to spare: the full row').toBe(row)
   expect(fitDesktop(row, 70).segments.some(seg => seg.frame), 'the frames give way first').toBe(false)
@@ -236,5 +238,6 @@ test('a narrow desktop band steps down until it fits: frames, labels, fields, th
   expect(text(fitDesktop(row, 49))).toBe('5h [bar] 22% 2h57m | 7d [bar] 3% | Ctx [bar] 57%')
   expect(text(fitDesktop(row, 39))).toBe('5h [bar] 22% | 7d [bar] 3% | Ctx [bar] 57%')
   expect(text(fitDesktop(row, 30))).toBe('5h 22% | 7d 3% | Ctx 57%')
-  expect(fitDesktop(row, 30).outline, 'the outline stays').toEqual(row.outline)
+  expect(outlined.segments.some(seg => seg.frame), 'the outline replaces the segment frames').toBe(false)
+  expect(fitDesktop(outlined, 30).outline, 'the outline stays at any width').toEqual(outlined.outline)
 })
