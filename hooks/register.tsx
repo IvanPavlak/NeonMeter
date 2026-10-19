@@ -3,7 +3,7 @@ import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Reg
 
 import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
-import { band, configureDesign, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, singleVariants, THEMES, timeIndex, weeklyVariants } from './builder'
+import { band, configureDesign, fitDesktop, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, RULE_GLYPH, RULE_KEY, singleVariants, THEMES, timeIndex, weeklyVariants } from './builder'
 import type { BandInput, ButtonPosition, ContextBar, FlexRow, OptionSegment, WindowInput, WindowKind } from './builder'
 import type { Burst } from './color'
 import { desktopBand } from './desktop'
@@ -19,6 +19,10 @@ const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const USAGE_HEADERS = { 'anthropic-beta': 'oauth-2025-04-20', accept: 'application/json' }
 /** The `$.store` key the last reading is mirrored to, so a new session shows it (stale) at once. */
 const STORE_KEY = 'reading'
+/** The `$.store` key naming the chat that shows the band under `everyChat: false`: the last one a prompt was sent in. */
+const ACTIVE_KEY = 'active'
+/** Where a prompt came from when a person sent it: typed (`composer`), the desktop app's own (`sdk`), or from a phone (`bridge`). */
+const PERSON_ORIGINS: readonly string[] = ['composer', 'sdk', 'bridge']
 
 const WINDOW_KINDS: readonly WindowKind[] = ['five_hour', 'seven_day', 'spend_limit']
 
@@ -28,8 +32,8 @@ const WINDOW_KINDS: readonly WindowKind[] = ['five_hour', 'seven_day', 'spend_li
  * engine paints its collapse button, ` [-]`, over the band's top-right cells,
  * so the button sits on the rule and the meter row below keeps every cell.
  */
-export const RULE = '─'
-export const RULE_COLOR = 'promptBorder'
+export const RULE = RULE_GLYPH
+export const RULE_COLOR = RULE_KEY
 
 
 
@@ -107,6 +111,22 @@ export type Options = {
   buttonPrompt: string
   /** What the hover card says the button does; empty, the built-in prompt's name or a custom prompt's first line. */
   buttonLabel: string
+  /** `appear` frames a segment once its percent reaches `borderAt`; `always` frames it at any percent; `off` never. */
+  border: 'appear' | 'always' | 'off'
+  /** The percent at which `border: appear` frames a segment, 1 to 100. */
+  borderAt: number
+  /** `segment` frames each segment that qualifies; `band` frames the whole band, by its fullest segment; `none` neither, for the outline alone. */
+  borderScope: 'segment' | 'band' | 'none'
+  /** The outline around the band's card: `off`, `single` (one color) or `sections` (each section's stretch in its color). */
+  outline: 'off' | 'single' | 'sections'
+  /** Draw the frame's halo (desktop); the `glow` option off draws none either way. */
+  borderGlow: boolean
+  /** Pulse the frame with the band; the `pulse` option off holds it still either way. */
+  borderPulse: boolean
+  /** Show the band in every open chat; false shows it in the chat a prompt was last sent in alone. */
+  everyChat: boolean
+  /** One `#RRGGBB` color for every frame; empty, each frame takes its percent's range color. */
+  borderColor: string
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
@@ -145,6 +165,14 @@ const DEFAULTS: Options = {
   buttonPulse: true,
   buttonPrompt: '',
   buttonLabel: '',
+  border: 'appear',
+  borderAt: 90,
+  borderScope: 'segment',
+  outline: 'off',
+  borderGlow: true,
+  borderPulse: true,
+  everyChat: true,
+  borderColor: '',
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -176,15 +204,22 @@ export function listOf(value: unknown): unknown[] | null {
   return value.split(',').map(entry => entry.trim()).filter(entry => entry !== '')
 }
 
+/** One `#RGB` or `#RRGGBB` color, normalized to upper-case `#RRGGBB`, or null. */
+export function parseColor(value: unknown): string | null {
+  const s = String(value).trim()
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toUpperCase()
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) return ('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toUpperCase()
+  return null
+}
+
 export function parseColors(value: unknown): string[] | null {
   const list = listOf(value)
   if (!list || list.length !== 6) return null
   const out: string[] = []
   for (const raw of list) {
-    const s = String(raw).trim()
-    if (/^#[0-9a-fA-F]{6}$/.test(s)) out.push(s.toUpperCase())
-    else if (/^#[0-9a-fA-F]{3}$/.test(s)) out.push(('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toUpperCase())
-    else return null
+    const color = parseColor(raw)
+    if (!color) return null
+    out.push(color)
   }
   return out
 }
@@ -264,6 +299,14 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const buttonPulse = typeof options.buttonPulse === 'boolean' ? options.buttonPulse : DEFAULTS.buttonPulse
   const buttonPrompt = typeof options.buttonPrompt === 'string' ? options.buttonPrompt : DEFAULTS.buttonPrompt
   const buttonLabel = typeof options.buttonLabel === 'string' ? options.buttonLabel : DEFAULTS.buttonLabel
+  const border = options.border === 'always' || options.border === 'off' ? options.border : DEFAULTS.border
+  const borderAt = Math.round(clamp(options.borderAt, DEFAULTS.borderAt, 1, 100))
+  const borderScope = options.borderScope === 'band' || options.borderScope === 'none' ? options.borderScope : DEFAULTS.borderScope
+  const outline = options.outline === 'single' || options.outline === 'sections' ? options.outline : DEFAULTS.outline
+  const borderGlow = typeof options.borderGlow === 'boolean' ? options.borderGlow : DEFAULTS.borderGlow
+  const borderPulse = typeof options.borderPulse === 'boolean' ? options.borderPulse : DEFAULTS.borderPulse
+  const everyChat = typeof options.everyChat === 'boolean' ? options.everyChat : DEFAULTS.everyChat
+  const borderColor = options.borderColor === undefined || options.borderColor === '' ? DEFAULTS.borderColor : pick('borderColor', parseColor, DEFAULTS.borderColor, 'one color like "#FF073A", or empty')
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
   const segments: SegmentKind[] = []
@@ -311,6 +354,14 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       buttonPulse,
       buttonPrompt,
       buttonLabel,
+      border,
+      borderAt,
+      borderScope,
+      outline,
+      borderGlow,
+      borderPulse,
+      everyChat,
+      borderColor,
     },
     rejected,
     problems,
@@ -472,6 +523,19 @@ export function partsOf(categories: readonly ContextCategory[] | undefined): Neo
     }
   }
   return used ? out : null
+}
+
+/**
+ * Whether this chat shows the band under `everyChat: false`: when it is the
+ * chat a prompt was last sent in, or before any prompt has named one.
+ */
+export async function showsBand($: EngineInterface, bandKey: string): Promise<boolean> {
+  try {
+    const active = (await $.store.get(ACTIVE_KEY)) as { band?: unknown } | undefined
+    return typeof active?.band !== 'string' || active.band === bandKey
+  } catch {
+    return true
+  }
 }
 
 /** Whether the band needs the context broken down: for the bar's split or the desktop's hover card. */
@@ -939,6 +1003,7 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
     contextBar: options.contextBar,
     button: buttonShown(options, c) ? options.buttonPosition : null,
     buttonLabel: buttonAction(options.buttonPrompt, options.buttonLabel).label,
+    ...(options.border === 'off' ? {} : { border: { show: options.border, at: options.borderAt, scope: options.borderScope, ...(options.borderColor ? { color: options.borderColor } : {}), ...(options.outline !== 'off' ? { outline: options.outline } : {}) } }),
   }
 }
 
@@ -1079,9 +1144,24 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // Under `everyChat: false` the chat a person sends a prompt in takes the band; the others give it up at their next
+  // drawing (the minute tick at the latest).
+  on('prompt.submit', async ($, e, next) => {
+    if (!env.options.everyChat && PERSON_ORIGINS.includes(e.origin?.kind ?? '')) {
+      try {
+        await $.store.set(ACTIVE_KEY, { band: await resolveBandKey($), at: await $.clock.now() })
+        await update($, tick, n => (n ?? 0) + 1)
+      } catch {
+        // The band stays where it was; the prompt goes on either way.
+      }
+    }
+    return next(e)
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const bandKey = await resolveBandKey($)
+    if (!env.options.everyChat && !(await showsBand($, bandKey))) return next(e)
     try {
       ensurePolling($)
     } catch {
@@ -1136,13 +1216,18 @@ export const register: Register = (on, options) => {
         .filter((t): t is { row: FlexRow; dotCount: number } => t !== null)
       ensureRotation($, turns.length)
       const turn = turns[env.turn % Math.max(1, turns.length)]
-      const row = turn?.row ?? plain
-      const dotCount = turn?.dotCount ?? desktopDotCount(plain, e.props.bodyColumns)
+      // In a narrow band the row steps down until it fits: the frames give way first (the outline stays), then the
+      // labels, the fields and the bars, as the terminal's tiers do.
+      const full = turn?.row ?? plain
+      const row = fitDesktop(full, e.props.bodyColumns)
+      // A row that stepped down sizes its smooth bars to what its own text leaves.
+      const dotCount = row === full ? (turn?.dotCount ?? desktopDotCount(plain, e.props.bodyColumns)) : desktopDotCount(row, e.props.bodyColumns)
       const { Text, Svg, Button } = $.ui.resolve(e) as ElementTable<'desktop'>
       const o = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, glow: env.options.glow, palette: THEMES[dt], dotCount }
       const extras: DesktopExtras = {
         onPress: () => pressButton($),
         button: { ...o, pulse: o.pulse && env.options.buttonPulse, glow: o.glow && env.options.buttonGlow },
+        frame: { ...o, pulse: o.pulse && env.options.borderPulse, glow: o.glow && env.options.borderGlow },
         popup: env.options.contextPopup,
         card: CARD[dt],
       }
@@ -1151,19 +1236,25 @@ export const register: Register = (on, options) => {
 
     const cols = Math.max(1, e.props.bodyColumns)
     const rows = variants.map(v => band(v, cols, t ?? 'dark', env.options.barColoring)).filter(r => r !== null)
-    // With `buttonPulse` off the button's cell holds still while the rest of the row pulses.
+    // With `buttonPulse` off the button's cell holds still while the rest of the row pulses; `borderPulse`, the frames on the rule.
     if (!env.options.buttonPulse) for (const r of rows) r.spans = r.spans.map(sp => (sp.button ? { ...sp, live: false } : sp))
+    if (!env.options.borderPulse) for (const r of rows) if (r.rule) r.rule = r.rule.map(sp => ({ ...sp, live: false }))
     const row = rows[0]
     if (!row) return next(e)
     const props: BandProps = { ...base, layout: 'cells', spans: row.spans }
     if (rows.length > 1) Object.assign(props, { alternates: rows.slice(1).map(r => r!.spans), rotateMs: env.options.rotateSeconds * 1000 })
+    // A frame shows on the rule: the Client draws the rule, every row's own, so its stretches pulse with the row.
+    const ruled = rows.some(r => r.rule)
+    if (ruled) props.rules = rows.map(r => r.rule ?? [{ text: RULE.repeat(cols), color: RULE_COLOR }])
     // Every surface with a `Client` draws the band this way; the desktop returned above.
     const { Text, Client } = $.ui.resolve(e) as ElementTable<'terminal'>
     return (
       <Box flexDirection="column" width={cols}>
-        <Text color={RULE_COLOR} wrap="truncate">
-          {RULE.repeat(cols)}
-        </Text>
+        {ruled ? null : (
+          <Text color={RULE_COLOR} wrap="truncate">
+            {RULE.repeat(cols)}
+          </Text>
+        )}
         <Client key={bandKey} module="./band.tsx" width="100%" props={props} />
       </Box>
     )

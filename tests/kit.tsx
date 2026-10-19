@@ -245,7 +245,8 @@ function textOfTree(node: unknown): string {
   const key = n.props?.key
   // A bar drawing stands for no text: the row reads as label, gap and percent.
   if (typeof key === 'string' && (key.startsWith('dots-') || key.startsWith('bar-'))) return ''
-  if (n.type === 'Svg') return String(n.props?.alt ?? '')
+  // A frame's drawings are not the row's text.
+  if (n.type === 'Svg') return /data-role="frame/.test(String(n.props?.source ?? '')) ? '' : String(n.props?.alt ?? '')
   return (n.children ?? []).map(textOfTree).join('')
 }
 
@@ -255,11 +256,20 @@ function textOfTree(node: unknown): string {
  * for its `alt` text.
  */
 export async function rowOf(ui: Drawing): Promise<string> {
-  if (ui.surface === 'terminal') {
-    const texts = await ui.findAll({ type: 'Text', in: 'band' })
-    return texts.map(t => t.text).join('')
-  }
+  if (ui.surface === 'terminal') return (await linesOf(ui)).row
   return textOfTree(await ui.drawn())
+}
+
+/**
+ * The terminal band's lines: the meter row, and the rule the band draws over
+ * it while a frame shows (null otherwise, when the hooks module draws the
+ * plain rule outside the band). Both span the band's width.
+ */
+export async function linesOf(ui: Drawing): Promise<{ rule: string | null; row: string }> {
+  const all = (await ui.findAll({ type: 'Text', in: 'band' })).map(t => t.text).join('')
+  const half = all.length / 2
+  if (Number.isInteger(half) && /^[─━]+$/.test(all.slice(0, half))) return { rule: all.slice(0, half), row: all.slice(half) }
+  return { rule: null, row: all }
 }
 
 /** Every Svg of the desktop drawing with the key of the Box it sits in. */

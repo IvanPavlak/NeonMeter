@@ -164,6 +164,20 @@ export type ContextBar = 'breakdown' | 'percent'
  */
 export type ButtonPosition = 'start' | 'context' | 'end'
 
+/**
+ * The frame, a glowing border: `appear` draws it once a percent reaches `at`,
+ * `always` whenever there is a percent; around each segment that qualifies
+ * (`segment`), around the band's row (`band`) or neither (`none`); in the
+ * percent's range color, or in `color` when one is set. `outline` adds a
+ * border around the whole band's card, shown by the same rule once any
+ * segment qualifies: in one color (`single`) or each section's stretch of it
+ * in that section's color (`sections`).
+ */
+export type BorderInput = { show: 'appear' | 'always'; at: number; scope: 'segment' | 'band' | 'none'; color?: string; outline?: 'single' | 'sections' }
+
+/** A frame as the desktop draws it: its color, and whether it pulses with the band. */
+export type Frame = { color: string; live: boolean }
+
 /** One run of same-styled characters. `color` is final: blends are applied. */
 export type Span = {
   text: string
@@ -230,6 +244,8 @@ export type BandInput = {
   button?: ButtonPosition | null
   /** What the button's hover card says it does; absent, the built-in handoff prompt's name. */
   buttonLabel?: string
+  /** The frame; absent, none. */
+  border?: BorderInput
 }
 
 type Segment = {
@@ -655,7 +671,47 @@ function truncate(spans: Span[], cols: number): Span[] {
   return out
 }
 
-export type Band = { tier: Tier; spans: Span[] }
+/**
+ * `rule` is the line the terminal draws over the band when a frame shows: the
+ * rule's own `─` in the prompt border's theme key, and over each framed
+ * segment (or the whole width under scope `band`) a `━` stretch in the
+ * frame's color, live while it pulses.
+ */
+export type Band = { tier: Tier; spans: Span[]; rule?: Span[] }
+
+/** The terminal rule's glyph and theme key, and the glyph of a frame's stretch of it. */
+export const RULE_GLYPH = '─'
+export const RULE_KEY = 'promptBorder'
+export const FRAME_GLYPH = '━'
+
+/** The columns each segment takes in `spans`, from its label to the end of its last field: `starts` holds the span each opens with. */
+function segmentColumns(spans: readonly Span[], starts: readonly number[]): [number, number][] {
+  const colOf: number[] = []
+  let col = 0
+  for (const span of spans) {
+    colOf.push(col)
+    col += Array.from(span.text).length
+  }
+  colOf.push(col)
+  // A segment ends where the next one's separator begins, the span before its label.
+  return starts.map((start, i) => [colOf[start] ?? col, i + 1 < starts.length ? (colOf[starts[i + 1]! - 1] ?? col) : col])
+}
+
+/** The rule over `cols` columns with each frame's stretch drawn in, or null when no frame shows. */
+function ruleOf(cols: number, stretches: { from: number; to: number; frame: Frame }[]): Span[] | null {
+  if (!stretches.length) return null
+  const out: Span[] = []
+  let at = 0
+  for (const { from, to, frame } of [...stretches].sort((a, b) => a.from - b.from)) {
+    const a = Math.max(at, Math.min(cols, from))
+    const b = Math.max(a, Math.min(cols, to))
+    if (a > at) out.push({ text: rep(RULE_GLYPH, a - at), color: RULE_KEY })
+    if (b > a) out.push(frame.live ? { text: rep(FRAME_GLYPH, b - a), color: frame.color, live: true } : { text: rep(FRAME_GLYPH, b - a), color: frame.color })
+    at = b
+  }
+  if (cols > at) out.push({ text: rep(RULE_GLYPH, cols - at), color: RULE_KEY })
+  return out
+}
 
 /**
  * Builds one row of exactly `cols` cells: the most detailed tier that fits.
@@ -683,8 +739,43 @@ export function band(s: BandInput, cols: number, theme: Theme, bars: BarColoring
     spans = truncate(layoutJustified(segs, 'micro', width, T, true, s.resetColor, starts)!, width)
     tier = 'micro'
   }
-  if (button) spans = placeButton(spans, s.button!, button, T, starts[segs.findIndex(seg => seg.kind === 'ctx')])
-  return { tier, spans }
+  const ctxAt = segs.findIndex(seg => seg.kind === 'ctx')
+  // The button's cell and its space (two columns) shift every segment from where it goes on.
+  const shiftFrom = button ? (s.button === 'start' ? 0 : s.button === 'context' && ctxAt >= 0 ? ctxAt : segs.length) : -1
+  const columns = segmentColumns(spans, starts).map(([a, b], i): [number, number] => (shiftFrom >= 0 && i >= shiftFrom ? [a + 2, b + 2] : [a, b]))
+  if (button) spans = placeButton(spans, s.button!, button, T, starts[ctxAt])
+  const out: Band = { tier, spans }
+  const rule = s.border ? ruleOf(cols, frameStretches(segs, columns, s, T, cols)) : null
+  if (rule) out.rule = rule
+  return out
+}
+
+/**
+ * Where the frames sit on the rule: the outline across the whole width (under
+ * `sections` each segment's stretch reaching halfway to its neighbours), else
+ * the whole width under scope `band`, else over each framed segment's columns.
+ */
+function frameStretches(segs: readonly Segment[], columns: readonly [number, number][], s: BandInput, T: Palette, cols: number): { from: number; to: number; frame: Frame }[] {
+  const outline = outlineOf(segs, s.border, T)
+  if (outline) {
+    return outline.map((frame, i) => {
+      const from = i === 0 ? 0 : Math.ceil((columns[i - 1]![1] + columns[i]![0]) / 2)
+      const to = i === outline.length - 1 ? cols : Math.ceil((columns[i]![1] + columns[i + 1]![0]) / 2)
+      return { from, to, frame }
+    })
+  }
+  if (s.border!.scope === 'band') {
+    const frame = bandFrame(segs, s.border, T)
+    return frame ? [{ from: 0, to: cols, frame }] : []
+  }
+  if (s.border!.scope === 'none') return []
+  const out: { from: number; to: number; frame: Frame }[] = []
+  segs.forEach((seg, i) => {
+    const frame = seg.loading ? null : frameOf(seg.pct, seg.stale === true, s.border, T)
+    const at = columns[i]
+    if (frame && at) out.push({ from: at[0], to: at[1], frame })
+  })
+  return out
 }
 
 /** The button's cell: `◉` in the context percent's range color, pulsing with the band. */
@@ -728,6 +819,8 @@ export type FlexDot = { color: string; live?: boolean; halo?: false }
 export type FlexSegment = {
   kind: SegmentKind
   label: string
+  /** The narrow tiers' label (`5h`, `7d`, `Ctx`, `Fab`), which `fitDesktop` takes when the full one does not fit. */
+  short?: string
   /** The bar's slices, weights summing to 100; null for a spend limit (no bar). */
   bar: FlexSlice[] | null
   /** The same bar as dots, when the row was built with a dot count; spread evenly by the layout. */
@@ -737,6 +830,8 @@ export type FlexSegment = {
   extra: string
   /** The reset in its time color, set under `resetColor: time`: drawn with the percent's halo, and live while fresh. Absent, `extra` is plain text. */
   extraSpan?: Span
+  /** The frame around this segment, under `border` scope `segment`. */
+  frame?: Frame
 }
 
 /**
@@ -765,6 +860,10 @@ export type FlexRow = {
   button?: FlexButton
   /** The context breakdown's rows, when the context bar is split by category. */
   context?: ContextRow[]
+  /** The frame around the whole band, under `border` scope `band`. */
+  frame?: Frame
+  /** The outline around the band's card: each segment's color for its stretch, in segment order (one color for all under `single`). */
+  outline?: Frame[]
 }
 
 function slicesOf(seg: Segment, T: Palette, bars: BarColoring): FlexSlice[] {
@@ -803,6 +902,52 @@ function dotsOf(seg: Segment, len: number, T: Palette, bars: BarColoring): FlexD
   return out
 }
 
+/**
+ * A segment's frame: none while loading or before its first reading; from
+ * `at` percent on, or at any percent under `always`, in the percent's range
+ * color as its percent and bar are drawn, or the one `color` set. A stale
+ * segment's frame fades and holds still with the rest of it.
+ */
+export function frameOf(pct: number | null | undefined, stale: boolean, border: BorderInput | undefined, T: Palette): Frame | null {
+  if (!border || pct == null) return null
+  if (pct < border.at && border.show !== 'always') return null
+  const color = border.color ?? T.ramp[rampIndex(pct)]!
+  return stale ? { color: mix(color, T.bg, 0.45), live: false } : { color, live: true }
+}
+
+/** The band's fullest segment with a percent, fresh before stale at the same percent. */
+function fullest(segs: readonly Segment[]): Segment | null {
+  let best: Segment | null = null
+  for (const seg of segs) {
+    if (seg.loading || seg.pct == null) continue
+    if (!best || seg.pct > best.pct! || (seg.pct === best.pct && best.stale && !seg.stale)) best = seg
+  }
+  return best
+}
+
+/** The band's frame: that of its fullest segment. */
+function bandFrame(segs: readonly Segment[], border: BorderInput | undefined, T: Palette): Frame | null {
+  const best = fullest(segs)
+  return best ? frameOf(best.pct, best.stale === true, border, T) : null
+}
+
+/**
+ * The outline's colors, one per segment, or null when it does not show: it
+ * shows once the fullest segment's frame would (from `at`, or always), and
+ * then every stretch is drawn, under `sections` in its own segment's color
+ * at any percent (a segment still loading or before its first reading in the
+ * neutral color, still), under `single` in the fullest segment's.
+ */
+function outlineOf(segs: readonly Segment[], border: BorderInput | undefined, T: Palette): Frame[] | null {
+  if (!border?.outline) return null
+  const best = fullest(segs)
+  const shown = best ? frameOf(best.pct, best.stale === true, border, T) : null
+  if (!shown) return null
+  if (border.outline === 'single') return segs.map(() => shown)
+  const always = { ...border, show: 'always' } as const
+  return segs.map(seg => (seg.loading || seg.pct == null ? { color: T.neutral, live: false } : frameOf(seg.pct, seg.stale === true, always, T)!))
+}
+
 /** Claude Code's own theme keys, which every surface paints in its own appearance. */
 export const THEME_KEYS = { text: 'text', dim: 'inactive', track: 'subtle' } as const
 
@@ -819,6 +964,8 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   segs.forEach((seg, i) => {
     if (seg.kind !== 'ctx') lastWin = i
   })
+  // The outline frames the whole band: while it shows, neither the segments nor the row draw a frame of their own.
+  const outline = outlineOf(segs, s.border, T)
   const segments: FlexSegment[] = segs.map(seg => {
     const label = seg.label ? seg.label.full : LABELS.full[seg.kind]
     const pctText = seg.loading ? '…' : seg.pct == null ? '--' : Math.round(seg.pct) + '%'
@@ -832,11 +979,14 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
     const out: FlexSegment = {
       kind: seg.kind,
       label,
+      short: seg.label ? seg.label.short : LABELS.short[seg.kind],
       bar: seg.hasBar ? slicesOf(seg, T, bars) : null,
       pct: sp(T, pctText, pc.color, { live: pc.live, op: pc.op, bold: true }),
       extra,
     }
     if (seg.hasBar && dotCount && dotCount > 0) out.dots = dotsOf(seg, dotCount, T, bars)
+    const frame = s.border?.scope === 'segment' && !seg.loading && !outline ? frameOf(seg.pct, seg.stale === true, s.border, T) : null
+    if (frame) out.frame = frame
     if (extra && s.resetColor === 'time' && seg.kind !== 'ctx' && seg.resetMin != null) {
       const tc = timeColor(seg, T)
       out.extraSpan = sp(T, extra, tc.color, { live: tc.live, op: tc.op })
@@ -845,6 +995,9 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   })
   const staleTxt = s.stale && s.auth && !s.loading && lastWin >= 0 ? sp(T, 'stale ' + s.staleAge, T.text, { italic: true, op: 0.7 }) : null
   const row: FlexRow = { segments, text: T.text, separator: mix(T.text, T.bg, 0.4), stale: staleTxt }
+  if (outline) row.outline = outline
+  const frame = s.border?.scope === 'band' && !outline ? bandFrame(segs, s.border, T) : null
+  if (frame) row.frame = frame
   const ring = s.button && s.ctx ? buttonRing(s.ctx, T, bars) : null
   if (ring) row.button = { position: s.button!, ring, label: `${s.buttonLabel ?? HANDOFF_LABEL} (${Math.round(s.ctx!.pct)}% of the context used)` }
   // The hover card hangs on the Context segment, whichever way its bar is colored.
@@ -978,8 +1131,23 @@ export function singleVariants(input: BandInput): BandInput[] {
  * at 75% so the dots keep a little air between them instead of overflowing.
  */
 export function desktopDotCount(row: FlexRow, bodyColumns: number): number {
-  // The button's drawing and its gap take about three characters.
-  let text = (row.segments.length - 1) * 3 + (row.stale ? row.stale.text.length + 2 : 0) + (row.button ? 3 : 0)
+  const { text, bars } = desktopText(row)
+  if (bars === 0) return 0
+  return Math.max(4, Math.floor(((bodyColumns * 1.2 - text) / bars) * 0.75))
+}
+
+/**
+ * The characters the desktop row's fixed pieces take, as `desktopDotCount`
+ * counts them, and how many bars share the rest. The button's drawing and its
+ * gap take about three characters; a frame's room at either end about six,
+ * and beside a frame the separator is one space.
+ */
+function desktopText(row: FlexRow): { text: number; bars: number } {
+  let text = (row.stale ? row.stale.text.length + 2 : 0) + (row.button ? 3 : 0) + (row.frame ? FRAME_CHARS : 0)
+  row.segments.forEach((seg, i) => {
+    if (seg.frame) text += FRAME_CHARS
+    if (i > 0) text += seg.frame || row.segments[i - 1]!.frame ? 1 : 3
+  })
   let bars = 0
   for (const seg of row.segments) {
     text += seg.label.length + 1 + seg.pct.text.length + (seg.extra ? seg.extra.length + 1 : 0)
@@ -988,6 +1156,56 @@ export function desktopDotCount(row: FlexRow, bodyColumns: number): number {
       text += 1
     }
   }
-  if (bars === 0) return 0
-  return Math.max(4, Math.floor(((bodyColumns * 1.2 - text) / bars) * 0.75))
+  return { text, bars }
+}
+
+/** The characters a frame's room at either end takes in the desktop row. */
+const FRAME_CHARS = 6
+
+/** Whether the desktop row's text, and four characters for each bar, fit a band `bodyColumns` wide. */
+function fitsDesktop(row: FlexRow, bodyColumns: number): boolean {
+  const { text, bars } = desktopText(row)
+  return bodyColumns * 1.2 - text >= bars * 4
+}
+
+/**
+ * The row with its segments' and its row's frames left out when they and the
+ * text would leave a bar less than four characters in a band `bodyColumns`
+ * wide: a frame's room is fixed. The outline takes no room and stays.
+ */
+export function fitFrames(row: FlexRow, bodyColumns: number): FlexRow {
+  if (!row.frame && !row.segments.some(seg => seg.frame)) return row
+  if (fitsDesktop(row, bodyColumns)) return row
+  const { frame: _, ...rest } = row
+  return { ...rest, segments: row.segments.map(({ frame: _f, ...seg }) => seg) }
+}
+
+/** A window's countdown without its `in ` (`3h13m`), a clock time as it is; the context's tokens left out. */
+function compactExtra(seg: FlexSegment): FlexSegment {
+  if (seg.kind === 'ctx') return { ...seg, extra: '' }
+  const extra = seg.extra.startsWith('in ') ? seg.extra.slice(3) : seg.extra
+  return seg.extraSpan ? { ...seg, extra, extraSpan: { ...seg.extraSpan, text: extra } } : { ...seg, extra }
+}
+
+/**
+ * The desktop row in a band `bodyColumns` wide, made narrower one step at a
+ * time until its text leaves every bar room, as the terminal's tiers do: the
+ * frames left out (`fitFrames`), then the short labels (`5h`, `7d`, `Ctx`),
+ * then the resets as bare countdowns and no token count, then no fields and
+ * no stale marker, then no bars. The widest step that fits is the row drawn;
+ * past the last, what is left is cut at the band's edge.
+ */
+export function fitDesktop(row: FlexRow, bodyColumns: number): FlexRow {
+  let out = fitFrames(row, bodyColumns)
+  const steps: ((r: FlexRow) => FlexRow)[] = [
+    r => ({ ...r, segments: r.segments.map(seg => ({ ...seg, label: seg.short ?? seg.label })) }),
+    r => ({ ...r, segments: r.segments.map(compactExtra) }),
+    r => ({ ...r, stale: null, segments: r.segments.map(({ extraSpan: _s, ...seg }) => ({ ...seg, extra: '' })) }),
+    r => ({ ...r, segments: r.segments.map(({ dots: _d, ...seg }) => ({ ...seg, bar: null })) }),
+  ]
+  for (const step of steps) {
+    if (fitsDesktop(out, bodyColumns)) return out
+    out = step(out)
+  }
+  return out
 }

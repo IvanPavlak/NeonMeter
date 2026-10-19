@@ -7,7 +7,7 @@
 // drawing: the color toward white and the halo wider, on one cycle, with no
 // redraw. The app draws each drawing as an image, and an animated image is
 // drawn again on every display frame, so a breath that never stops costs
-// about a fifth of a CPU core (README, Resource use). Under
+// about a fifth of a CPU core (docs/resource-use.md). Under
 // `pulseMode: responsive` the drawings breathe only for the `burst` the hooks
 // module hands them after a value changed: each carries the change's number,
 // so every drawing is a new image and they all start together, and the
@@ -495,4 +495,149 @@ export function contextRowSvg(row: ContextRow, o: DesktopOptions): string {
     `<text data-role="row" ${attrs}>${text}${pulse}</text>` +
     '</svg>'
   )
+}
+
+// ---------------------------------------------------------------------------
+// The frame: a rounded neon border around a segment, or the whole band, once
+// its percent reaches `borderAt` (or always, under `border: always`). The app
+// gives a drawing no width but its own, so a frame is three drawings: two caps
+// of a fixed width with the rounded corners, and between them the top and
+// bottom edges, drawn 100 wide and stretched by the app to whatever the
+// segment takes (`preserveAspectRatio="none"`). The edges blur only up and
+// down, so stretching them changes nothing, and each cap draws its edges on
+// past its canvas into the filter's region, so its halo meets theirs without
+// a seam.
+// ---------------------------------------------------------------------------
+
+/** The frame's drawings' height, in their own pixels: taller than a row, so the halo has room outside the line. */
+export const FRAME_HEIGHT = 50
+/** What the app shows a frame drawing at, CSS pixels: `FRAME_HEIGHT` at the band's scale. */
+export const FRAME_DISPLAY_HEIGHT = (FRAME_HEIGHT * DISPLAY_HEIGHT) / ROW_HEIGHT
+/** The line's width, the ring's. */
+export const FRAME_WIDTH = RING_WIDTH
+/** Where the line runs, inset from the drawing's edges by room for the halo. */
+export const FRAME_INSET = 7
+export const FRAME_RADIUS = 12
+/** A cap's width: its inset, the corner, and a straight stretch of edge, room between the line and the text. */
+export const FRAME_CAP = FRAME_INSET + FRAME_RADIUS + 9
+
+/** A frame part's look: its color, whether it pulses, and whether the band glows. */
+export type FrameLook = { color: string; live: boolean }
+
+function frameFilter(id: string, x: number, w: number, sdX: number, beat: Beat): string {
+  const region = `filterUnits="userSpaceOnUse" x="${x}" y="0" width="${w}" height="${FRAME_HEIGHT}"`
+  const sd = (b: number) => `${sdX ? b : 0} ${b}`
+  const anim = beat ? `<animate attributeName="stdDeviation" values="${sd(GLOW.restBlur)};${sd(GLOW.peakBlur)};${sd(GLOW.restBlur)}" dur="${beat.ms}ms" ${beat.timing} calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"/>` : ''
+  return `<filter id="${id}" ${region}><feGaussianBlur stdDeviation="${sd(GLOW.restBlur)}">${anim}</feGaussianBlur></filter>`
+}
+
+/** A frame part's line and its halo copy, the halo blurred by filter `f`; live, the color and the halo pulse. */
+function frameStroke(d: string, f: FrameLook, o: DesktopOptions, beat: Beat): string {
+  const color = HEX.test(f.color) ? f.color.toUpperCase() : o.palette.track
+  const live = f.live && beat !== null
+  const line = `d="${d}" fill="none" stroke="${color}" stroke-width="${FRAME_WIDTH}" stroke-linecap="butt"`
+  const pulse = live ? animate('stroke', color, peakOf(color), beat!) : ''
+  const glow = o.glow ? `<path data-role="frame-halo" ${line} filter="url(#fg)" opacity="${GLOW.restHalo}">${live ? animate('opacity', GLOW.restHalo, GLOW.peakHalo, beat!) : ''}${pulse}</path>` : ''
+  return glow + `<path data-role="frame" ${line}>${pulse}</path>`
+}
+
+/** One end of a frame: the rounded corners and a stretch of the edges, which run on past the drawing to meet the edges' drawing. */
+export function frameCapSvg(side: 'left' | 'right', f: FrameLook, o: DesktopOptions): string {
+  const beat = beatOf(o, f.live)
+  const w = FRAME_CAP
+  const h = FRAME_HEIGHT
+  const t = FRAME_INSET
+  const b = h - FRAME_INSET
+  const x = FRAME_INSET
+  const r = FRAME_RADIUS
+  const run = w + 3 * GLOW.peakBlur
+  // Drawn as the left cap; the right cap is the same, mirrored.
+  const d = `M${run} ${t}H${x + r}A${r} ${r} 0 0 0 ${x} ${t + r}V${b - r}A${r} ${r} 0 0 0 ${x + r} ${b}H${run}`
+  const filter = o.glow ? frameFilter('fg', -run, 3 * run, 1, beat) : ''
+  const body = side === 'left' ? frameStroke(d, f, o, beat) : `<g transform="translate(${w} 0) scale(-1 1)">${frameStroke(d, f, o, beat)}</g>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
+}
+
+/** The edges' drawing: the top and bottom lines, 100 wide, which the app stretches across the frame. */
+export function frameEdgesSvg(f: FrameLook, o: DesktopOptions): string {
+  const beat = beatOf(o, f.live)
+  const w = 100
+  const h = FRAME_HEIGHT
+  const d = `M0 ${FRAME_INSET}H${w}M0 ${h - FRAME_INSET}H${w}`
+  const filter = o.glow ? frameFilter('fg', 0, w, 0, beat) : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${frameStroke(d, f, o, beat)}</svg>`
+}
+
+/** A drawing of nothing, `w` of the frame's pixels wide: room a frame keeps clear of the segment's text. */
+export function frameSpacerSvg(w: number): string {
+  // An empty drawing takes no room in the app: a rect of nothing gives it its size.
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${FRAME_HEIGHT}" viewBox="0 0 ${w} ${FRAME_HEIGHT}"><rect data-role="frame-room" width="${w}" height="${FRAME_HEIGHT}" fill="none"/></svg>`
+}
+
+// ---------------------------------------------------------------------------
+// The outline: a border around the band's whole card, as close to the card's
+// edge as the app lets a plugin draw. The app pads its card around the band
+// by about one cell on either side and `OUTLINE_PAD` above and below, and
+// clips what a plugin draws to the card: so the band's first and last pieces
+// reach one cell out, to the card's edges, and hold the caps, and every
+// drawing is the row's height and the padding above and below it, overflowing
+// the row equally both ways, so its lines land just inside the card's edge.
+// Each piece of the band draws its own stretch of the top and bottom edges,
+// beside the caps and never under them (two drawings of one line never meet
+// pixel for pixel), so under `outline: sections` each takes its own color;
+// the caps take the first and the last section's.
+// ---------------------------------------------------------------------------
+
+/** The app's padding above and below the band inside its card, in CSS pixels (measured on the desktop app). */
+export const OUTLINE_PAD = 13
+/** The card's corner radius, in the drawings' own pixels (about 10 CSS pixels, as the app rounds its card). */
+export const OUTLINE_RADIUS = 15
+/** Where the line runs, inset from the drawing's edge so the card's clip leaves all of it. */
+export const OUTLINE_INSET = 4
+/** A cap's width: the corner and a little edge, narrow enough to fit the narrowest piece that can end the band (the button, with its cell of padding). */
+export const OUTLINE_CAP = 36
+
+/** The outline drawings' height in their own pixels, for a row `rowHeight` CSS pixels tall. */
+export function outlineHeight(rowHeight: number): number {
+  return ((rowHeight + 2 * OUTLINE_PAD) * ROW_HEIGHT) / DISPLAY_HEIGHT
+}
+
+function outlineFilter(id: string, x: number, w: number, h: number, sdX: number, beat: Beat): string {
+  const region = `filterUnits="userSpaceOnUse" x="${x}" y="0" width="${w}" height="${h}"`
+  const sd = (b: number) => `${sdX ? b : 0} ${b}`
+  const anim = beat ? `<animate attributeName="stdDeviation" values="${sd(GLOW.restBlur)};${sd(GLOW.peakBlur)};${sd(GLOW.restBlur)}" dur="${beat.ms}ms" ${beat.timing} calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"/>` : ''
+  return `<filter id="${id}" ${region}><feGaussianBlur stdDeviation="${sd(GLOW.restBlur)}">${anim}</feGaussianBlur></filter>`
+}
+
+/** One end of the outline, `h` of its own pixels tall: the two rounded corners and the side between them, the edges running on past the drawing to meet the edges' drawing beside it. */
+export function outlineCapSvg(side: 'left' | 'right', f: FrameLook, h: number, o: DesktopOptions): string {
+  const beat = beatOf(o, f.live)
+  const w = OUTLINE_CAP
+  const t = OUTLINE_INSET
+  const b = h - OUTLINE_INSET
+  const x = OUTLINE_INSET
+  const r = Math.min(OUTLINE_RADIUS, (b - t) / 2)
+  const run = w + 3 * GLOW.peakBlur
+  const d = `M${run} ${t}H${x + r}A${r} ${r} 0 0 0 ${x} ${t + r}V${b - r}A${r} ${r} 0 0 0 ${x + r} ${b}H${run}`
+  const filter = o.glow ? outlineFilter('fg', -run, 3 * run, h, 1, beat) : ''
+  const body = side === 'left' ? frameStroke(d, f, o, beat) : `<g transform="translate(${w} 0) scale(-1 1)">${frameStroke(d, f, o, beat)}</g>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h.toFixed(2)}" viewBox="0 0 ${w} ${h.toFixed(2)}"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
+}
+
+/**
+ * A section's stretch of the outline's top and bottom edges, `h` of its own
+ * pixels tall, 100 wide, which the app stretches across the section. With
+ * `right`, the right half takes that color: a separator's stretch, split
+ * between the sections either side of it.
+ */
+export function outlineEdgesSvg(f: FrameLook, h: number, o: DesktopOptions, right?: FrameLook): string {
+  const live = f.live || Boolean(right?.live)
+  const beat = beatOf(o, live)
+  const w = 100
+  const t = OUTLINE_INSET
+  const b = h - OUTLINE_INSET
+  const filter = o.glow ? outlineFilter('fg', 0, w, h, 0, beat) : ''
+  const half = (from: number, to: number, look: FrameLook) => frameStroke(`M${from} ${t}H${to}M${from} ${b.toFixed(2)}H${to}`, look, o, beat)
+  const body = right ? half(0, 50, f) + half(50, w, right) : half(0, w, f)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h.toFixed(2)}" viewBox="0 0 ${w} ${h.toFixed(2)}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
 }

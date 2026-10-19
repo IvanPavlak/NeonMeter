@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-19
+
+### Added
+
+- A glowing border. From 90% on, a segment sits in a rounded neon frame in its percent's range color, with the band's halo and pulse: under the default `pulseMode: responsive` it breathes with the band after a change and holds still in between, under `always` it never stops. In the desktop app the separator beside a frame gives way to a space; in the terminal, where the band is one row of cells, the rule's stretch above the framed segment is drawn `━` in the border's color and pulses with the row. A stale segment's border fades and holds still with it.
+- An outline around the band's whole card in the desktop app, along the card's edges, in place of the segments' borders while it shows: `outline: single` in one color, the fullest segment's or `borderColor`; `outline: sections` with each section's stretch of the edges in its own segment's color, meeting halfway across the separators. It shows by the `border` rule, once any segment reaches `borderAt` (or always), and in the terminal it lights the whole rule the same way. Off by default.
+- Seven options set them: `border` (`appear`, the default, from `borderAt`; `always`, at any percent; `off`), `borderAt` (90, where the red range starts), `borderScope` (`segment`, the default; `band`, one border around the row in its fullest segment's color; `none`), `outline` (`off`, the default, `single` or `sections`), `borderColor` (one `#RRGGBB` color for every border; empty colors each by its percent), `borderGlow` and `borderPulse`.
+- The README's option pictures for `border`, `borderScope`, `borderColor` and `outline`.
+- A documentation site, [ivanpavlak.github.io/NeonMeter](https://ivanpavlak.github.io/NeonMeter/docs/), built from `docs/` with GitHub Pages: install, configuration, every option at a glance, using it, how usage is fetched, known limitations, resource use and development, each a page of its own. The pages read on GitHub as they are, and a pull request that touches them builds the site.
+- `everyChat` (on by default): the band shows in every open chat, side by side in the desktop app's split view included. Off, it shows in the chat a prompt was last sent in alone, and the others give it up within a minute.
+
+### Changed
+
+- The band shows in every chat of a desktop window. The desktop app draws each chat's band (seen on 2.42304.2 with Claude Code 2.1.299), so the "One band per desktop window" limitation is gone from the README ([anthropics/claude-code#99265](https://github.com/anthropics/claude-code/issues/99265)).
+- While an outline shows, neither the segments nor the row draw a border of their own: the outline frames the whole band already.
+- The README is short: what NeonMeter is, the picture, the install commands, one configuration example and links into the documentation, which holds everything it used to.
+- In a narrow chat, a split view's pane say, the desktop band steps down until it fits instead of running off the card's edge, as the terminal's layouts do: the segment borders give way first, then the labels shorten (`5h`, `7d`, `Ctx`), then the resets lose their `in ` and the context its token count, then the fields go, and last the bars. Every picture shows its account at 93% of the context, so the Context segment now sits in its border in all of them.
+
 ## [1.5.0] - 2026-10-14
 
 ### Changed
@@ -161,7 +179,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.3.2...v1.4.0

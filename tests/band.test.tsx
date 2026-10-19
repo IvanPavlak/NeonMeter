@@ -571,7 +571,8 @@ describe('desktop, desktopBars: bars (the default)', () => {
     await start($, world)
 
     const ui = await mountBand($, 'desktop', 95)
-    expect(await rowOf(ui)).toContain(' │ Spend 112% │ ')
+    // 112% is framed (borderAt 90), and a frame needs no separator beside it.
+    expect(await rowOf(ui)).toContain(' 3d4h Spend 112% Context ')
     expect((await barsOf(ui)).map(b => b.kind)).toEqual(['five_hour', 'seven_day', 'ctx'])
     expect(await textOf(ui, '112%')).toMatchObject({ color: '#FF073A', bold: true })
     await ui.unmount()
