@@ -30,6 +30,12 @@ export type BandProps = {
   layout: 'cells'
   spans: Span[]
   alternates?: Span[][]
+  /**
+   * The rule over the band when a frame shows, one per row (`spans`, then
+   * each alternate): drawn here, above the row, so its frame stretches pulse
+   * with the row. Absent, the hooks module draws the plain rule itself.
+   */
+  rules?: Span[][]
 }
 
 /** The pulse frame, and which row of the rotation is showing (0 is `spans`). */
@@ -45,6 +51,8 @@ const rotations = new WeakMap<object, Timer>()
 const pulsed = new WeakMap<object, number>()
 /** The row each instance last drew, which its pointer listener reads: where the button's cell is. */
 const shown = new WeakMap<object, Span[]>()
+/** Whether each instance last drew the rule above its row, which moves the row, and the button's cell, one line down. */
+const ruled = new WeakMap<object, boolean>()
 
 /** The columns of the row's button cell, or null when the row has none. */
 export function buttonColumns(spans: readonly Span[]): [number, number] | null {
@@ -104,11 +112,13 @@ const Band: ClientModule<BandProps, State> = (props, surface) => {
     // One listener per instance: a left click on the button's cell asks the hooks module to submit its prompt.
     surface.onPointer(event => {
       const cols = buttonColumns(shown.get(surface) ?? [])
-      if (event.type === 'up' && event.button === 'left' && event.y === 0 && cols && event.x >= cols[0] && event.x < cols[1]) surface.post({ press: true })
+      if (event.type === 'up' && event.button === 'left' && event.y === (ruled.get(surface) ? 1 : 0) && cols && event.x >= cols[0] && event.x < cols[1]) surface.post({ press: true })
     })
   }
   shown.set(surface, spans)
-  const isLive = props.pulse && spans.some(s => s.live)
+  const rule = props.rules?.[turn] ?? props.rules?.[0]
+  ruled.set(surface, Boolean(rule))
+  const isLive = props.pulse && (spans.some(s => s.live) || Boolean(rule?.some(s => s.live)))
   const always = props.pulseMode === 'always'
   const frameMs = Math.max(1, Math.round(props.pulseMs / 8))
   const burst = props.burst ?? { gen: 0, elapsedMs: 0, totalMs: 0 }
@@ -142,13 +152,20 @@ const Band: ClientModule<BandProps, State> = (props, surface) => {
   const i = pulseIntensity(frame)
   const colorOf = (color: string, live: boolean | undefined) => (isLive && live ? pulseForeground(color, i) : color)
 
-  return (
+  const line = (row: Span[]) => (
     <Box flexDirection="row">
-      {spans.map(span => (
+      {row.map(span => (
         <Text color={colorOf(span.color, span.live)} bold={span.bold} italic={span.italic} wrap="truncate">
           {span.text}
         </Text>
       ))}
+    </Box>
+  )
+  if (!rule) return line(spans)
+  return (
+    <Box flexDirection="column">
+      {line(rule)}
+      {line(spans)}
     </Box>
   )
 }

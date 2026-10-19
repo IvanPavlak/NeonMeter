@@ -10,10 +10,10 @@
 
 import type { BoxProps, ButtonProps, ElementConstructor, RenderElement, SvgProps, TextProps } from 'claude-code'
 
-import type { FlexButton, FlexRow, FlexSegment } from './builder'
+import type { FlexButton, Frame, FlexRow, FlexSegment } from './builder'
 import { THEME_KEYS } from './builder'
 import type { DesktopOptions } from './drawings'
-import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, HEX, pctSvg, resetSvg, smoothBarSvg } from './drawings'
+import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, pctSvg, resetSvg, smoothBarSvg } from './drawings'
 
 export type { DesktopOptions } from './drawings'
 
@@ -30,6 +30,8 @@ export type DesktopExtras = {
   onPress: () => void
   /** The button's pulse and glow: the band's, less what `buttonPulse` and `buttonGlow` turn off. */
   button: DesktopOptions
+  /** The frame's pulse and glow: the band's, less what `borderPulse` and `borderGlow` turn off. */
+  frame: DesktopOptions
   /** Show the context breakdown while the pointer is over the Context segment. */
   popup: boolean
   /** The hover cards' ground and border, in the app's appearance. */
@@ -66,6 +68,90 @@ function actionButton(c: FlexButton, els: DesktopElements, x: DesktopExtras): Re
 }
 
 /**
+ * `content` in a frame: under it, the caps at either end and the edges'
+ * drawing stretched between them to the width the content takes; in the
+ * flow, room as wide and tall as a cap at either end, so the text keeps
+ * clear of the corners and the row is as tall as the frame.
+ */
+function framed(key: string, f: Frame, content: RenderElement[], els: DesktopElements, o: DesktopOptions, grow: boolean): RenderElement {
+  const { Box, Svg } = els
+  const cap = (side: 'left' | 'right') => (
+    <Box key={`${key}-${side}`} flexShrink={0}>
+      <Svg source={frameCapSvg(side, f, o)} alt="border" height={FRAME_DISPLAY_HEIGHT} />
+    </Box>
+  )
+  const room = (side: 'left' | 'right') => (
+    <Box key={`${key}-room-${side}`} flexShrink={0}>
+      <Svg source={frameSpacerSvg(FRAME_CAP)} alt="border" height={FRAME_DISPLAY_HEIGHT} />
+    </Box>
+  )
+  return (
+    // The frame shrinks with its bar. The app would let it shrink past its text too, spilling it over the line, so
+    // in a band too narrow for a frame's room the frames are left out beforehand (builder.ts `fitFrames`).
+    <Box key={key} position="relative" flexDirection="row" alignItems="center" flexGrow={grow ? 1 : 0} flexShrink={1}>
+      <Box position="absolute" top={0} left={0} right={0} bottom={0} flexDirection="row" alignItems="center">
+        {cap('left')}
+        <Box flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+          <Svg source={frameEdgesSvg(f, o)} alt="border" height={FRAME_DISPLAY_HEIGHT} />
+        </Box>
+        {cap('right')}
+      </Box>
+      {room('left')}
+      {content}
+      {room('right')}
+    </Box>
+  )
+}
+
+/**
+ * One piece of the band and the outline's stretch over it: whose section it
+ * belongs to (a segment's index, or a separator's two, split between them),
+ * and whether it grows and shrinks with the row (a bar, a frame) or keeps its
+ * size (text, a percent, the button).
+ */
+type Section = { owner: number | [number, number]; grow: boolean; els: RenderElement[] }
+
+/**
+ * The band's pieces with the outline drawn around the card: each piece in a
+ * Box that flexes as the piece does, so the row lays out as it does without
+ * the outline, with its stretch of the top and bottom edges laid under it,
+ * overflowing the row to the card's edges. The first and the last piece reach
+ * one cell further out, to the card's own edges (a margin of minus one cell,
+ * and a cell of padding so their text stays put), and hold the caps beside
+ * their stretch, so no two drawings ever draw one line.
+ */
+function outlined(sections: Section[], colors: readonly Frame[], els: DesktopElements, o: DesktopOptions, rowHeight: number): RenderElement[] {
+  const { Box, Svg } = els
+  // Not `h`: that is the JSX factory here.
+  const tallness = outlineHeight(rowHeight)
+  const shown = (tallness * DISPLAY_HEIGHT) / 30
+  const colorOf = (n: number) => colors[Math.max(0, Math.min(colors.length - 1, n))]!
+  const last = sections.length - 1
+  return sections.map((sec, n) => {
+    const look = Array.isArray(sec.owner) ? colorOf(sec.owner[0]) : colorOf(sec.owner)
+    const right = Array.isArray(sec.owner) ? colorOf(sec.owner[1]) : undefined
+    const cap = (side: 'left' | 'right') => (
+      <Box key={`outline-${side}`} flexShrink={0}>
+        <Svg source={outlineCapSvg(side, side === 'left' ? look : (right ?? look), tallness, o)} alt="border" height={shown} />
+      </Box>
+    )
+    const reach = { ...(n === 0 ? { marginLeft: -1, paddingLeft: 1 } : {}), ...(n === last ? { marginRight: -1, paddingRight: 1 } : {}) }
+    return (
+      <Box key={`section-${n}`} position="relative" flexDirection="row" alignItems="center" flexGrow={sec.grow ? 1 : 0} flexShrink={sec.grow ? 1 : 0} {...(sec.grow ? { minWidth: 0 } : {})} {...reach}>
+        <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
+          {n === 0 ? cap('left') : null}
+          <Box flexGrow={1} flexShrink={1} minWidth={0}>
+            <Svg source={outlineEdgesSvg(look, tallness, o, right)} alt="border" height={shown} />
+          </Box>
+          {n === last ? cap('right') : null}
+        </Box>
+        {sec.els}
+      </Box>
+    )
+  })
+}
+
+/**
  * The desktop band from a flex row (its colors as the builder made them, in
  * `#RRGGBB`): labels, separators, reset fields and the stale marker as `Text`
  * in theme keys the app paints for its own appearance; bars and percents as
@@ -87,9 +173,20 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   const button = row.button
   const hasCtx = row.segments.some(seg => seg.kind === 'ctx')
   const at = button ? (button.position === 'context' && !hasCtx ? 'end' : button.position) : null
-  if (button && at === 'start') children.push(actionButton(button, els, x), gap('button-gap'))
+  // The same pieces by section, for the outline: each segment's, each separator's, and the button with its neighbour.
+  const sections: Section[] = []
+  const into = (owner: Section['owner'], grow: boolean, ...items: RenderElement[]) => sections.push({ owner, grow, els: items })
+  if (button && at === 'start') {
+    children.push(actionButton(button, els, x), gap('button-gap'))
+    for (const piece of children) into(0, false, piece)
+  }
   row.segments.forEach((seg: FlexSegment, n) => {
-    if (n > 0) children.push(fixed(`sep-${seg.kind}`, <Text color={THEME_KEYS.dim}> │ </Text>))
+    // A frame marks where its segment ends: beside one, the separator is room alone.
+    if (n > 0) {
+      const sep = fixed(`sep-${seg.kind}`, <Text color={THEME_KEYS.dim}>{seg.frame || row.segments[n - 1]!.frame ? ' ' : ' │ '}</Text>)
+      children.push(sep)
+      into([n - 1, n], false, sep)
+    }
     const pieces: RenderElement[] = []
     if (button && at === 'context' && seg.kind === 'ctx') pieces.push(actionButton(button, els, x), gap('button-gap'))
     pieces.push(fixed(`label-${seg.kind}`, <Text color={THEME_KEYS.text}>{seg.label} </Text>))
@@ -142,12 +239,34 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
         ),
       )
     }
-    children.push(...pieces)
+    if (seg.frame) {
+      const frame = framed(`frame-${seg.kind}`, seg.frame, pieces, els, x.frame, Boolean(seg.bar))
+      children.push(frame)
+      into(n, true, frame)
+    } else {
+      children.push(...pieces)
+      // A bar's Box grows and shrinks with the row; every other piece keeps its size.
+      for (const piece of pieces) into(n, /^(bar|dots)-/.test(String((piece as { props?: { key?: unknown } }).props?.key ?? '')), piece)
+    }
   })
-  if (button && at === 'end') children.push(gap('button-gap'), actionButton(button, els, x))
+  if (button && at === 'end') {
+    const tail = [gap('button-gap'), actionButton(button, els, x)]
+    children.push(...tail)
+    for (const piece of tail) into(row.segments.length - 1, false, piece)
+  }
+  if (row.outline) {
+    // The row is as tall as its tallest piece: a frame's height while one shows, a drawing's otherwise.
+    const tall = Boolean(row.frame) || row.segments.some(seg => seg.frame)
+    const inner = outlined(sections, row.outline, els, x.frame, tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT)
+    return (
+      <Box key="band" position="relative" flexDirection="row" width="100%" alignItems="center">
+        {inner}
+      </Box>
+    )
+  }
   return (
     <Box key="band" flexDirection="row" width="100%" alignItems="center">
-      {children}
+      {row.frame ? framed('frame-band', row.frame, children, els, x.frame, true) : children}
     </Box>
   )
 }

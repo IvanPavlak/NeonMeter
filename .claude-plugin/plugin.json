@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -311,6 +311,71 @@
       "title": "Button pulse",
       "description": "Pulse the button with the band; pulse off holds it still either way",
       "default": true
+    },
+    "border": {
+      "type": "string",
+      "title": "Border",
+      "description": "A glowing neon border in the percent's range color (or borderColor): appear draws it once a percent reaches borderAt, always at any percent, off never",
+      "options": [
+        "appear",
+        "always",
+        "off"
+      ],
+      "default": "appear"
+    },
+    "borderAt": {
+      "type": "number",
+      "title": "Border appears at (%)",
+      "description": "The percent from which border appear draws the border, 1 to 100",
+      "default": 90,
+      "min": 1,
+      "max": 100
+    },
+    "borderScope": {
+      "type": "string",
+      "title": "Border scope",
+      "description": "segment draws a border around each segment that reaches borderAt; band draws one border around the band's row, colored by its fullest segment; none draws neither, for the outline alone",
+      "options": [
+        "segment",
+        "band",
+        "none"
+      ],
+      "default": "segment"
+    },
+    "outline": {
+      "type": "string",
+      "title": "Outline",
+      "description": "A glowing border around the band's whole card in the desktop app (the whole rule in the terminal), shown by the border rule once any segment qualifies: single in its fullest segment's color (or borderColor), sections with each section's stretch in its own segment's color; off never",
+      "options": [
+        "off",
+        "single",
+        "sections"
+      ],
+      "default": "off"
+    },
+    "borderGlow": {
+      "type": "boolean",
+      "title": "Border glow",
+      "description": "Draw the border's halo in the desktop app; glow off draws none either way",
+      "default": true
+    },
+    "borderPulse": {
+      "type": "boolean",
+      "title": "Border pulse",
+      "description": "Pulse the border with the band; pulse off holds it still either way",
+      "default": true
+    },
+    "everyChat": {
+      "type": "boolean",
+      "title": "Every chat",
+      "description": "Show the band in every open chat, side by side in the desktop app included; false shows it in the chat you last sent a prompt in alone, the others giving it up within a minute",
+      "default": true
+    },
+    "borderColor": {
+      "type": "string",
+      "title": "Border color",
+      "description": "One color like #FF073A for every border, on both themes; empty colors each border by its percent, as the bar and the percent are",
+      "default": ""
     }
   }
 }

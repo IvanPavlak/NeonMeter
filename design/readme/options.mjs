@@ -61,6 +61,12 @@ const DEFAULTS = {
   buttonAt: 75,
   buttonPosition: 'end',
   buttonGlow: true,
+  border: 'appear',
+  borderAt: 90,
+  borderScope: 'segment',
+  borderGlow: true,
+  borderColor: '',
+  outline: 'off',
 }
 
 // Every option a picture can show. The pulse options (`pulse`, `pulseMode`, `pulseCount`,
@@ -87,6 +93,10 @@ export const OPTIONS = [
   { key: 'button', title: 'Button (Context at 42%)', values: ['appear', 'always', 'off'], names: ['Appears from buttonAt', 'Always', 'Off'], ctx: CTX_MID, card: 'button' },
   { key: 'buttonPosition', title: 'Button Position', values: ['end', 'context', 'start'], names: ['At the End', 'Before Context', 'At the Start'] },
   { key: 'buttonGlow', title: 'Button Glow (Desktop)', values: [true, false], names: ['Glow On', 'Glow Off'], surfaces: ['desktop'], base: { segments: ['context'] } },
+  { key: 'border', title: 'Border (Context at 93%)', values: ['appear', 'always', 'off'], names: ['Appears from borderAt', 'Always', 'Off'] },
+  { key: 'borderScope', title: 'Border Scope (with Border: Always)', values: ['segment', 'band'], names: ['Each Segment', 'The Whole Band'], base: { border: 'always' } },
+  { key: 'borderColor', title: 'Border Color (with Border: Always)', values: ['', '#FF073A'], names: ['Colored by Each Percent', 'One Color'], base: { border: 'always' } },
+  { key: 'outline', title: 'Outline (Context at 93%)', values: ['off', 'single', 'sections'], names: ['Off', 'One Color', 'Each Section in Its Color'] },
 ]
 
 const shown = v => (Array.isArray(v) ? v.join(',') : String(v))
@@ -115,6 +125,7 @@ function inputFor(o, ctx = CTX) {
     contextBar: o.contextBar,
     button: buttonShown(o, ctx) ? o.buttonPosition : null,
   }
+  if (o.border !== 'off') input.border = { show: o.border, at: o.borderAt, scope: o.borderScope, ...(o.borderColor ? { color: o.borderColor } : {}), ...(o.outline !== 'off' ? { outline: o.outline } : {}) }
   // The default layout's first Weekly turn, or every turn of the single layout, as the hooks module takes them.
   return o.layout === 'single' ? B.singleVariants(input) : B.weeklyVariants(input).slice(0, 1)
 }
@@ -198,8 +209,19 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   row.segments.forEach((seg, n) => {
     if (seg.kind !== 'ctx') lastWin = n
   })
+  // A frame: room for its cap at either end, as desktop.tsx's `framed` keeps, and the frame drawn under what it holds.
+  const room = D.FRAME_CAP * SCALE
+  const frameFrom = frame => items.push({ kind: 'frame', frame }, { kind: 'space', w: room })
+  const frameTo = () => items.push({ kind: 'space', w: room }, { kind: 'frameEnd' })
+  if (row.frame) frameFrom(row.frame)
   row.segments.forEach((seg, n) => {
-    if (n > 0) text(' │ ', dim)
+    // Beside a frame the separator is room alone; the outline's sections meet halfway across it.
+    if (n > 0) {
+      items.push({ kind: 'cutFrom' })
+      text(seg.frame || row.segments[n - 1].frame ? ' ' : ' │ ', dim)
+      items.push({ kind: 'cutTo' })
+    }
+    if (seg.frame) frameFrom(seg.frame)
     if (seg.kind === 'ctx') items.push({ kind: 'mark' })
     if (at === 'context' && seg.kind === 'ctx') {
       button()
@@ -216,12 +238,14 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       draw(D.resetSvg(seg.extraSpan, opts))
     } else if (seg.extra) text(' ' + seg.extra, T.text)
     if (n === lastWin && row.stale) text('  ' + row.stale.text, dim, { italic: true })
+    if (seg.frame) frameTo()
   })
   if (at === 'end') {
     text(' ', T.text)
     button()
   }
-  const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : it.kind === 'space' ? it.w : it.kind === 'mark' || it.kind === 'button' ? 0 : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
+  if (row.frame) frameTo()
+  const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : it.kind === 'space' ? it.w : it.kind === 'mark' || it.kind === 'button' || it.kind === 'frame' || it.kind === 'frameEnd' || it.kind === 'cutFrom' || it.kind === 'cutTo' ? 0 : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
   const fixed = items.filter(it => it.kind !== 'grow').reduce((n, it) => n + width(it), 0)
   const grows = items.filter(it => it.kind === 'grow').length
   const growW = grows ? Math.max(0, (rowW - fixed) / grows) : 0
@@ -229,10 +253,23 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const baseline = y + D.MIDLINE * SCALE + TEXT_SIZE * D.BASELINE_DROP
   let x = x0
   let out = ''
+  let under = ''
   let ctxX = null
   let buttonX = null
+  const open = []
+  const cuts = []
+  let cutFrom = 0
   for (const it of items) {
-    if (it.kind === 'button') {
+    if (it.kind === 'cutFrom') {
+      cutFrom = x
+    } else if (it.kind === 'cutTo') {
+      cuts.push((cutFrom + x) / 2)
+    } else if (it.kind === 'frame') {
+      open.push({ frame: it.frame, x })
+    } else if (it.kind === 'frameEnd') {
+      const { frame, x: from } = open.pop()
+      under += frameMarkup(frame, { ...opts, glow: o.glow && o.borderGlow }, from, x, y)
+    } else if (it.kind === 'button') {
       buttonX = x
     } else if (it.kind === 'mark') {
       ctxX = x
@@ -255,7 +292,45 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       x += placed.w
     }
   }
-  return { out, ctxX, context: row.context ?? null, opts, buttonX, button: btn ?? null }
+  return { out: under + out, ctxX, context: row.context ?? null, opts, buttonX, button: btn ?? null, outline: row.outline ?? null, cuts, frameOpts: { ...opts, glow: o.glow && o.borderGlow } }
+}
+
+/**
+ * The outline around a box `w` by `h` at `x`, `y`, as desktop.tsx draws it
+ * around the app's card: each section's stretch of the edges between `cuts`,
+ * and the caps over the ends.
+ */
+function outlineMarkup(colors, cuts, opts, x, y, w, h) {
+  const n = ++uid
+  const hc = (h * D.ROW_HEIGHT) / D.DISPLAY_HEIGHT
+  const cap = D.OUTLINE_CAP * SCALE
+  const at = (svg, ax, aw, k) =>
+    svg
+      .replace(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="[\d.]+" height="[\d.]+"/, `<svg x="${ax.toFixed(2)}" y="${y}" width="${aw.toFixed(2)}" height="${h}"`)
+      .replace(/id="(\w+)"/g, `id="$1o${n}k${k}"`)
+      .replace(/url\(#(\w+)\)/g, `url(#$1o${n}k${k})`)
+  // The edges run between the caps, never under them, as the app lays them out.
+  const bounds = [x + cap, ...cuts, x + w - cap]
+  let out = ''
+  colors.forEach((f, i) => {
+    out += at(D.outlineEdgesSvg(f, hc, opts), bounds[i], bounds[i + 1] - bounds[i], i)
+  })
+  out += at(D.outlineCapSvg('left', colors[0], hc, opts), x, cap, 'l') + at(D.outlineCapSvg('right', colors[colors.length - 1], hc, opts), x + w - cap, cap, 'r')
+  return out
+}
+
+/** A frame from `x0` to `x1` around a row at `y`: its caps at the ends and its edges stretched between, as desktop.tsx lays them. */
+function frameMarkup(frame, opts, x0, x1, y) {
+  const n = ++uid
+  const h = D.FRAME_DISPLAY_HEIGHT
+  const top = y + (D.DISPLAY_HEIGHT - h) / 2
+  const cap = D.FRAME_CAP * SCALE
+  const at = (svg, x, w) =>
+    svg
+      .replace(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="[\d.]+" height="[\d.]+"/, `<svg x="${x.toFixed(2)}" y="${top.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}"`)
+      .replace(/id="(\w+)"/g, `id="$1f${n}${x.toFixed(0)}"`)
+      .replace(/url\(#(\w+)\)/g, `url(#$1f${n}${x.toFixed(0)})`)
+  return at(D.frameEdgesSvg(frame, opts), x0 + cap, Math.max(0, x1 - x0 - 2 * cap)) + at(D.frameCapSvg('left', frame, opts), x0, cap) + at(D.frameCapSvg('right', frame, opts), x1 - cap, cap)
 }
 
 // The hover card's ground and border, as register.tsx's CARD draws them.
@@ -332,6 +407,11 @@ function desktopBox(turns, o, theme, y, card = false) {
   turns.forEach((t, k) => {
     out += desktopRow(t, o, theme, PAD + DESK_PAD, boxY + DESK_PAD + k * DESK_ROW, W - 2 * PAD - 2 * DESK_PAD).out
   })
+  // The outline hugs the box, as the app's card; its sections follow the first turn's.
+  if (o.outline !== 'off') {
+    const first = desktopRow(turns[0], o, theme, PAD + DESK_PAD, boxY + DESK_PAD, W - 2 * PAD - 2 * DESK_PAD)
+    if (first.outline) out += outlineMarkup(first.outline, first.cuts, first.frameOpts, PAD, boxY, W - 2 * PAD, h)
+  }
   if (open) out += contextCard(open.context, open.opts, theme, open.ctxX, boxY - 8).out
   if (pressed) out += buttonCard(pressed.button.label, theme, pressed.buttonX, boxY - 8)
   return { out, h: h + cardH }
@@ -346,7 +426,15 @@ function terminalBox(turns, o, theme, y) {
   const at = (line) => y + (line + 1) * CELL_H - 6
   const cells = (n) => `textLength="${(n * CELL_W).toFixed(2)}" lengthAdjust="spacingAndGlyphs"`
   let out = `<rect x="${PAD}" y="${y}" width="${BOX_W}" height="${h}" rx="6" fill="${P.box}" stroke="${P.line}"/>`
-  out += `<text x="${x}" y="${at(0)}" ${MONO} font-size="14" ${cells(COLS)} xml:space="preserve"><tspan fill="${P.line}">${'─'.repeat(COLS - 3)}</tspan><tspan fill="${P.caption}">[-]</tspan></text>`
+  // The rule, with a frame's stretch lit in its color while one shows; the engine's ` [-]` over its end.
+  const rule = B.band(turns[0], COLS, theme, o.barColoring).rule ?? [{ text: '─'.repeat(COLS), color: B.RULE_KEY }]
+  let col = 0
+  for (const sp of rule) {
+    const len = Math.min([...sp.text].length, COLS - 3 - col)
+    if (len > 0) out += `<text x="${(x + col * CELL_W).toFixed(2)}" y="${at(0)}" ${MONO} font-size="14" ${cells(len)} fill="${sp.color === B.RULE_KEY ? P.line : sp.color}" xml:space="preserve">${[...sp.text].slice(0, len).join('')}</text>`
+    col += Math.max(0, len)
+  }
+  out += `<text x="${(x + (COLS - 3) * CELL_W).toFixed(2)}" y="${at(0)}" ${MONO} font-size="14" ${cells(3)} fill="${P.caption}" xml:space="preserve">[-]</text>`
   turns.forEach((t, k) => {
     out += terminalRow(t, o, theme, x, at(1 + k))
   })

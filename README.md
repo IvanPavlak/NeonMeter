@@ -50,6 +50,10 @@ The context bar is split into what the desktop app's own context indicator lists
 
 From 75% of the context on, a round neon button colored by the context percent appears at the end of the row. One click sends a prompt as if you had typed it: by default one that writes `HANDOFF.md`, a handoff the next session reads to carry on without this conversation, with the task, the state of the work, the decisions, the files and commands that matter, the open problems, the next steps and the dead ends. `buttonPrompt` makes it any prompt you like, sent exactly as typed (`/compact` asks for what the 1.4 button did), and `buttonLabel` names it on hover. Clicked while Claude is working, the prompt runs as soon as the turn ends. The button can sit at either end or before Context, show at any fill, or stay off.
 
+- **Frames what runs high**
+
+From 90% on, a segment sits in a glowing neon border in its percent's color, so the limit about to bite stands out at a glance. It glows and breathes with the band. It can frame the whole row instead, show at any percent, take one color of your choosing, or stay off. An outline can also run around the whole card in the desktop app, in one color or with each section's stretch in its own.
+
 - **Knows your plan**
 
 When your account has a weekly limit for one model, the Weekly segment takes turns between the all-models week and that model, each with its own percent, color and reset. New per-model limits join by themselves.
@@ -58,13 +62,17 @@ When your account has a weekly limit for one model, the Weekly segment takes tur
 
 If the usage fetch fails or the reading is old, the window segments freeze, fade and show the reading's age. A per-model weekly limit comes only from the fetch, so when that has not landed for twice `pollSeconds` while Claude Code keeps the other windows fresh after each reply, that segment alone fades. The context segment comes from the session itself and is never stale.
 
+- **In every chat**
+
+Every open chat shows its own band, side by side in the desktop app's split view included, as the app draws each chat's band (seen on desktop app 2.42304.2 with Claude Code 2.1.299; earlier builds drew it for one chat per window). Set `everyChat` to `false` for one band: the chat you last sent a prompt in takes it, and the others give it up within a minute.
+
 - **Light on your account**
 
 Every open session shares one fetch schedule through the plugin store, so ten chats do not mean ten polls. It backs off on 429 and never sees, stores or logs your credential.
 
 - **Yours to tune**
 
-Thirty-two options cover the colors, the range bounds, the glyph, the segments and their order, the layout (every segment in one row, or one at a time across the whole row), the pulse and when it runs, how each reset reads and whether it is colored by the time left, the context bar and its hover card, the button and its prompt, the polling and the theme. The defaults are the approved design. For the lightest band, turn the pulse and the glow off: nothing then moves or glows, the button included.
+Forty options cover the colors, the range bounds, the glyph, the segments and their order, the layout (every segment in one row, or one at a time across the whole row), the pulse and when it runs, how each reset reads and whether it is colored by the time left, the context bar and its hover card, the button and its prompt, the border, the polling and the theme. The defaults are the approved design. For the lightest band, turn the pulse and the glow off: nothing then moves or glows, the button and the border included.
 
 <h2 align="center" id="install">Install</h2>
 
@@ -154,7 +162,7 @@ The repository root is the plugin folder: the manifests are in `.claude-plugin/`
 
 <h2 align="center" id="configuration">Configuration</h2>
 
-Thirty options, listed in the table below, change the look and the behaviour. Every option you leave out keeps its default. Options are saved in Claude Code's settings, not in the plugin's files, so they survive every update; uninstalling the plugin deletes them.
+Forty options, listed in the table below, change the look and the behaviour. Every option you leave out keeps its default. Options are saved in Claude Code's settings, not in the plugin's files, so they survive every update; uninstalling the plugin deletes them.
 
 **To see what each option does**, [Every option at a glance](#every-option), further down, shows each one as a picture.
 
@@ -203,11 +211,19 @@ How to write the values:
 | A button that sends `/compact`, as the 1.4 button did   | `{"buttonPrompt":"/compact","buttonLabel":"Compact the conversation"}`                         |
 | A button that sends a slash command of your own         | `{"buttonPrompt":"/wrap-up","buttonLabel":"Wrap the session up"}`                              |
 | No button                                               | `{"button":"off"}`                                                                             |
+| A border around every segment, in its own color         | `{"border":"always"}`                                                                          |
+| A border from 80% instead of 90%                        | `{"borderAt":"80"}`                                                                            |
+| One border around the whole band                        | `{"borderScope":"band"}`                                                                       |
+| A border around the whole card, each section in its color | `{"outline":"sections"}`                                                                     |
+| The card's border alone, in one color, at any percent   | `{"outline":"single","borderScope":"none","border":"always"}`                                  |
+| A red border whatever the percent's color               | `{"borderColor":"#FF073A"}`                                                                    |
+| No border                                               | `{"border":"off"}`                                                                             |
+| The band in the chat you last used alone                | `{"everyChat":"false"}`                                                                        |
 
 Every option at its default, to copy as a template or to reset everything:
 
 ```bash
-echo '{"layout":"all","barColoring":"level","desktopBars":"bars","glyph":"━","segments":"five_hour,seven_day,spend,context","pulse":"true","pulseMode":"responsive","pulseCount":"3","pulseMs":"800","glow":"true","pollSeconds":"60","rotateSeconds":"5","fiveHourReset":"countdown","weeklyReset":"countdown","resetColor":"plain","theme":"auto","desktopTheme":"auto","ranges":"50,60,70,80,90","timeRanges":"17,33,50,67,83","colorsDark":"#1E90FF,#39FF14,#00D45A,#FFF01F,#FF5F1F,#FF073A","colorsLight":"#1874D2,#32A800,#139A43,#A89200,#E84A00,#E8001F","contextBar":"breakdown","contextPopup":"true","contextColorsDark":"#1E90FF,#FF5F1F,#00D45A,#FFF01F,#39FF14,#6E7681","contextColorsLight":"#1874D2,#E84A00,#139A43,#A89200,#32A800,#8C959F","button":"appear","buttonAt":"75","buttonPrompt":"","buttonLabel":"","buttonPosition":"end","buttonGlow":"true","buttonPulse":"true"}' | claude plugin configure neonmeter@neonmeter --values-stdin
+echo '{"layout":"all","barColoring":"level","desktopBars":"bars","glyph":"━","segments":"five_hour,seven_day,spend,context","pulse":"true","pulseMode":"responsive","pulseCount":"3","pulseMs":"800","glow":"true","pollSeconds":"60","rotateSeconds":"5","fiveHourReset":"countdown","weeklyReset":"countdown","resetColor":"plain","theme":"auto","desktopTheme":"auto","ranges":"50,60,70,80,90","timeRanges":"17,33,50,67,83","colorsDark":"#1E90FF,#39FF14,#00D45A,#FFF01F,#FF5F1F,#FF073A","colorsLight":"#1874D2,#32A800,#139A43,#A89200,#E84A00,#E8001F","contextBar":"breakdown","contextPopup":"true","contextColorsDark":"#1E90FF,#FF5F1F,#00D45A,#FFF01F,#39FF14,#6E7681","contextColorsLight":"#1874D2,#E84A00,#139A43,#A89200,#32A800,#8C959F","button":"appear","buttonAt":"75","buttonPrompt":"","buttonLabel":"","buttonPosition":"end","buttonGlow":"true","buttonPulse":"true","border":"appear","borderAt":"90","borderScope":"segment","outline":"off","borderColor":"","borderGlow":"true","borderPulse":"true","everyChat":"true"}' | claude plugin configure neonmeter@neonmeter --values-stdin
 ```
 
 **Where they are stored:** `~/.claude/settings.json`, under `pluginConfigs`, keyed by the plugin's id. You can edit them there by hand too; there a list may be written either as comma-separated text or as a JSON list:
@@ -264,6 +280,14 @@ Loaded from a clone for development (`claude --plugin-dir`, see Install), the ke
 | `buttonPosition`    | `end`, `context` or `start` | `end` | Where the button sits in the row: after the last segment, before the Context segment (at the end when the row has none) or before the first, taking room from the bars like any other piece. |
 | `buttonGlow`        | boolean                                                      | `true`                        | Draw the button's halo in the desktop app. `glow` off draws none either way.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `buttonPulse`       | boolean                                                      | `true`                        | Pulse the button with the band, under `pulseMode` as the rest of it. `pulse` off holds it still either way.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `border`             | `appear`, `always` or `off`                                  | `appear`                      | A glowing neon border around a segment, in its percent's range color, with the band's glow and pulse. `appear` draws it once the segment's percent reaches `borderAt`, `always` at any percent, `off` never. In the desktop app it is a rounded frame, and the separator beside it gives way to a space; in the terminal it lights the rule's stretch above the segment. A stale segment's border fades and holds still with it. In a desktop band too narrow for a frame's room beside the text, the frames give way; the outline stays. |
+| `borderAt`           | number, 1 to 100                                             | `90`                          | The percent from which `border: appear` draws the border. The default is where the red range starts. |
+| `borderScope`        | `segment`, `band` or `none`                                  | `segment`                     | `segment` frames each segment that qualifies; `band` draws one border around the band's row, colored by its fullest segment, and lights the whole rule in the terminal (while an `outline` shows, the outline is that border); `none` draws neither, for `outline` alone. |
+| `outline`            | `off`, `single` or `sections`                                | `off`                         | A border around the band's whole card in the desktop app, along its edges, shown by the `border` rule once any segment qualifies (from `borderAt`, or always), on top of `borderScope`'s. `single` draws it in its fullest segment's color (or `borderColor`); `sections` draws each section's stretch of the top and bottom edges in its own segment's color, meeting halfway across the separators, and the ends in the first and last section's. In the terminal it lights the whole rule the same way. |
+| `borderColor`        | one `#RRGGBB` color, or empty                                | empty                         | One color for every border, on both palettes. Empty colors each border by its percent, as its bar and percent are. |
+| `borderGlow`         | boolean                                                      | `true`                        | Draw the border's halo in the desktop app. `glow` off draws none either way. |
+| `borderPulse`        | boolean                                                      | `true`                        | Pulse the border with the band, under `pulseMode` as the rest of it. `pulse` off holds it still either way. |
+| `everyChat`          | boolean                                                      | `true`                        | Show the band in every open chat, side by side in the desktop app included. `false` shows it in one chat: the one you last sent a prompt in (typed, from the desktop app or from a phone), named in the plugin store for every session; the others give it up at their next drawing, within a minute. Before any prompt names one, every chat shows it. |
 
 <h2 align="center" id="using-it">Using it</h2>
 
@@ -277,7 +301,27 @@ Left to right the row shows:
 
 Each window segment is its label, a bar, the percent used and its reset: every window counts down to it, `in 3h13m` for the 5-hour window and `in 3d4h` for a weekly limit on the widest layout, `3h13m` and `3d4h` on narrower ones. `fiveHourReset` and `weeklyReset` switch either one to the other form, and `resetColor` set to `time` colors the reset by how much of its window is still to run. The context segment shows the percent and the tokens used against the model's window. The band is the strip Claude Code gives the plugin above the prompt; the row is the single line of cells or drawings it holds.
 
-**In the desktop app** the band keeps the full labels and the bars stretch to fill whatever room the text leaves. Bars are smooth with rounded ends by default, or a row of dots with `desktopBars` set to `dots`. Everything filled glows.
+**In the desktop app** the band shows the full labels and the bars stretch to fill whatever room the text leaves. Bars are smooth with rounded ends by default, or a row of dots with `desktopBars` set to `dots`. Everything filled glows. In a narrow chat, a split view's pane say, the row steps down until it fits, as the terminal's layouts do: the segment borders give way first (the outline stays), then the labels shorten (`5h`, `7d`, `Ctx`), then the resets lose their `in ` and the context its token count, then the fields go, and last the bars (sketched here in text):
+
+```text
+5-hour ━━━━━━  22% in 2h57m │ Weekly ━━━━━━  3% in 2d9h │ Context ━━━━━━  57% 566k/1M ◉
+5h ━━━━  22% in 2h57m │ 7d ━━━━  3% in 2d9h │ Ctx ━━━━  57% 566k/1M ◉
+5h ━━━  22% 2h57m │ 7d ━━━  3% 2d9h │ Ctx ━━━  57% ◉
+5h ━━  22% │ 7d ━━  3% │ Ctx ━━  57% ◉
+5h 22% │ 7d 3% │ Ctx 57% ◉
+```
+
+**The border** marks what runs high. With the defaults, a segment that reaches 90% sits in a rounded neon frame in its own range color, red from 90 up, and the separator beside it gives way to a space; at 92% on the 5-hour window and 40% elsewhere, only the 5-hour segment is framed. It glows and breathes with the band: three breaths after a change under the default `pulseMode`, or all the time under `always`. Some ways to set it:
+
+- `{"border":"always"}` frames every segment, each in its own color: a calm blue frame at 30%, a red one at 95%.
+- `{"borderAt":"75"}` frames a segment from 75% on, in its range color: yellow at 75, orangered at 85, red from 90.
+- `{"borderScope":"band"}` draws one frame around the whole row instead, in the color of its fullest segment.
+- `{"outline":"sections"}` adds a border along the edges of the whole card, each section's stretch in its own color: orangered over the 5-hour window at 82%, dodgerblue over the weekly limit at 18%, red over the context at 93%. `{"outline":"single"}` draws it in one color, the fullest segment's.
+- `{"outline":"single","borderScope":"none","border":"always","borderColor":"#FF073A"}` keeps only the card's border, always on, in red.
+
+In the terminal the band is one row of cells, so a border lights the rule above the row instead: a `━` stretch in the border's color over each framed segment, or across the whole rule for `borderScope: band` and the outline.
+
+**In every chat** the band shows by default, each chat its own, side by side in the desktop app's split view too. With `{"everyChat":"false"}` one chat shows it: the one you last sent a prompt in.
 
 **The context bar** is split by what fills the context, as the desktop app's own context indicator splits it: Messages in dodgerblue, System tools in orangered, MCP tools in darker green, Skills in yellow and everything else (the system prompt, memory files, MCP server instructions, agents) as Other in lime, together as long as the percent says, then the autocompact buffer in grey, the room the engine keeps free for compacting, which neither glows nor pulses. The percent keeps its range color, so 93% still reads red. The breakdown is the engine's own estimate, the one `/context` lists, counted locally after each response; `contextBar` set to `percent` colors the bar by its percent instead, like the others. **In the desktop app, point at the Context segment** and a card opens above it with everything the app's own context panel lists: the window's fill (`Context window: 61.8k / 1M (6%)`), then Messages, System tools, MCP tools and Skills in their colors and the system prompt, memory files, MCP server instructions and agents each on its own row in Other's color, largest first, with their tokens and share of the window (`Messages: 25.5k, 2.6%`), glowing and pulsing with the band, then the autocompact buffer, the free space and the tools loaded on demand, which sit outside the window; `contextPopup` turns the card off.
 
@@ -291,7 +335,7 @@ Each window segment is its label, a bar, the percent used and its reset: every w
   <img src="design/readme/terminal.svg" alt="The terminal band on the dark and the light theme, grouped by layout: the default layout at 120 columns with level coloring, ramp coloring and dotted cells in either coloring, then at 72 and 40 columns, and the single layout at 120 columns in the same four looks, taking turns through every segment; the context cells are split by category and the button sits at the right end of every row" width="100%">
 </p>
 
-The terminal band opens with a rule in the input box's border color, the same line the input box has at its top. The `[-]` at its right end is Claude Code's own button for collapsing the band; `ctrl+x ctrl+a` does the same.
+The terminal band opens with a rule in the input box's border color, the same line the input box has at its top. The `[-]` at its right end is Claude Code's own button for collapsing the band; `ctrl+x ctrl+a` does the same. While a border shows, the rule's stretch above the framed segment (all of it under `borderScope: band`) is drawn `━` in the border's color and pulses with the row.
 
 **With `layout` set to `single`** the band shows one segment at a time across the whole row and takes turns, `rotateSeconds` each: 5-hour, Weekly, then each per-model weekly limit, the spend limit when your account has one, and Context, in the order of `segments`. Every bar style works the same way: ramp or level coloring, the terminal's cells, and the desktop's smooth bars or dots. Both graphics group their examples by layout: **Layout: All (Default)** first, then **Layout: Single (One Segment at a Time)**, each in four looks: level bars (the default), ramp bars, and dots in either coloring (on the desktop `desktopBars: dots`, in the terminal `glyph` set to `●`). Dots follow `barColoring` like bars do: under `level` every filled dot takes the percent's color, under `ramp` the filled dots run through the ranges. For one glowing dot bar at a time, colored by its percent (the default level coloring):
 
@@ -342,7 +386,7 @@ The context bar's categories have six colors of their own, the desktop app's hue
 
 <h2 align="center" id="every-option">Every option at a glance</h2>
 
-Each option below has a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`, `buttonPulse`) and `rotateSeconds` have none; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme; the colors are your own; `buttonPrompt` and `buttonLabel` are text, and the `button` picture's card shows the built-in prompt's label. Every picture shows the same account at 93% of the context, so the button shows at the end of each row.
+Each option below has a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`, `buttonPulse`) and `rotateSeconds` have none; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme; the colors are your own; `buttonPrompt` and `buttonLabel` are text, and the `button` picture's card shows the built-in prompt's label; `borderAt` is the `border` picture's threshold, and `borderGlow` and `borderPulse` work as `buttonGlow` and `buttonPulse` do. Every picture shows the same account at 93% of the context, so the button shows at the end of each row and the Context segment sits in its border.
 
 <h3><code>layout</code>: <code>all</code> or <code>single</code></h3>
 <p>Every segment in one row, or one segment across the whole row at a time, taking turns.</p>
@@ -456,6 +500,34 @@ Each option below has a picture of its values, the desktop band above the termin
   <img src="design/readme/options/buttonGlow-light.svg" alt="The buttonGlow option: the desktop band's button with and without its halo" width="100%">
 </picture>
 
+<h3><code>border</code>: <code>appear</code>, <code>always</code> or <code>off</code></h3>
+<p>At 93% of the context: <code>appear</code> frames the Context segment alone, from <code>borderAt</code> (90%); <code>always</code> frames every segment in its own color. In the terminal the rule above a framed segment lights up.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/border-dark.svg">
+  <img src="design/readme/options/border-light.svg" alt="The border option: each value as the desktop band and the terminal band draw it, at 93% of the context" width="100%">
+</picture>
+
+<h3><code>borderScope</code>: <code>segment</code> or <code>band</code></h3>
+<p>With <code>border: always</code>: a border around each segment, or one around the whole band in its fullest segment's color.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/borderScope-dark.svg">
+  <img src="design/readme/options/borderScope-light.svg" alt="The borderScope option: each segment framed, or the whole band in one border" width="100%">
+</picture>
+
+<h3><code>borderColor</code>: empty or one color</h3>
+<p>With <code>border: always</code>: each border in its percent's color, or every border in the one color set.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/borderColor-dark.svg">
+  <img src="design/readme/options/borderColor-light.svg" alt="The borderColor option: borders colored by their percents, or all red" width="100%">
+</picture>
+
+<h3><code>outline</code>: <code>off</code>, <code>single</code> or <code>sections</code></h3>
+<p>At 93% of the context, beside the Context segment's own border: a border around the whole card, in one color or with each section's stretch in its own; in the terminal, the whole rule.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/readme/options/outline-dark.svg">
+  <img src="design/readme/options/outline-light.svg" alt="The outline option: off, one red border around the whole card, and the card's border in each section's color: orangered, dodgerblue and red" width="100%">
+</picture>
+
 <h2 align="center" id="how-usage-is-fetched">How usage is fetched, and what the plugin touches</h2>
 
 The rate-limit windows come from the same first-party usage endpoint the built-in `/usage` command reads. NeonMeter asks Claude Code for an opaque credential handle and passes it to the engine's own HTTP call; the engine attaches your account credential to the request itself. The plugin never sees, stores or logs the credential. It also takes the windows the engine reports after each response, and fetches only when the newest reading is older than `pollSeconds`.
@@ -470,7 +542,6 @@ To follow the desktop app's appearance under `desktopTheme: auto`, the plugin re
 
 <h2 align="center" id="known-limitations">Known limitations</h2>
 
-- **One band per desktop window.** With several chats side by side in one window of the desktop app, only one of them shows the band. The app draws the band above the prompt for one chat per window whatever a plugin draws. The terminal has no such limit. Reported upstream as [anthropics/claude-code#99265](https://github.com/anthropics/claude-code/issues/99265).
 - **No glow in the terminal.** A terminal paints each cell with one foreground and one background color, so the halo is the desktop's alone. The terminal keeps the pulse.
 - **The breakdown card is the desktop's.** The terminal splits the context bar the same way but has no card on hover.
 - **The terminal's button needs clicks.** Its `◉` cell submits the prompt on a click where the terminal reports them to Claude Code; where it does not, typing the prompt does the same, and the terminal has no card naming it.

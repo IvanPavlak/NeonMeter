@@ -51,20 +51,27 @@ test('the desktop band has no rule', async ($, on) => {
   await ui.unmount()
 })
 
-// The desktop row does not depend on bodyColumns at all: the same text and
-// bars at any width, the bars stretching in the layout.
-test('the desktop row with smooth bars is the same at every width', { options: { desktopBars: 'bars' } }, async ($, on) => {
+// The desktop row keeps its full text at any width it fits, the bars
+// stretching in the layout; in a narrow band it steps down until it fits
+// (builder.ts `fitDesktop`): short labels, then fewer fields, then no bars.
+test('the desktop row with smooth bars is the same at every width it fits, and steps down in a narrow band', { options: { desktopBars: 'bars' } }, async ($, on) => {
   const world = setup(on)
   await start($, world)
 
-  const ui = await mountBand($, 'desktop', 60)
-  const narrow = await rowOf(ui)
+  const ui = await mountBand($, 'desktop', 120)
+  const wide = await rowOf(ui)
   const shape = (b: Awaited<ReturnType<typeof barsOf>>[number]) => ({ kind: b.kind, slices: b.slices, peaks: b.peaks })
-  const narrowBars = (await barsOf(ui)).map(shape)
+  const wideBars = (await barsOf(ui)).map(shape)
   await ui.redraw(bandProps(200).props)
-  expect(await rowOf(ui)).toBe(narrow)
-  expect((await barsOf(ui)).map(shape)).toEqual(narrowBars)
-  expect(narrow).not.toContain('━')
+  expect(await rowOf(ui)).toBe(wide)
+  expect((await barsOf(ui)).map(shape)).toEqual(wideBars)
+  expect(wide).not.toContain('━')
+  expect(wide).toContain('5-hour')
+
+  await ui.redraw(bandProps(50).props)
+  const narrow = await rowOf(ui)
+  expect(narrow).toContain('5h')
+  expect(narrow).not.toContain('5-hour')
   await ui.unmount()
 })
 
