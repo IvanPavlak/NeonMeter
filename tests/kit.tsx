@@ -3,7 +3,7 @@
 // endpoint and the engine's own rows. A test's hooks are the engine beneath the
 // plugin: an op event answers `{ value }`, a lifecycle event its result.
 
-import type { On, SessionUsage } from 'claude-code'
+import type { On, RenderSurface, SessionUsage, UiOpenResult, UiPane } from 'claude-code'
 import { expect, mock } from 'claude-code/testing'
 import type { Engine, FoundElement, MockClock, Mounted } from 'claude-code/testing'
 
@@ -40,6 +40,15 @@ export type World = {
   compactions: number
   /** Every prompt the plugin submitted, in order: its text and whether it went as the person's own words. */
   prompts: { text: string; asUser: boolean }[]
+  /** What `$.session.surfaces()` answers; a test reassigns it. */
+  surfaces: RenderSurface[]
+  /** What `$.ui.panes()` answers; a test reassigns it. */
+  panes: UiPane[]
+  /** Every pane the plugin opened and closed, in order. */
+  opened: { id: string; title?: string }[]
+  closed: string[]
+  /** What `$.ui.open` answers; a test reassigns it. */
+  openResult: UiOpenResult
 }
 
 export type Auth = 'bearer' | 'api-key' | null
@@ -50,6 +59,7 @@ export type Setup = {
   themeRow?: string
   usage?: Partial<SessionUsage>
   response?: Response
+  surfaces?: RenderSurface[]
 }
 
 export const CONTEXT = { tokens: 128000, window: 200000, percent: 64 }
@@ -108,6 +118,11 @@ export function setup(on: On, options: Setup = {}): World {
     usage: { ...options.usage },
     compactions: 0,
     prompts: [],
+    surfaces: options.surfaces ?? ['terminal'],
+    panes: [],
+    opened: [],
+    closed: [],
+    openResult: { isPlaced: true },
   }
   const auth: Auth = options.auth === undefined ? 'bearer' : options.auth
 
@@ -150,6 +165,18 @@ export function setup(on: On, options: Setup = {}): World {
     return { value: undefined }
   })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.attach', ($, e) => ({ clientId: e.clientId }))
+  on('session.detach', ($, e) => ({ clientId: e.clientId }))
+  on('session.surfaces', () => ({ value: world.surfaces }))
+  on('ui.panes', () => ({ value: world.panes }))
+  on('ui.open', ($, e) => {
+    world.opened.push({ id: e.id, title: e.title })
+    return { value: world.openResult }
+  })
+  on('ui.close', ($, e) => {
+    world.closed.push(e.id)
+    return { value: undefined }
+  })
   on('session.measure', ($, e) => ({ changed: e.changed }))
   on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
@@ -181,7 +208,7 @@ export function bodyColumnsFor(_surface: Surface, rowColumns: number): number {
 }
 
 /** The terminal band's rule row, the Text drawn outside the Client. */
-export async function ruleOf(ui: Drawing) {
+export async function ruleOf(ui: Readable) {
   const texts = await ui.findAll({ type: 'Text' })
   return texts.find(t => /^─+$/.test(t.text))
 }
@@ -202,6 +229,22 @@ export function bandProps(bodyColumns: number, hasSurvey = false, isWorking = fa
 }
 
 export type Drawing = Mounted<Surface, 'AbovePrompt'>
+
+/** The remote pane mounted on any surface that draws it. */
+export type PaneDrawing = Mounted<Surface | 'mobile', 'Pane'>
+
+/** What the readers below take: the band, or the pane, whose drawings they read alike. */
+export type Readable = Drawing | PaneDrawing
+
+/** The props a `Pane` mount takes, `bodyColumns` wide, seated inline. */
+export function paneProps(bodyColumns: number) {
+  return { title: 'NeonMeter', isFocused: false, bodyColumns, placement: 'inline' as const, scroll: { offset: 0, bodyRows: 4 }, view: {} }
+}
+
+/** Mounts the remote pane on `surface`, its body `bodyColumns` wide. */
+export async function mountPane($: Engine, surface: Surface | 'mobile', bodyColumns: number): Promise<PaneDrawing> {
+  return $.ui.mount({ plugin: 'neonmeter', surface, component: 'Pane', requestId: 'neonmeter', props: paneProps(bodyColumns) })
+}
 
 /** Mounts the band so that its row is `rowColumns` wide on `surface`; `isWorking` mounts it while a turn runs. */
 export async function mountBand($: Engine, surface: Surface, rowColumns: number, hasSurvey = false, isWorking = false): Promise<Drawing> {
@@ -255,7 +298,7 @@ function textOfTree(node: unknown): string {
  * desktop the hooks module's own tree, a drawing (bar or percent) standing
  * for its `alt` text.
  */
-export async function rowOf(ui: Drawing): Promise<string> {
+export async function rowOf(ui: Readable): Promise<string> {
   if (ui.surface === 'terminal') return (await linesOf(ui)).row
   return textOfTree(await ui.drawn())
 }
@@ -265,7 +308,7 @@ export async function rowOf(ui: Drawing): Promise<string> {
  * it while a frame shows (null otherwise, when the hooks module draws the
  * plain rule outside the band). Both span the band's width.
  */
-export async function linesOf(ui: Drawing): Promise<{ rule: string | null; row: string }> {
+export async function linesOf(ui: Readable): Promise<{ rule: string | null; row: string }> {
   const all = (await ui.findAll({ type: 'Text', in: 'band' })).map(t => t.text).join('')
   const half = all.length / 2
   if (Number.isInteger(half) && /^[─━]+$/.test(all.slice(0, half))) return { rule: all.slice(0, half), row: all.slice(half) }
@@ -273,7 +316,7 @@ export async function linesOf(ui: Drawing): Promise<{ rule: string | null; row: 
 }
 
 /** Every Svg of the desktop drawing with the key of the Box it sits in. */
-async function svgsOf(ui: Drawing): Promise<{ key: string; source: string; alt: string }[]> {
+async function svgsOf(ui: Readable): Promise<{ key: string; source: string; alt: string }[]> {
   const boxes = await ui.findAll({ type: 'Box' })
   const out: { key: string; source: string; alt: string }[] = []
   for (const b of boxes) {
@@ -350,7 +393,7 @@ export async function spansOf(ui: Drawing): Promise<Span[]> {
 export type DotBar = { kind: string; colors: string[]; peaks: (string | undefined)[]; source: string }
 
 /** The desktop dot bars as drawn: one entry per dot drawing, each dot's color (its `dot` parts, in order) and its pulse peak. */
-export async function dotBarsOf(ui: Drawing): Promise<DotBar[]> {
+export async function dotBarsOf(ui: Readable): Promise<DotBar[]> {
   return (await svgsOf(ui))
     .filter(s => s.key.startsWith('dots-'))
     .map(s => {
@@ -367,7 +410,7 @@ export type Bar = { kind: string; slices: Slice[]; track: string; peaks: (string
  * (`slice` parts, `data-grow` in hundredths of the bar) and the track's color.
  * Empty room is the track; a slice of the track color is never drawn.
  */
-export async function barsOf(ui: Drawing): Promise<Bar[]> {
+export async function barsOf(ui: Readable): Promise<Bar[]> {
   return (await svgsOf(ui))
     .filter(s => s.key.startsWith('bar-'))
     .map(s => {
@@ -389,7 +432,7 @@ export type TextProps = { color?: string; backgroundColor?: string; bold?: boole
  * or, on the desktop, a percent or reset drawing's: its fill as `color`,
  * `bold`, the pulse peak and whether it has a halo.
  */
-export async function textOf(ui: Drawing, text: string): Promise<TextProps | undefined> {
+export async function textOf(ui: Readable, text: string): Promise<TextProps | undefined> {
   const scope = ui.surface === 'terminal' ? { in: 'band' } : {}
   const found = (await ui.findAll({ type: 'Text', ...scope })).find(t => t.text === text)
   if (found) return found.props as TextProps
@@ -413,6 +456,6 @@ export function near(actual: number | undefined, expected: number, digits = 2, m
 }
 
 /** True when the engine's own row is what the drawing shows: the plugin yielded. */
-export async function isEngineRow(ui: Drawing): Promise<boolean> {
+export async function isEngineRow(ui: Readable): Promise<boolean> {
   return (await ui.find({ type: 'Text', text: 'engine row' })) !== undefined
 }

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-26
+
+### Added
+
+- The band on a Remote Control viewer. Claude Code draws a plugin's band above the prompt on the terminal and the desktop alone, so a session opened from the phone app or the web client showed none. Now, while such a viewer is attached, NeonMeter opens a pane and draws the desktop-style band in it (bars or dots, the glow, the button, which submits the prompt into the session; no breakdown card), with the same readings as the machine running the session; the pane closes when the last viewer leaves, and comes back after a module reload while one is attached. The palette follows `desktopTheme`, or the terminal theme under `auto`. `remote` (`pane`, the default, or `off`) turns it off. Verified in the engine's test harness on the mobile surface; a real phone has not been checked yet.
+
 ## [1.6.0] - 2026-10-19
 
 ### Added
@@ -179,7 +185,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.0...v1.4.1

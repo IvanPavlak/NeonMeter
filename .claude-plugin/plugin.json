@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -376,6 +376,16 @@
       "title": "Border color",
       "description": "One color like #FF073A for every border, on both themes; empty colors each border by its percent, as the bar and the percent are",
       "default": ""
+    },
+    "remote": {
+      "type": "string",
+      "title": "Remote viewer",
+      "description": "pane draws the band in a pane while a Remote Control viewer (a phone, the web client) is attached, the one place such a viewer draws a plugin; off never opens it",
+      "options": [
+        "pane",
+        "off"
+      ],
+      "default": "pane"
     }
   }
 }

@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Register, SessionCompactResult, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
+import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Register, RenderElement, SessionCompactResult, SessionContextUsage, SessionRateLimit, Timer } from 'claude-code'
 
 import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
@@ -127,6 +127,8 @@ export type Options = {
   everyChat: boolean
   /** One `#RRGGBB` color for every frame; empty, each frame takes its percent's range color. */
   borderColor: string
+  /** `pane` draws the band in a pane while a Remote Control viewer is attached; `off` never opens one. */
+  remote: 'pane' | 'off'
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
@@ -173,6 +175,7 @@ const DEFAULTS: Options = {
   borderPulse: true,
   everyChat: true,
   borderColor: '',
+  remote: 'pane',
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -306,6 +309,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const borderGlow = typeof options.borderGlow === 'boolean' ? options.borderGlow : DEFAULTS.borderGlow
   const borderPulse = typeof options.borderPulse === 'boolean' ? options.borderPulse : DEFAULTS.borderPulse
   const everyChat = typeof options.everyChat === 'boolean' ? options.everyChat : DEFAULTS.everyChat
+  const remote = options.remote === 'off' ? 'off' : DEFAULTS.remote
   const borderColor = options.borderColor === undefined || options.borderColor === '' ? DEFAULTS.borderColor : pick('borderColor', parseColor, DEFAULTS.borderColor, 'one color like "#FF073A", or empty')
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
@@ -362,6 +366,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       borderPulse,
       everyChat,
       borderColor,
+      remote,
     },
     rejected,
     problems,
@@ -698,6 +703,10 @@ type Env = {
   pressedAt: number
   /** True while a press's submission is in flight, so a second press does nothing. */
   submitting: boolean
+  /** The remote clients attached (a phone, the web client), by client id: the pane is open while any is. */
+  remoteClients: Set<string>
+  /** Whether the last `$.ui.open` of the pane was placed; null before any. */
+  panePlaced: boolean | null
 }
 
 const env: Env = {
@@ -716,6 +725,47 @@ const env: Env = {
   working: false,
   pressedAt: 0,
   submitting: false,
+  remoteClients: new Set(),
+  panePlaced: null,
+}
+
+/** The pane the band is drawn in for a remote viewer (Remote Control: a phone, the web client). */
+const PANE_ID = 'neonmeter'
+const PANE_TITLE = 'NeonMeter'
+
+/** A surface that is not the local terminal or desktop: a remote viewer, which the `AbovePrompt` band never reaches. */
+function isRemoteSurface(surface: string): boolean {
+  return surface !== 'terminal' && surface !== 'desktop'
+}
+
+/**
+ * A module reload while a remote viewer is attached starts the session anew
+ * with an empty roster: the surfaces the engine lists bring the viewers
+ * back, and the pane with them unless it is still up.
+ */
+async function adoptRemote($: EngineInterface): Promise<void> {
+  if (env.options.remote !== 'pane') return
+  try {
+    const remote = (await $.session.surfaces()).filter(isRemoteSurface)
+    if (remote.length === 0) return
+    for (const surface of remote) env.remoteClients.add(`${surface}:default`)
+    if ((await $.ui.panes()).some(pane => pane.id === PANE_ID)) return
+    await openPane($)
+  } catch {
+    // The next attach opens it.
+  }
+}
+
+/** Opens the remote pane, unasked; records whether a surface placed it. */
+async function openPane($: EngineInterface): Promise<void> {
+  try {
+    const opened = await $.ui.open({ id: PANE_ID, title: PANE_TITLE, rows: 1 })
+    env.panePlaced = opened.isPlaced
+    if (!opened.isPlaced) $.ui.log(`neonmeter: remote pane not placed: ${opened.reason}`, { to: 'debug' })
+  } catch (err) {
+    env.panePlaced = false
+    $.ui.log(`neonmeter: could not open the remote pane: ${err instanceof Error ? err.message : String(err)}`, { to: 'debug' })
+  }
 }
 
 /** Presses closer together than this are one press: a double click submits the prompt once. */
@@ -1067,6 +1117,62 @@ export function burstOf(bursts: Map<string, BurstState>, bandKey: string, key: s
   return { gen: state.gen, elapsedMs: Math.min(totalMs, Math.max(0, now - state.at)), totalMs }
 }
 
+/** What every drawing of the band starts from: the state read, the input built and this band's pulse. */
+async function prepareBand($: EngineInterface, bandKey: string) {
+  // `h` is the JSX factory in this environment, so the health value is not named that here.
+  const [r, c, hv, t, now] = await Promise.all([read($, reading), read($, context), read($, health), read($, theme), $.clock.now()])
+  await read($, tick)
+  const palette = THEMES[t ?? 'dark']
+  const input = inputOf(r, c, hv ?? DEFAULT_HEALTH, now, env.options)
+  const burst = burstOf(env.bursts, bandKey, changeKey(input), now, env.options.pulseMs, env.options.pulseCount)
+  const base = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, ground: palette.bg }
+  const single = env.options.layout === 'single'
+  const variants = single ? singleVariants(input) : weeklyVariants(input)
+  return { input, burst, t, single, variants, base }
+}
+
+type DrawnBandArgs = { input: BandInput; burst: Burst; single: boolean; variants: BandInput[]; popup: boolean }
+
+/** The elements the drawn (desktop-style) band needs: what the desktop and the mobile tables both have. */
+type DrawnElements = Pick<ElementTable<'desktop'>, 'Box' | 'Text' | 'Svg' | 'Button'>
+
+/**
+ * The band as drawings, for a surface with `Svg`: the desktop's band above
+ * the prompt, and the remote pane on a phone or the web client. Null when
+ * there is nothing to draw.
+ */
+function drawnBand($: EngineInterface, els: DrawnElements, bodyColumns: number, dt: NeonMeterTheme, a: DrawnBandArgs): RenderElement | null {
+  const { Box, Text, Svg, Button } = els
+  const plain = flexRow(a.input, dt, env.options.barColoring)
+  if (!plain) return null
+  const dots = env.options.desktopBars === 'dots'
+  // In the single layout each turn's text differs, so each row gets the dots its own text leaves room for.
+  const turns = a.variants
+    .map(v => {
+      const count = a.single ? desktopDotCount(flexRow(v, dt, env.options.barColoring) ?? plain, bodyColumns) : desktopDotCount(plain, bodyColumns)
+      const r = flexRow(v, dt, env.options.barColoring, dots ? count : undefined)
+      return r ? { row: r, dotCount: count } : null
+    })
+    .filter((t): t is { row: FlexRow; dotCount: number } => t !== null)
+  ensureRotation($, turns.length)
+  const turn = turns[env.turn % Math.max(1, turns.length)]
+  // In a narrow band the row steps down until it fits: the frames give way first (the outline stays), then the
+  // labels, the fields and the bars, as the terminal's tiers do.
+  const full = turn?.row ?? plain
+  const row = fitDesktop(full, bodyColumns)
+  // A row that stepped down sizes its smooth bars to what its own text leaves.
+  const dotCount = row === full ? (turn?.dotCount ?? desktopDotCount(plain, bodyColumns)) : desktopDotCount(row, bodyColumns)
+  const o = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst: a.burst, glow: env.options.glow, palette: THEMES[dt], dotCount }
+  const extras: DesktopExtras = {
+    onPress: () => pressButton($),
+    button: { ...o, pulse: o.pulse && env.options.buttonPulse, glow: o.glow && env.options.buttonGlow },
+    frame: { ...o, pulse: o.pulse && env.options.borderPulse, glow: o.glow && env.options.borderGlow },
+    popup: a.popup,
+    card: CARD[dt],
+  }
+  return <Box width="100%">{desktopBand(row, { Box, Text, Svg, Button }, o, extras)}</Box>
+}
+
 export const register: Register = (on, options) => {
   const { parsed, rejected, problems } = parseOptions(options)
   env.options = parsed
@@ -1102,6 +1208,7 @@ export const register: Register = (on, options) => {
 
     void refresh($)
     ensurePolling($)
+    await adoptRemote($)
     return next(e)
   })
 
@@ -1158,6 +1265,46 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // A remote viewer (Remote Control: a phone, the web client) never gets the `AbovePrompt` band, which the engine
+  // raises on the terminal and the desktop alone: while one is attached, the band is drawn in a pane, which every
+  // surface draws.
+  on('session.attach', async ($, e, next) => {
+    if (isRemoteSurface(e.surface)) {
+      $.ui.log(`neonmeter: remote client attached: ${e.surface} ${e.clientId}${e.viewport ? ` ${e.viewport.columns}x${e.viewport.rows}${e.viewport.isFullscreen === undefined ? '' : e.viewport.isFullscreen ? ' docked' : ' inline'}` : ''}`, { to: 'debug' })
+      env.remoteClients.add(e.clientId)
+      if (env.options.remote === 'pane') await openPane($)
+    }
+    return next(e)
+  })
+
+  on('session.detach', async ($, e, next) => {
+    // A viewer adopted at a reload is known by its surface alone; its own id leaves with it.
+    const known = env.remoteClients.delete(e.clientId)
+    const adopted = env.remoteClients.delete(`${e.surface}:default`)
+    if ((known || adopted) && env.remoteClients.size === 0) {
+      env.panePlaced = null
+      await $.ui.close({ id: PANE_ID }).catch(() => undefined)
+    }
+    return next(e)
+  })
+
+  on('ui.render', { component: 'Pane', requestId: PANE_ID }, async ($, e, next) => {
+    const { Box, Text } = $.ui.resolve(e)
+    if (e.surface === 'terminal') {
+      return (
+        <Box>
+          <Text dimColor>The band is above the prompt; this pane is for a remote viewer.</Text>
+        </Box>
+      )
+    }
+    const bandKey = `pane-${e.surface}`
+    const { input, burst, t, single, variants } = await prepareBand($, bandKey)
+    const dt: NeonMeterTheme = env.options.desktopTheme === 'auto' ? (t ?? 'dark') : env.options.desktopTheme
+    const els = $.ui.resolve(e) as unknown as DrawnElements
+    const tree = drawnBand($, els, e.props.bodyColumns, dt, { input, burst, single, variants, popup: e.surface === 'desktop' && env.options.contextPopup })
+    return tree ?? next(e)
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const bandKey = await resolveBandKey($)
@@ -1169,16 +1316,7 @@ export const register: Register = (on, options) => {
     }
     env.working = e.props.isWorking
 
-    // `h` is the JSX factory in this environment, so the health value is not named that here.
-    const [r, c, hv, t, now] = await Promise.all([read($, reading), read($, context), read($, health), read($, theme), $.clock.now()])
-    await read($, tick)
-
-    const palette = THEMES[t ?? 'dark']
-    const input = inputOf(r, c, hv ?? DEFAULT_HEALTH, now, env.options)
-    const burst = burstOf(env.bursts, bandKey, changeKey(input), now, env.options.pulseMs, env.options.pulseCount)
-    const base = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, ground: palette.bg }
-    const single = env.options.layout === 'single'
-    const variants = single ? singleVariants(input) : weeklyVariants(input)
+    const { input, burst, t, single, variants, base } = await prepareBand($, bandKey)
     const { Box } = $.ui.resolve(e)
 
     if (e.surface === 'desktop') {
@@ -1203,35 +1341,9 @@ export const register: Register = (on, options) => {
       }
       const seen = await read($, appearance)
       const dt: NeonMeterTheme = env.options.desktopTheme === 'auto' ? (seen ?? t ?? 'dark') : env.options.desktopTheme
-      const plain = flexRow(input, dt, env.options.barColoring)
-      if (!plain) return next(e)
-      const dots = env.options.desktopBars === 'dots'
-      // In the single layout each turn's text differs, so each row gets the dots its own text leaves room for.
-      const turns = variants
-        .map(v => {
-          const count = single ? desktopDotCount(flexRow(v, dt, env.options.barColoring) ?? plain, e.props.bodyColumns) : desktopDotCount(plain, e.props.bodyColumns)
-          const r = flexRow(v, dt, env.options.barColoring, dots ? count : undefined)
-          return r ? { row: r, dotCount: count } : null
-        })
-        .filter((t): t is { row: FlexRow; dotCount: number } => t !== null)
-      ensureRotation($, turns.length)
-      const turn = turns[env.turn % Math.max(1, turns.length)]
-      // In a narrow band the row steps down until it fits: the frames give way first (the outline stays), then the
-      // labels, the fields and the bars, as the terminal's tiers do.
-      const full = turn?.row ?? plain
-      const row = fitDesktop(full, e.props.bodyColumns)
-      // A row that stepped down sizes its smooth bars to what its own text leaves.
-      const dotCount = row === full ? (turn?.dotCount ?? desktopDotCount(plain, e.props.bodyColumns)) : desktopDotCount(row, e.props.bodyColumns)
-      const { Text, Svg, Button } = $.ui.resolve(e) as ElementTable<'desktop'>
-      const o = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, glow: env.options.glow, palette: THEMES[dt], dotCount }
-      const extras: DesktopExtras = {
-        onPress: () => pressButton($),
-        button: { ...o, pulse: o.pulse && env.options.buttonPulse, glow: o.glow && env.options.buttonGlow },
-        frame: { ...o, pulse: o.pulse && env.options.borderPulse, glow: o.glow && env.options.borderGlow },
-        popup: env.options.contextPopup,
-        card: CARD[dt],
-      }
-      return <Box width="100%">{desktopBand(row, { Box, Text, Svg, Button }, o, extras)}</Box>
+      const els = $.ui.resolve(e) as ElementTable<'desktop'>
+      const tree = drawnBand($, els, e.props.bodyColumns, dt, { input, burst, single, variants, popup: env.options.contextPopup })
+      return tree ?? next(e)
     }
 
     const cols = Math.max(1, e.props.bodyColumns)

@@ -63,4 +63,4 @@ Every open session shares one fetch schedule through the plugin store, so ten ch
 
 - **Yours to tune**
 
-Forty options cover the colors, the range bounds, the glyph, the segments and their order, the layout (every segment in one row, or one at a time across the whole row), the pulse and when it runs, how each reset reads and whether it is colored by the time left, the context bar and its hover card, the button and its prompt, the border, the polling and the theme. The defaults are the approved design. For the lightest band, turn the pulse and the glow off: nothing then moves or glows, the button and the border included.
+Forty-one options cover the colors, the range bounds, the glyph, the segments and their order, the layout (every segment in one row, or one at a time across the whole row), the pulse and when it runs, how each reset reads and whether it is colored by the time left, the context bar and its hover card, the button and its prompt, the border, the polling and the theme. The defaults are the approved design. For the lightest band, turn the pulse and the glow off: nothing then moves or glows, the button and the border included.

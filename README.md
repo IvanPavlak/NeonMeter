@@ -17,7 +17,7 @@ The full documentation is at **[ivanpavlak.github.io/NeonMeter](https://ivanpavl
 
 - [Why you want it](docs/index.md#why-you-want-it): what the band shows and how it behaves
 - [Install](docs/install.md): requirements, the terminal and the desktop app, uninstalling, troubleshooting
-- [Configuration](docs/configuration.md): how to set options, common setups and the table of all forty
+- [Configuration](docs/configuration.md): how to set options, common setups and the table of all forty-one
 - [Every option at a glance](docs/options.md): each option as a picture, desktop and terminal
 - [Using it](docs/using-it.md): the segments, narrow chats, the border and outline, every chat, the context bar, the button and the handoff, the terminal, the color scheme
 - [How usage is fetched](docs/how-it-works.md): the endpoint, the shared schedule and what the plugin touches
@@ -59,7 +59,7 @@ Every option has a default, the approved design. Pipe the ones you want to chang
 echo '{"border":"always","outline":"sections","desktopBars":"dots"}' | claude plugin configure neonmeter@neonmeter --values-stdin
 ```
 
-A change applies in the next session, or at once after `/reload-plugins`. [Configuration](docs/configuration.md) lists all forty options and common setups, and [Every option at a glance](docs/options.md) shows each one as a picture.
+A change applies in the next session, or at once after `/reload-plugins`. [Configuration](docs/configuration.md) lists all forty-one options and common setups, and [Every option at a glance](docs/options.md) shows each one as a picture.
 
 <h2 align="center" id="license">License</h2>
 
