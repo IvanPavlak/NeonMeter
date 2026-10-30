@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [1.6.1] - 2026-10-30
 
+### Changed
+
+- Releases tag themselves. When a pull request that adds a new `## [x.y.z]` section to this changelog is merged, the `Tag Release` workflow tags `vx.y.z` on that commit and publishes the GitHub release with the section as its notes; nothing is tagged by hand. A heading whose version `plugin.json` does not name fails before anything is tagged.
+
 ### Fixed
 
 - The outline in the desktop app on macOS. Its lines were placed for the card's padding on Windows, 13 CSS pixels above and below the band; the Mac app pads it by 10, so they landed on the card's clipped edge, and the bottom one showed only under the bars, percents and resets, a row of separate underlines. The outline now reaches across the padding of the system it runs on, and every section is as tall as the row, so each one's stretch of the edges lands on the same line.

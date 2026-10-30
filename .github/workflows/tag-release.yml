@@ -1,0 +1,78 @@
+name: Tag Release
+
+# Tags a release from the changelog, so nothing is tagged by hand (docs/development.md, "Releasing").
+#
+# On every push to master it reads the newest "## [x.y.z]" heading of CHANGELOG.md. When the tag
+# vX.Y.Z does not exist yet it creates it, annotated, on the pushed commit and calls release.yml for
+# it (a tag pushed with GITHUB_TOKEN starts no workflow of its own), which checks the manifests and
+# publishes the release with that changelog section as its notes. A merge that only touched
+# [Unreleased] finds its newest version already tagged and does nothing. A new heading whose version
+# plugin.json does not name fails here, before anything is tagged.
+#
+# It runs only in the repository plugin.json's `repository` names, so a fork is never tagged.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Tag the release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create the tag when the changelog has a new release
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          home=$(jq -r '.repository' .claude-plugin/plugin.json | sed -E 's#^https?://[^/]*github\.com/##; s#\.git$##; s#/$##' | tr '[:upper:]' '[:lower:]')
+          here=$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          if [ "$home" != "$here" ]; then
+            echo "This is $GITHUB_REPOSITORY, not $home (plugin.json's repository) - a fork is never tagged here."
+            exit 0
+          fi
+          version=$(sed -nE 's/^## \[([0-9]+\.[0-9]+\.[0-9]+[^]]*)\].*/\1/p' CHANGELOG.md | head -n 1)
+          if [ -z "$version" ]; then
+            echo "CHANGELOG.md has no released version yet - nothing to tag."
+            exit 0
+          fi
+          tag="v$version"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "$tag exists - the newest release is already tagged."
+            exit 0
+          fi
+          plugin=$(jq -r '.version' .claude-plugin/plugin.json)
+          if [ "$plugin" != "$version" ]; then
+            echo "::error::CHANGELOG.md releases $version but plugin.json is $plugin - nothing tagged."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "NeonMeter $tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$tag"
+          echo "Tagged $tag on $GITHUB_SHA."
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Release
+    needs: tag
+    if: needs.tag.outputs.tag != ''
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    permissions:
+      contents: write
