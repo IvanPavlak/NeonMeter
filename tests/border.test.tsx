@@ -1,8 +1,8 @@
-import { describe, expect, test } from 'claude-code/testing'
+import { describe, expect, mock, test } from 'claude-code/testing'
 import type { FoundElement } from 'claude-code/testing'
 
 import { fitDesktop, fitFrames, flexRow, frameOf, THEMES } from '../hooks/builder'
-import { frameCapSvg, frameEdgesSvg } from '../hooks/drawings'
+import { DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, OUTLINE_PAD, outlineHeight } from '../hooks/drawings'
 import { parseOptions } from '../hooks/register'
 
 import { clientProps, linesOf, mountBand, ok, partsOf, peakOf, rowOf, ruleOf, setup, start, usageBody } from './kit'
@@ -185,6 +185,25 @@ describe('the outline', () => {
     expect(new Set(strokes)).toEqual(new Set(['#FF073A']))
     await ui.unmount()
   })
+
+  // The app pads its card by 13 CSS pixels above and below on Windows and by 10 on macOS: the outline reaches across
+  // that padding, so drawn for Windows on a Mac its lines landed on the card's clipped edge.
+  for (const [os, env, pad] of [
+    ['Windows', { APPDATA: 'C:\\Users\\Someone\\AppData\\Roaming' }, OUTLINE_PAD.windows],
+    ['macOS', { HOME: '/Users/someone' }, OUTLINE_PAD.mac],
+  ] as const) {
+    test(`on ${os} the outline reaches across the card's padding there, every section on one line`, { options: { outline: 'sections' } }, async ($, on) => {
+      mock.env(on, env)
+      const world = setup(on, { response: ok(usageBody(92, 21)) })
+      await start($, world)
+      const ui = await mountBand($, 'desktop', 95)
+      const heights = (await ui.findAll({ type: 'Svg' })).map(s => String(s.props.source)).filter(src => partsOf(src, 'frame').length > 0).map(src => Number(/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(src)![1]))
+      expect(heights.length).toBeGreaterThan(2)
+      expect(new Set(heights)).toEqual(new Set([+outlineHeight(DISPLAY_HEIGHT, pad).toFixed(2)]))
+      expect((await ui.find({ type: 'Box', key: 'band' }))!.props.alignItems, 'every section as tall as the row').toBe('stretch')
+      await ui.unmount()
+    })
+  }
 
   test('the terminal lights the whole rule, each section\'s stretch in its color', { options: { outline: 'sections', border: 'always' } }, async ($, on) => {
     const world = setup(on, { response: ok(usageBody(38, 21)) })

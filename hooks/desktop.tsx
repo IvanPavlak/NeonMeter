@@ -12,7 +12,7 @@ import type { BoxProps, ButtonProps, ElementConstructor, RenderElement, SvgProps
 
 import type { FlexButton, Frame, FlexRow, FlexSegment } from './builder'
 import { THEME_KEYS } from './builder'
-import type { DesktopOptions } from './drawings'
+import type { DesktopOptions, OutlinePad } from './drawings'
 import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, pctSvg, resetSvg, smoothBarSvg } from './drawings'
 
 export type { DesktopOptions } from './drawings'
@@ -36,6 +36,8 @@ export type DesktopExtras = {
   popup: boolean
   /** The hover cards' ground and border, in the app's appearance. */
   card: { background: string; border: string }
+  /** The card's padding above and below the band on this operating system, which the outline reaches across. */
+  outlinePad: OutlinePad
 }
 
 /** A blank label: the button's Button draws nothing of its own over the ring, only the app's hover mark. */
@@ -120,10 +122,10 @@ type Section = { owner: number | [number, number]; grow: boolean; els: RenderEle
  * and a cell of padding so their text stays put), and hold the caps beside
  * their stretch, so no two drawings ever draw one line.
  */
-function outlined(sections: Section[], colors: readonly Frame[], els: DesktopElements, o: DesktopOptions, rowHeight: number): RenderElement[] {
+function outlined(sections: Section[], colors: readonly Frame[], els: DesktopElements, o: DesktopOptions, rowHeight: number, pad: number): RenderElement[] {
   const { Box, Svg } = els
   // Not `h`: that is the JSX factory here.
-  const tallness = outlineHeight(rowHeight)
+  const tallness = outlineHeight(rowHeight, pad)
   const shown = (tallness * DISPLAY_HEIGHT) / 30
   const colorOf = (n: number) => colors[Math.max(0, Math.min(colors.length - 1, n))]!
   const last = sections.length - 1
@@ -257,9 +259,11 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   if (row.outline) {
     // The row is as tall as its tallest piece: a frame's height while one shows, a drawing's otherwise.
     const tall = Boolean(row.frame) || row.segments.some(seg => seg.frame)
-    const inner = outlined(sections, row.outline, els, x.frame, tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT)
+    const inner = outlined(sections, row.outline, els, x.frame, tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT, x.outlinePad)
     return (
-      <Box key="band" position="relative" flexDirection="row" width="100%" alignItems="center">
+      // Every section as tall as the row, so each one's stretch of the edges lands on the same line: centered in the
+      // row, a text section is shorter than a drawing's, and its bottom edge drew a pixel lower (measured on macOS).
+      <Box key="band" position="relative" flexDirection="row" width="100%" alignItems="stretch">
         {inner}
       </Box>
     )
