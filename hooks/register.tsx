@@ -9,6 +9,8 @@ import type { Burst } from './color'
 import { desktopBand } from './desktop'
 import type { DesktopExtras } from './desktop'
 import { buttonAction } from './handoff'
+import { OUTLINE_PAD } from './drawings'
+import type { OutlinePad } from './drawings'
 
 // Pure layout helpers that live in the builder so the README generator runs them
 // too; re-exported here, where the tests have always found them.
@@ -468,6 +470,15 @@ async function resolveBandKey($: EngineInterface): Promise<string> {
   return env.bandKey
 }
 
+/** The desktop card's padding for the outline: Windows sets `APPDATA`, and the desktop app runs nowhere else but macOS. */
+async function outlinePadOf($: EngineInterface): Promise<OutlinePad> {
+  try {
+    return (await $.env.get('APPDATA')) ? OUTLINE_PAD.windows : OUTLINE_PAD.mac
+  } catch {
+    return OUTLINE_PAD.windows
+  }
+}
+
 /** Detects the desktop appearance and stores it when it changed, so the band redraws in the other palette. */
 async function refreshAppearance($: EngineInterface): Promise<void> {
   const found = await desktopAppearance($)
@@ -681,6 +692,8 @@ type Env = {
   rotateTimer: { timer: Timer; ms: number } | null
   /** True once the band was drawn on the desktop: only then is the appearance looked up. */
   onDesktop: boolean
+  /** The desktop card's padding on this operating system, for the outline; null until looked up. */
+  outlinePad: OutlinePad | null
   /** Options that were not valid and fell back to their default, logged once. */
   problems: string[]
   /**
@@ -710,6 +723,7 @@ const env: Env = {
   turn: 0,
   rotateTimer: null,
   onDesktop: false,
+  outlinePad: null,
   problems: [],
   bandKey: null,
   bursts: new Map(),
@@ -1201,6 +1215,7 @@ export const register: Register = (on, options) => {
           // The minute tick looks it up instead.
         }
       }
+      env.outlinePad ??= await outlinePadOf($)
       const seen = await read($, appearance)
       const dt: NeonMeterTheme = env.options.desktopTheme === 'auto' ? (seen ?? t ?? 'dark') : env.options.desktopTheme
       const plain = flexRow(input, dt, env.options.barColoring)
@@ -1230,6 +1245,7 @@ export const register: Register = (on, options) => {
         frame: { ...o, pulse: o.pulse && env.options.borderPulse, glow: o.glow && env.options.borderGlow },
         popup: env.options.contextPopup,
         card: CARD[dt],
+        outlinePad: env.outlinePad,
       }
       return <Box width="100%">{desktopBand(row, { Box, Text, Svg, Button }, o, extras)}</Box>
     }

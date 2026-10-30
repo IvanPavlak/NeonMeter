@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-30
+
+### Changed
+
+- Releases tag themselves. When a pull request that adds a new `## [x.y.z]` section to this changelog is merged, the `Tag Release` workflow tags `vx.y.z` on that commit and publishes the GitHub release with the section as its notes; nothing is tagged by hand. A heading whose version `plugin.json` does not name fails before anything is tagged.
+
+### Fixed
+
+- The outline in the desktop app on macOS. Its lines were placed for the card's padding on Windows, 13 CSS pixels above and below the band; the Mac app pads it by 10, so they landed on the card's clipped edge, and the bottom one showed only under the bars, percents and resets, a row of separate underlines. The outline now reaches across the padding of the system it runs on, and every section is as tall as the row, so each one's stretch of the edges lands on the same line.
+
 ## [1.6.0] - 2026-10-19
 
 ### Added
@@ -179,7 +189,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.0...v1.4.1

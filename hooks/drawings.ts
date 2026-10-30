@@ -588,8 +588,13 @@ export function frameSpacerSvg(w: number): string {
 // the caps take the first and the last section's.
 // ---------------------------------------------------------------------------
 
-/** The app's padding above and below the band inside its card, in CSS pixels (measured on the desktop app). */
-export const OUTLINE_PAD = 13
+/**
+ * The app's padding above and below the band inside its card, in CSS pixels,
+ * measured on the desktop app: 13 on Windows, 10 on macOS, where 13 drew the
+ * lines on the card's clipped edge and only part of them showed.
+ */
+export const OUTLINE_PAD = { windows: 13, mac: 10 } as const
+export type OutlinePad = (typeof OUTLINE_PAD)[keyof typeof OUTLINE_PAD]
 /** The card's corner radius, in the drawings' own pixels (about 10 CSS pixels, as the app rounds its card). */
 export const OUTLINE_RADIUS = 15
 /** Where the line runs, inset from the drawing's edge so the card's clip leaves all of it. */
@@ -597,9 +602,9 @@ export const OUTLINE_INSET = 4
 /** A cap's width: the corner and a little edge, narrow enough to fit the narrowest piece that can end the band (the button, with its cell of padding). */
 export const OUTLINE_CAP = 36
 
-/** The outline drawings' height in their own pixels, for a row `rowHeight` CSS pixels tall. */
-export function outlineHeight(rowHeight: number): number {
-  return ((rowHeight + 2 * OUTLINE_PAD) * ROW_HEIGHT) / DISPLAY_HEIGHT
+/** The outline drawings' height in their own pixels, for a row `rowHeight` CSS pixels tall in a card padded `pad` above and below. */
+export function outlineHeight(rowHeight: number, pad: number): number {
+  return ((rowHeight + 2 * pad) * ROW_HEIGHT) / DISPLAY_HEIGHT
 }
 
 function outlineFilter(id: string, x: number, w: number, h: number, sdX: number, beat: Beat): string {
