@@ -2,12 +2,14 @@
 # engine the desktop app draws with: CPU and GPU of each band page, and how far the
 # working tree's frames are from the base's. Windows only (GPU counters, Edge).
 #
-#     pwsh scripts/benchmarking/headless.ps1 [-Base master] [-Rounds 3] [-Seconds 10] [-SkipFrames] [-SkipBands] [-Chips]
+#     pwsh scripts/benchmarking/headless.ps1 [-Base master] [-Rounds 3] [-Seconds 10] [-SkipFrames] [-SkipBands] [-Chips] [-Rainbow]
 #
 # -SkipFrames leaves out the pixel comparison, -SkipBands the CPU and GPU measurement.
 # -Chips measures the reset chip instead of the two versions: the working tree's band
 # with the chip before it (rainbow, one color, rainbow without a halo) against the same
-# band without them, pulsing without a stop and holding still.
+# band without them, pulsing without a stop and holding still. -Rainbow measures the band
+# under `preset: rainbow` instead, both versions in both looks, and the working tree's
+# holding still.
 #
 # It builds the pages first (pages.mjs, Node 22.18 or later). Each page runs in its own
 # Edge with a throwaway profile under out/, so only the benchmark's processes are counted
@@ -26,7 +28,8 @@ param(
 	[string]$Browser = '',
 	[switch]$SkipFrames,
 	[switch]$SkipBands,
-	[switch]$Chips
+	[switch]$Chips,
+	[switch]$Rainbow
 )
 
 $ErrorActionPreference = 'Stop'
@@ -97,7 +100,7 @@ if (-not $SkipFrames) {
 			$png = Join-Path $Out "frame-$side-$frame.png"
 			Remove-Item $png -ErrorAction SilentlyContinue
 			$profileDir = Join-Path $Out ('profile-' + [guid]::NewGuid().ToString('N'))
-			& $Browser --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=900,260 "--user-data-dir=$profileDir" --no-first-run "--screenshot=$png" (Get-PageUrl "frame-$side-$frame.html") 2>&1 | Out-Null
+			& $Browser --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=900,1100 "--user-data-dir=$profileDir" --no-first-run "--screenshot=$png" (Get-PageUrl "frame-$side-$frame.html") 2>&1 | Out-Null
 			Remove-Item -Recurse -Force $profileDir -ErrorAction SilentlyContinue
 			if (-not (Test-Path $png)) { throw "No screenshot of frame-$side-$frame.html." }
 		}
@@ -118,6 +121,10 @@ if ($SkipBands) { return }
 $pages = @('bars', 'dots' | ForEach-Object { "band-base-$_-always.html", "band-work-$_-always.html" }) + 'band-work-dots-still.html'
 if ($Chips) {
 	$pages = @('band-work-bars-always.html', 'chips-rainbow-always.html', 'chips-one-always.html', 'chips-crisp-always.html', 'band-work-bars-still.html', 'chips-rainbow-still.html')
+}
+if ($Rainbow) {
+	$pages = @('bars', 'dots' | ForEach-Object { "rainbow-base-$_-always.html", "rainbow-work-$_-always.html" }) + 'rainbow-work-bars-still.html'
+	if (-not (Test-Path (Join-Path $Out $pages[0]))) { throw "The base ($Base) has no rainbow to measure." }
 }
 $results = foreach ($round in 1..$Rounds) {
 	foreach ($page in $pages) {

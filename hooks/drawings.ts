@@ -217,21 +217,31 @@ function peakOf(color: string): string {
 }
 
 /**
- * The glow filter: `g` pulses between the rest and the peak blur when the
- * drawing pulses, `r` is the rest blur alone (stale drawings, or the pulse
- * off). Its region is the drawing's canvas, `w` by `h`: a halo past it is cut
- * by the canvas anyway, and a wider region blurs pixels nobody sees.
+ * A halo's opacity as the last step of its filter: the blur's alpha scaled, at rest or, with a beat, between the
+ * rest and the peak. As an `opacity` on the blurred element the app drew the halo into a layer for the opacity and
+ * that layer into the blur's, two layers and a render pass more on every frame of the pulse (measured in headless
+ * Edge: five passes a halo, four this way); in the filter it is the blur's one layer, and the same halo.
+ */
+function haloOpacity(beat: Beat): string {
+  const matrix = (a: number) => `1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 ${a} 0`
+  return `<feColorMatrix type="matrix" values="${matrix(GLOW.restHalo)}">${beat ? animate('values', matrix(GLOW.restHalo), matrix(GLOW.peakHalo), beat) : ''}</feColorMatrix>`
+}
+
+/**
+ * The glow filter: `g` pulses between the rest and the peak blur and opacity
+ * when the drawing pulses, `r` is the rest blur alone (stale drawings, or the
+ * pulse off). Its region is the drawing's canvas, `w` by `h`: a halo past it
+ * is cut by the canvas anyway, and a wider region blurs pixels nobody sees.
  */
 function filters(w: number, h: number, beat: Beat): string {
   const region = `filterUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}"`
-  const g = beat ? `<filter id="g" ${region}><feGaussianBlur stdDeviation="${GLOW.restBlur}">${animate('stdDeviation', GLOW.restBlur, GLOW.peakBlur, beat)}</feGaussianBlur></filter>` : ''
-  return `${g}<filter id="r" ${region}><feGaussianBlur stdDeviation="${GLOW.restBlur}"/></filter>`
+  const g = beat ? `<filter id="g" ${region}><feGaussianBlur stdDeviation="${GLOW.restBlur}">${animate('stdDeviation', GLOW.restBlur, GLOW.peakBlur, beat)}</feGaussianBlur>${haloOpacity(beat)}</filter>` : ''
+  return `${g}<filter id="r" ${region}><feGaussianBlur stdDeviation="${GLOW.restBlur}"/>${haloOpacity(null)}</filter>`
 }
 
-/** A blurred halo's filter and opacity, closing the opening tag: pulsing when live, at rest otherwise. */
+/** A blurred halo's filter, which holds its opacity too (`haloOpacity`), closing the opening tag: pulsing when live, at rest otherwise. */
 function halo(live: boolean, beat: Beat): string {
-  if (live && beat) return `filter="url(#g)" opacity="${GLOW.restHalo}">${animate('opacity', GLOW.restHalo, GLOW.peakHalo, beat)}`
-  return `filter="url(#r)" opacity="${GLOW.restHalo}">`
+  return live && beat ? 'filter="url(#g)">' : 'filter="url(#r)">'
 }
 
 function open(w: number, h: number, beat: Beat, defs: string): string {
@@ -739,20 +749,21 @@ export const FRAME_CAP = FRAME_INSET + FRAME_RADIUS + 9
 export type FrameLook = { color: string; live: boolean }
 
 function frameFilter(id: string, x: number, w: number, sdX: number, beat: Beat): string {
-  const region = `filterUnits="userSpaceOnUse" x="${x}" y="0" width="${w}" height="${FRAME_HEIGHT}"`
-  const sd = (b: number) => `${sdX ? b : 0} ${b}`
-  const anim = beat ? `<animate attributeName="stdDeviation" values="${sd(GLOW.restBlur)};${sd(GLOW.peakBlur)};${sd(GLOW.restBlur)}" dur="${beat.ms}ms" ${beat.timing} calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"/>` : ''
-  return `<filter id="${id}" ${region}><feGaussianBlur stdDeviation="${sd(GLOW.restBlur)}">${anim}</feGaussianBlur></filter>`
+  return outlineFilter(id, x, w, FRAME_HEIGHT, sdX, beat)
 }
 
-/** A frame part's line and its halo copy, the halo blurred by filter `f`; live, the color and the halo pulse. */
+/**
+ * A frame part's line and its halo copy, the halo blurred by filter `fg`, which holds its opacity too; live, the
+ * color and the halo pulse. A part that holds still in a drawing that pulses (one half of a separator's stretch)
+ * takes `fs`, the same blur with the opacity at rest.
+ */
 function frameStroke(d: string, f: FrameLook, o: DesktopOptions, beat: Beat, paintWith?: string): string {
   const color = paintWith ?? (HEX.test(f.color) ? f.color.toUpperCase() : o.palette.track)
   const live = f.live && beat !== null
   const line = `d="${d}" fill="none" stroke="${color}" stroke-width="${FRAME_WIDTH}" stroke-linecap="butt"`
   // A paint moves or brightens by itself; the halo breathes either way.
   const pulse = live && !paintWith ? animate('stroke', color, peakOf(color), beat!) : ''
-  const glow = o.glow ? `<path data-role="frame-halo" ${line} filter="url(#fg)" opacity="${GLOW.restHalo}">${live ? animate('opacity', GLOW.restHalo, GLOW.peakHalo, beat!) : ''}${pulse}</path>` : ''
+  const glow = o.glow ? `<path data-role="frame-halo" ${line} filter="url(#${beat && !live ? 'fs' : 'fg'})">${pulse}</path>` : ''
   return glow + `<path data-role="frame" ${line}>${pulse}</path>`
 }
 
@@ -841,11 +852,12 @@ export function outlineHeight(rowHeight: number, pad: number): number {
   return ((rowHeight + 2 * pad) * ROW_HEIGHT) / DISPLAY_HEIGHT
 }
 
-function outlineFilter(id: string, x: number, w: number, h: number, sdX: number, beat: Beat): string {
+/** A frame's or an outline's glow filter: the blur, both ways or (`sdX` 0) up and down alone, and the halo's opacity; `still` holds the opacity at rest while the blur pulses. */
+function outlineFilter(id: string, x: number, w: number, h: number, sdX: number, beat: Beat, still = false): string {
   const region = `filterUnits="userSpaceOnUse" x="${x}" y="0" width="${w}" height="${h}"`
   const sd = (b: number) => `${sdX ? b : 0} ${b}`
   const anim = beat ? `<animate attributeName="stdDeviation" values="${sd(GLOW.restBlur)};${sd(GLOW.peakBlur)};${sd(GLOW.restBlur)}" dur="${beat.ms}ms" ${beat.timing} calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.58 1;0.42 0 0.58 1"/>` : ''
-  return `<filter id="${id}" ${region}><feGaussianBlur stdDeviation="${sd(GLOW.restBlur)}">${anim}</feGaussianBlur></filter>`
+  return `<filter id="${id}" ${region}><feGaussianBlur stdDeviation="${sd(GLOW.restBlur)}">${anim}</feGaussianBlur>${haloOpacity(still ? null : beat)}</filter>`
 }
 
 /** One end of the outline, `h` of its own pixels tall: the two rounded corners and the side between them, the edges running on past the drawing to meet the edges' drawing beside it. */
@@ -880,7 +892,8 @@ export function outlineEdgesSvg(f: FrameLook, h: number, o: DesktopOptions, righ
   const w = 100
   const t = OUTLINE_INSET
   const b = h - OUTLINE_INSET
-  const filter = (o.glow ? outlineFilter('fg', 0, w, h, 0, beat) : '') + (rb ? edgePaints(o, beat, w) : '')
+  const mixed = beat !== null && right !== undefined && f.live !== right.live
+  const filter = (o.glow ? outlineFilter('fg', 0, w, h, 0, beat) + (mixed ? outlineFilter('fs', 0, w, h, 0, beat, true) : '') : '') + (rb ? edgePaints(o, beat, w) : '')
   const half = (from: number, to: number, look: FrameLook) => frameStroke(`M${from} ${t}H${to}M${from} ${b.toFixed(2)}H${to}`, look, o, beat)
   // In the rainbow every stretch runs the whole of it and ends where it began, so sections meet without a seam (`edgePaints`).
   const body = rb ? frameStroke(`M0 ${t}H${w}`, f, o, beat, 'url(#rbt)') + frameStroke(`M0 ${b.toFixed(2)}H${w}`, f, o, beat, 'url(#rbb)') : right ? half(0, 50, f) + half(50, w, right) : half(0, w, f)

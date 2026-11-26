@@ -210,8 +210,9 @@ describe('desktop', () => {
     const edges = frameEdgesSvg(frame, with_('circle'))
     expect(edges).toContain('type="translate" from="0 0" to="100 0" dur="800ms" repeatCount="indefinite"')
     expect(edges).toContain('type="translate" from="0 0" to="-100 0" dur="800ms" repeatCount="indefinite"')
-    // The halo still breathes.
-    expect(edges).toContain('attributeName="opacity"')
+    // The halo still breathes: its opacity is the last step of its filter, from 0.7 to 0.95 and back, so the halo is one layer.
+    expect(edges).toContain('<feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.7 0"><animate attributeName="values" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.7 0;1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.95 0;1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.7 0"')
+    expect(edges).not.toContain(' opacity="')
     const loop = [...COLORS, COLORS[0]]
     for (const cap of [frameCapSvg('right', frame, with_('circle')), outlineCapSvg('left', frame, 60, with_('circle'))]) {
       expect(cap).toContain('stroke="url(#rbc)"')
