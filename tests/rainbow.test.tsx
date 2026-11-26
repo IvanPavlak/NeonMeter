@@ -7,7 +7,7 @@ import { buttonSvg, contextRowSvg, dotBarSvg, frameCapSvg, frameEdgesSvg, outlin
 import { mix } from '../hooks/color'
 import { fadedOptions } from '../hooks/desktop'
 import { parseOptions } from '../hooks/register'
-import { mountBand, setup, spansOf, start } from './kit'
+import { FAIL, mountBand, ok, setup, spansOf, start, usageBody } from './kit'
 
 // The rainbow theme (`rainbow`): everything the percents color is painted in
 // the rainbow instead, held still, breathing with the pulse or running with
@@ -142,6 +142,25 @@ describe('desktop', () => {
     expect(fadedOptions(base)).toBe(base)
   })
 
+  test('what stays out of the rainbow on a stale segment fades as ever: a projection past the fill, a run-out warning', () => {
+    const rainbow = { colors: COLORS, still: false }
+    // 62% of the 5-hour window with 165 of its 300 minutes to run: ahead of the pace, so it projects past 100% and warns.
+    const stale = { stale: true, staleAge: '5m', pace: 'projection' as const, paceWarn: 'all' as const }
+    const was = flexRow(input(stale), 'dark', 'level', 20)!.segments[0]!
+    const now = flexRow(input({ ...stale, rainbow }), 'dark', 'level', 20)!.segments[0]!
+    // The filled dots are live, for the rainbow; the rings of the projection are the stale bar's own, faded and still.
+    const rings = now.dots!.map((d, i) => ({ d, i })).filter(({ d }) => d.hollow)
+    expect(rings.length).toBeGreaterThan(0)
+    for (const { d, i } of rings) expect(d).toEqual(was.dots![i]!)
+    expect(rings.every(({ d }) => !d.live)).toBe(true)
+    expect(now.dots!.filter(d => d.live).length).toBe(was.dots!.filter(d => !d.hollow && d.color !== T.track).length)
+    // The warning keeps its red, faded and still, as on the stale row without the rainbow.
+    expect(now.warns).toBe(true)
+    expect(now.extraSpan).toEqual(was.extraSpan!)
+    expect(now.extraSpan!.live).toBeUndefined()
+    expect(now.extraSpan!.color).toBe(mix(T.ramp[5]!, T.bg, 0.45))
+  })
+
   test('a frame in the one color set stays out of the rainbow, so a stale one fades and holds still as ever', () => {
     const rainbow = { colors: COLORS, still: false }
     const border = { show: 'always' as const, at: 90, scope: 'segment' as const, color: '#FF073A' }
@@ -230,6 +249,68 @@ describe('desktop', () => {
     const width = (s: string) => /width="(\d+)"/.exec(s)![1]
     expect(width(contextRowSvg({ ...row, text: '', gap: true }, base))).toBe(width(svg))
     expect(width(contextRowSvg({ key: 'p', text: 'short', color: '#FFFFFF', live: false, halo: false, dot: false, center: 44 }, base))).toBe(width(svg))
+  })
+})
+
+describe('the desktop band of a stale reading', () => {
+  const FADED = mix(COLORS[0]!, T.bg, 0.45)
+  const sources = async (ui: Awaited<ReturnType<typeof mountBand>>) => (await ui.findAll({ type: 'Svg' })).map(s => String(s.props.source))
+  // A reading the fetch could not refresh: both windows stale, the context fresh.
+  const staleBand = async ($: Parameters<typeof start>[0], on: Parameters<typeof setup>[0]) => {
+    const world = setup(on, { response: ok(usageBody(92, 21)) })
+    await start($, world)
+    world.response = FAIL
+    await world.clock.advance(60_000)
+    return mountBand($, 'desktop', 120)
+  }
+
+  test('its bars, percents and segment frames are in the faded rainbow, and move', { options: { rainbow: 'circle', pulseMode: 'always', border: 'always' } }, async ($, on) => {
+    const ui = await staleBand($, on)
+    const all = await sources(ui)
+    const bars = all.filter(src => src.includes('data-role="slice"'))
+    // The two stale windows' bars in the faded rainbow, running; the fresh context's in the rainbow itself.
+    const faded = bars.filter(src => src.includes(`stop-color="${FADED}"`))
+    expect(faded.length).toBe(2)
+    for (const src of faded) {
+      expect(src).toMatch(/data-role="slice"[^>]*fill="url\(#rb\)"/)
+      expect(src).toContain('animateTransform')
+      expect(src).not.toContain(`stop-color="${COLORS[0]}"`)
+    }
+    expect(bars.filter(src => src.includes(`stop-color="${COLORS[0]}"`)).length).toBe(1)
+    // Their percents too.
+    expect(all.filter(src => src.includes('data-role="pct"') && src.includes(`stop-color="${FADED}"`)).length).toBe(2)
+    // And their frames: the edges of two in the faded rainbow, of the context's in the rainbow itself.
+    const edges = all.filter(src => src.includes('data-role="frame"') && src.includes('id="rbt"'))
+    expect(edges.filter(src => src.includes(`stop-color="${FADED}"`)).length).toBe(2)
+    expect(edges.filter(src => src.includes(`stop-color="${COLORS[0]}"`)).length).toBe(1)
+    await ui.unmount()
+  })
+
+  test('without the rainbow it is faded and still, in its range colors, as ever', { options: { pulseMode: 'always', border: 'always' } }, async ($, on) => {
+    const ui = await staleBand($, on)
+    const bars = (await sources(ui)).filter(src => src.includes('data-role="slice"'))
+    expect(bars.some(src => src.includes('id="rb"'))).toBe(false)
+    expect(bars.filter(src => src.includes(`fill="${mix(T.ramp[5]!, T.bg, 0.45)}"`) && !src.includes('<animate')).length).toBe(1)
+    await ui.unmount()
+  })
+
+  test('the outline is in the faded rainbow when the fullest segment is stale', { options: { rainbow: 'circle', pulseMode: 'always', border: 'always', outline: 'single' } }, async ($, on) => {
+    const ui = await staleBand($, on)
+    const ring = (await sources(ui)).filter(src => src.includes('data-role="ring-outline"'))
+    expect(ring.length).toBe(1)
+    expect(ring[0]).toContain(`stop-color="${FADED}"`)
+    expect(ring[0]).not.toContain(`stop-color="${COLORS[0]}"`)
+    expect(ring[0]).toContain('animateTransform')
+    await ui.unmount()
+  })
+
+  test('the frame of the band too', { options: { rainbow: 'circle', pulseMode: 'always', border: 'always', borderScope: 'band' } }, async ($, on) => {
+    const ui = await staleBand($, on)
+    const edges = (await sources(ui)).filter(src => src.includes('data-role="frame"') && src.includes('id="rbt"'))
+    expect(edges.length).toBe(1)
+    expect(edges[0]).toContain(`stop-color="${FADED}"`)
+    expect(edges[0]).not.toContain(`stop-color="${COLORS[0]}"`)
+    await ui.unmount()
   })
 })
 

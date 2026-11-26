@@ -1314,8 +1314,11 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
     if (seg.hasBar && dotCount && dotCount > 0) out.dots = dotsOf(seg, dotCount, T, bars)
     if (faded) {
       out.faded = true
-      // What stays out of the rainbow (a projection's rings past the fill) fades as it does on a stale bar.
-      if (out.dots) out.dots = out.dots.map(d => (d.live || d.color.toUpperCase() === T.track.toUpperCase() ? d : { ...d, color: mix(d.color, T.bg, 0.45) }))
+      // What stays out of the rainbow (a projection's rings past the fill) is the stale bar's own, faded as ever.
+      if (out.dots) {
+        const was = dotsOf(old, dotCount!, T, bars)
+        out.dots = out.dots.map((d, i) => (d.live ? d : was[i]!))
+      }
     }
     const frame = s.border?.scope === 'segment' && !seg.loading && !outline ? frameOf(seg.pct, framed[n]!.stale === true, s.border, T) : null
     if (frame) out.frame = frame
