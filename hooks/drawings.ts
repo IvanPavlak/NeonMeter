@@ -657,15 +657,18 @@ export function contextRowSvg(row: ContextRow, o: DesktopOptions): string {
   const beat = beatOf(o, row.live)
   const live = row.live && beat !== null
   const textX = row.dot === false ? PAD : PAD + DOT_UNIT
+  // A line in the rainbow: the colors once across its text, still.
+  const across = row.rainbow && row.rainbow.length > 1 ? row.rainbow.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track)) : null
+  const paintOf = across ? 'url(#rw)' : row.color
   const w = Math.ceil(textX + row.text.length * ROW_CHAR_WIDTH) + PAD
   const h = ROW_HEIGHT
   const dot = `cx="${PAD + DOT_UNIT / 2 - 3}" cy="${MIDLINE}" r="${DOT_RADIUS}"`
-  const attrs = `x="${textX}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${row.dot === false ? 600 : 400}" fill="${row.color}"`
+  const attrs = `x="${textX}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${row.dot === false ? 600 : 400}" fill="${paintOf}"`
   const pulse = live ? animate('fill', row.color, peakOf(row.color), beat!) : ''
   const text = esc(row.text)
   const glow = row.halo && o.glow ? `<g data-role="row-halo" ${halo(live, beat)}<circle ${dot} fill="${row.color}"/><text ${attrs}>${text}</text></g>` : ''
   return (
-    open(w, h, beat, row.halo && o.glow ? filters(w, h, beat) : '') +
+    open(w, h, beat, (row.halo && o.glow ? filters(w, h, beat) : '') + (across ? `<linearGradient id="rw" gradientUnits="userSpaceOnUse" x1="${textX}" y1="0" x2="${w - PAD}" y2="0">${across.map((c, i) => `<stop offset="${+(i / (across.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('')}</linearGradient>` : '')) +
     glow +
     (row.dot === false ? '' : `<circle data-role="row-dot" ${dot} fill="${row.color}">${pulse}</circle>`) +
     `<text data-role="row" ${attrs}>${text}${pulse}</text>` +
@@ -847,4 +850,66 @@ export function outlineEdgesSvg(f: FrameLook, h: number, o: DesktopOptions, righ
   // In the rainbow every stretch runs the whole of it and ends where it began, so sections meet without a seam (`edgePaints`).
   const body = rb ? frameStroke(`M0 ${t}H${w}`, f, o, beat, 'url(#rbt)') + frameStroke(`M0 ${b.toFixed(2)}H${w}`, f, o, beat, 'url(#rbb)') : right ? half(0, 50, f) + half(50, w, right) : half(0, w, f)
   return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h.toFixed(2)}" viewBox="0 0 ${w} ${h.toFixed(2)}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
+}
+
+// ---------------------------------------------------------------------------
+// The outline in the rainbow: one drawing. In pieces, each piece could only
+// run the whole rainbow over its own width, so a separator or a gap, a few
+// pixels wide, showed all six colors squeezed into a speck. The band's width
+// is known to within a few percent (its columns), so here the whole outline
+// is drawn at that size, corners and all, and the app stretches it the little
+// that is left. The rainbow follows the line round: along the top to the
+// right, down the right side, back along the bottom, up the left side, a
+// whole number of rainbows to the lap so it closes on itself, and under
+// `circle` it travels one rainbow per pulse cycle.
+// ---------------------------------------------------------------------------
+
+/** About how long one rainbow is along the outline, in the drawing's own pixels; the lap is divided into a whole number of them. */
+export const RING_RAINBOW = 300
+
+/**
+ * The outline around the band's card, `w` by `h` of its own pixels, in the
+ * rainbow. The line is drawn four times, each clipped to its part of the lap
+ * (top, right end, bottom, left end) and painted with a gradient along that
+ * part, placed so each begins in the color the one before it ends in.
+ */
+export function outlineRingSvg(w: number, h: number, o: DesktopOptions): string {
+  const beat = beatFor(o, true)
+  const rb = o.rainbow!
+  const colors = rb.colors.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track))
+  const loop = [...colors, colors[0]!]
+  const x0 = OUTLINE_INSET
+  const x1 = w - OUTLINE_INSET
+  const t = OUTLINE_INSET
+  const b = h - OUTLINE_INSET
+  const r = Math.min(OUTLINE_RADIUS, (b - t) / 2)
+  // The lap, measured along straight runs: the top and the bottom between the corners, and the two ends top to bottom.
+  const along = Math.max(1, x1 - x0 - 2 * r)
+  const down = b - t
+  const lap = 2 * along + 2 * down
+  const period = lap / Math.max(1, Math.round(lap / RING_RAINBOW))
+  const stops = loop.map((c, i) => `<stop offset="${+(i / (loop.length - 1)).toFixed(4)}" stop-color="${c}">${beat && rb.motion === 'breathe' ? animate('stop-color', c, peakOf(c), beat) : ''}</stop>`).join('')
+  const moving = beat && rb.motion === 'circle' ? beat : null
+  // A part's gradient: from where its rainbow starts, `period` along its direction of travel, moving that way.
+  const part = (id: string, fromX: number, fromY: number, dx: number, dy: number) => {
+    const move = moving ? `<animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="${(dx * period).toFixed(2)} ${(dy * period).toFixed(2)}" dur="${moving.ms}ms" ${moving.timing}/>` : ''
+    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${fromX.toFixed(2)}" y1="${fromY.toFixed(2)}" x2="${(fromX + dx * period).toFixed(2)}" y2="${(fromY + dy * period).toFixed(2)}" spreadMethod="repeat">${stops}${move}</linearGradient>`
+  }
+  const left = x0 + r
+  const right = x1 - r
+  const defs =
+    part('rt', left, 0, 1, 0) +
+    part('rr', 0, t - along, 0, 1) +
+    part('rbm', right + along + down, 0, -1, 0) +
+    part('rl', 0, b + 2 * along + down, 0, -1) +
+    `<clipPath id="ct"><rect x="${left}" y="0" width="${along.toFixed(2)}" height="${(h / 2).toFixed(2)}"/></clipPath>` +
+    `<clipPath id="cr"><rect x="${right.toFixed(2)}" y="0" width="${(w - right).toFixed(2)}" height="${h.toFixed(2)}"/></clipPath>` +
+    `<clipPath id="cb"><rect x="${left}" y="${(h / 2).toFixed(2)}" width="${along.toFixed(2)}" height="${(h / 2).toFixed(2)}"/></clipPath>` +
+    `<clipPath id="cl"><rect x="0" y="0" width="${left}" height="${h.toFixed(2)}"/></clipPath>` +
+    (o.glow ? filters(w, h, beat) : '')
+  const d = `M${x0 + r} ${t}H${(x1 - r).toFixed(2)}A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${t + r}V${(b - r).toFixed(2)}A${r} ${r} 0 0 1 ${(x1 - r).toFixed(2)} ${b.toFixed(2)}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${(b - r).toFixed(2)}V${t + r}A${r} ${r} 0 0 1 ${x0 + r} ${t}Z`
+  const line = (role: string) =>
+    [['ct', 'rt'], ['cr', 'rr'], ['cb', 'rbm'], ['cl', 'rl']].map(([clip, paintId]) => `<g clip-path="url(#${clip})"><path data-role="${role}" d="${d}" fill="none" stroke="url(#${paintId})" stroke-width="${FRAME_WIDTH}"/></g>`).join('')
+  const glow = o.glow ? `<g ${halo(beat !== null, beat)}${line('ring-outline-halo')}</g>` : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h.toFixed(2)}" viewBox="0 0 ${w.toFixed(2)} ${h.toFixed(2)}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${defs}</defs>${glow}${line('ring-outline')}</svg>`
 }

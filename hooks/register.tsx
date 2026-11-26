@@ -223,6 +223,7 @@ export function resetChipsOf(held: readonly HeldReset[], color: string, now: num
   const lines: ChipLine[] = [{ text: left.length === 1 ? '1 limit reset available' : `${left.length} limit resets available`, strong: true }]
   for (const { r } of left) {
     const [name, what] = RESET_NAMES[r.kind]
+    lines.push({ text: '', gap: true })
     lines.push({ text: name, strong: true })
     for (const part of wrapText(what, CARD_LINE)) lines.push({ text: part })
     if (r.expires === null) continue
@@ -230,6 +231,7 @@ export function resetChipsOf(held: readonly HeldReset[], color: string, now: num
     const days = Math.floor((r.expires - now) / 86_400_000)
     lines.push({ text: `Expires ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${days === 0 ? 'today' : days === 1 ? 'in 1 day' : `in ${days} days`}`, left: Math.min(100, ((r.expires - now) / (EXPIRY_HORIZON_DAYS * 86_400_000)) * 100) })
   }
+  lines.push({ text: '', gap: true })
   lines.push({ text: left.length === 1 ? 'Use it in Settings > Usage.' : 'Use them in Settings > Usage.' })
   return { chips: [{ text: `+${left.length}`, lines }], color }
 }
@@ -1396,6 +1398,7 @@ export const register: Register = (on, options) => {
         chip: { ...plainO, nowMs: now, pulse: o.pulse && env.options.resetChipPulse, glow: o.glow && env.options.resetChipGlow },
         popup: env.options.contextPopup,
         card: CARD[dt],
+        columns: e.props.bodyColumns,
         outlinePad: env.outlinePad,
       }
       return <Box width="100%">{desktopBand(row, { Box, Text, Svg, Button }, o, extras)}</Box>

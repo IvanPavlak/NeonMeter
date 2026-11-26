@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { BandInput } from '../hooks/builder'
 import { band, flexRow, rainbowOf, textOf as textOfSpans, THEMES } from '../hooks/builder'
 import type { DesktopOptions, Rainbow } from '../hooks/drawings'
-import { buttonSvg, dotBarSvg, frameCapSvg, frameEdgesSvg, outlineCapSvg, outlineEdgesSvg, pctSvg, RAINBOW_PERIOD, smoothBarSvg } from '../hooks/drawings'
+import { buttonSvg, contextRowSvg, dotBarSvg, frameCapSvg, frameEdgesSvg, outlineCapSvg, outlineEdgesSvg, OUTLINE_INSET, OUTLINE_RADIUS, outlineRingSvg, pctSvg, RAINBOW_PERIOD, smoothBarSvg } from '../hooks/drawings'
 import { parseOptions } from '../hooks/register'
 import { mountBand, setup, spansOf, start } from './kit'
 
@@ -143,6 +143,31 @@ describe('desktop', () => {
       expect(cap).toContain(`<stop offset="0" stop-color="${COLORS[0]}"><animate attributeName="stop-color" values="${[...loop].reverse().join(';')}" dur="800ms" repeatCount="indefinite"/>`)
       expect(cap).toContain(`<stop offset="1" stop-color="${COLORS[0]}"><animate attributeName="stop-color" values="${loop.join(';')}" dur="800ms" repeatCount="indefinite"/>`)
     }
+  })
+
+  test('the outline is one drawing: the rainbow follows the line round, a whole number of rainbows to the lap', () => {
+    const svg = outlineRingSvg(1350, 69, with_('circle'))
+    // The same line four times, each part clipped to its stretch of the lap and painted along it.
+    expect(svg.split('data-role="ring-outline"').length - 1).toBe(4)
+    expect(svg.split('<linearGradient').length - 1).toBe(4)
+    const moves = [...svg.matchAll(/type="translate" from="0 0" to="(-?[\d.]+) (-?[\d.]+)"/g)].map(m => [Number(m[1]), Number(m[2])])
+    const period = moves[0]![0]!
+    // Right along the top, down the right end, left along the bottom, up the left end: once round.
+    expect(moves).toEqual([[period, 0], [0, period], [-period, 0], [0, -period]])
+    // The lap, along straight runs, holds a whole number of rainbows, so the line closes on itself.
+    const lap = 2 * (1350 - 2 * OUTLINE_INSET - 2 * Math.min(OUTLINE_RADIUS, (69 - 2 * OUTLINE_INSET) / 2)) + 2 * (69 - 2 * OUTLINE_INSET)
+    expect(Math.abs(lap / period - Math.round(lap / period))).toBeLessThan(1e-3)
+    // Held still it has no animation; the app stretches it to the band, corners and all.
+    expect(animations(outlineRingSvg(1350, 69, with_('still')))).toBe(0)
+    expect(svg).toContain('preserveAspectRatio="none"')
+  })
+
+  test('a card line in the rainbow runs the colors once across its text', () => {
+    const svg = contextRowSvg({ key: 't', text: '2 limit resets available', color: COLORS[0]!, live: false, halo: true, dot: false, rainbow: COLORS }, base)
+    expect(svg).toContain('<linearGradient id="rw"')
+    expect(svg.split('<stop ').length - 1).toBe(6)
+    expect(svg).toMatch(/data-role="row"[^>]*fill="url\(#rw\)"/)
+    expect(animations(svg)).toBe(0)
   })
 })
 

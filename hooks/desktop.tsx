@@ -13,7 +13,7 @@ import type { BoxProps, ButtonProps, ElementConstructor, RenderElement, SvgProps
 import type { FlexButton, FlexChip, Frame, FlexRow, FlexSegment } from './builder'
 import { THEME_KEYS } from './builder'
 import type { DesktopOptions, OutlinePad } from './drawings'
-import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, pctSvg, resetChipSvg, resetSvg, smoothBarSvg } from './drawings'
+import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, outlineRingSvg, ROW_HEIGHT, pctSvg, resetChipSvg, resetSvg, smoothBarSvg } from './drawings'
 
 export type { DesktopOptions } from './drawings'
 
@@ -38,9 +38,14 @@ export type DesktopExtras = {
   popup: boolean
   /** The hover cards' ground and border, in the app's appearance. */
   card: { background: string; border: string }
+  /** The band's width in the app's columns, which sizes the rainbow outline's one drawing. */
+  columns: number
   /** The card's padding above and below the band on this operating system, which the outline reaches across. */
   outlinePad: OutlinePad
 }
+
+/** About what one of the app's columns measures across, in CSS pixels (measured: offsets land about 9 px apart). */
+const CELL_PX = 9
 
 /** A blank label: the button's Button draws nothing of its own over the ring, only the app's hover mark. */
 const BLANK = '  '
@@ -77,7 +82,13 @@ function resetChip(c: FlexChip, n: number, els: DesktopElements, x: DesktopExtra
   return (
     <Box key={`reset-${n}`} position="relative" flexShrink={0}>
       <Svg source={resetChipSvg(c, x.chip)} alt={c.rows[0]?.text ?? c.text} height={DISPLAY_HEIGHT} />
-      {hoverCard(els, x, c.rows.map(r => <Svg source={contextRowSvg(r, x.chip)} alt={r.text} height={DISPLAY_HEIGHT} />), true)}
+      {hoverCard(
+        els,
+        x,
+        // A gap is room half a line tall; every other row is its drawing.
+        c.rows.map(r => (r.gap ? <Svg source={frameSpacerSvg(FRAME_CAP)} alt="" height={DISPLAY_HEIGHT / 2} /> : <Svg source={contextRowSvg(r, x.chip)} alt={r.text} height={DISPLAY_HEIGHT} />)),
+        true,
+      )}
     </Box>
   )
 }
@@ -276,6 +287,24 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   if (row.outline) {
     // The row is as tall as its tallest piece: a frame's height while one shows, a drawing's otherwise.
     const tall = Boolean(row.frame) || row.segments.some(seg => seg.frame)
+    if (x.frame.rainbow && x.frame.rainbow.colors.length > 1 && row.outline.some(f => f.live)) {
+      // In the rainbow the outline is one drawing under the whole row (drawings.ts `outlineRingSvg`), in one section
+      // that reaches the card's edges at both ends, as the first and the last section do in `outlined`.
+      const tallness = outlineHeight(tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT, x.outlinePad)
+      const wide = ((Math.max(1, x.columns) + 2) * CELL_PX * ROW_HEIGHT) / DISPLAY_HEIGHT
+      return (
+        <Box key="band" position="relative" flexDirection="row" width="100%" alignItems="stretch">
+          <Box key="section-0" position="relative" flexDirection="row" alignItems="center" flexGrow={1} flexShrink={1} minWidth={0} marginLeft={-1} paddingLeft={1} marginRight={-1} paddingRight={1}>
+            <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
+              <Box flexGrow={1} flexShrink={1} minWidth={0}>
+                <Svg source={outlineRingSvg(wide, tallness, x.frame)} alt="border" height={(tallness * DISPLAY_HEIGHT) / ROW_HEIGHT} />
+              </Box>
+            </Box>
+            {children}
+          </Box>
+        </Box>
+      )
+    }
     const inner = outlined(sections, row.outline, els, x.frame, tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT, x.outlinePad)
     return (
       // Every section as tall as the row, so each one's stretch of the edges lands on the same line: centered in the
