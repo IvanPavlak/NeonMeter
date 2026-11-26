@@ -14,7 +14,7 @@ import type { FlexButton, FlexChip, Frame, FlexRow, FlexSegment } from './builde
 import { THEME_KEYS } from './builder'
 import { mix } from './color'
 import type { DesktopOptions, OutlinePad } from './drawings'
-import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, outlineRingSvg, ROW_HEIGHT, pctSvg, resetChipSvg, resetSvg, smoothBarSvg } from './drawings'
+import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, labelSvg, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, outlineRingSvg, ROW_HEIGHT, pctSvg, resetChipSvg, resetSvg, smoothBarSvg } from './drawings'
 
 export type { DesktopOptions } from './drawings'
 
@@ -191,7 +191,7 @@ function outlined(sections: Section[], colors: readonly Frame[], els: DesktopEle
  * The desktop band from a flex row (its colors as the builder made them, in
  * `#RRGGBB`): labels, separators, reset fields and the stale marker as `Text`
  * in theme keys the app paints for its own appearance; bars and percents as
- * drawings. A percent in the theme's plain text color (`--`) stays text.
+ * drawings, and under `rainbowText` the labels and the plain fields too. A percent in the theme's plain text color (`--`) stays text.
  */
 export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOptions, x: DesktopExtras): RenderElement {
   const { Box, Text, Svg } = els
@@ -231,7 +231,11 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
     // A stale segment in the rainbow takes it faded.
     const so = seg.faded ? dimmed : o
     if (button && at === 'context' && seg.kind === 'ctx') pieces.push(actionButton(button, els, x), gap('button-gap'))
-    pieces.push(fixed(`label-${seg.kind}`, <Text color={THEME_KEYS.text}>{seg.label} </Text>))
+    // Under `rainbowText` the label and a plain field are drawings the rainbow paints, as it does the percent.
+    const inText = Boolean(seg.rainbowText && o.rainbow && o.rainbow.colors.length > 1)
+    const plain = (text: string) => ({ text, color: o.palette.text, live: true })
+    if (inText) pieces.push(fixed(`label-${seg.kind}`, <Svg source={labelSvg(plain(seg.label), so)} alt={seg.label} height={DISPLAY_HEIGHT} />))
+    else pieces.push(fixed(`label-${seg.kind}`, <Text color={THEME_KEYS.text}>{seg.label} </Text>))
     // The context bar's own Box is the breakdown card's anchor, as the app's own indicator opens its card over its bar.
     // A window's bar anchors its own card the same way, when the builder made one (`windowPopup`).
     const cardRows = seg.kind === 'ctx' ? (x.popup ? row.context : undefined) : seg.card
@@ -270,6 +274,9 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
       // The gap is text and the reset a drawing, so the row reads as it does in plain text.
       pieces.push(gap(`extra-gap-${seg.kind}`))
       pieces.push(fixed(`extra-${seg.kind}`, <Svg source={resetSvg(seg.extraSpan, seg.warns ? own : so)} alt={seg.extra} height={DISPLAY_HEIGHT} />))
+    } else if (seg.extra && inText) {
+      pieces.push(gap(`extra-gap-${seg.kind}`))
+      pieces.push(fixed(`extra-${seg.kind}`, <Svg source={resetSvg(plain(seg.extra), so)} alt={seg.extra} height={DISPLAY_HEIGHT} />))
     } else if (seg.extra) {
       pieces.push(fixed(`extra-${seg.kind}`, <Text color={THEME_KEYS.text}> {seg.extra}</Text>))
     }

@@ -257,7 +257,7 @@ export type BandInput = {
   /** The limit resets held, a chip each at the start of the row; absent or empty, none. */
   resets?: ResetChips
   /** The rainbow theme: in the terminal the window bars' cells and the percents' characters take these colors in turn, still or live; on the desktop, which paints its own rainbow, it marks the stale segments to paint faded. Absent, the range colors. */
-  rainbow?: { colors: readonly string[]; still: boolean }
+  rainbow?: { colors: readonly string[]; still: boolean; text?: boolean }
 }
 
 /**
@@ -400,7 +400,7 @@ type Segment = {
   /** Minutes until the window runs out, when it warns. */
   warn?: number
   /** The rainbow theme, when it is on (the terminal's cells and percents). */
-  rainbow?: { colors: readonly string[]; still: boolean }
+  rainbow?: { colors: readonly string[]; still: boolean; text?: boolean }
 }
 
 type Pieces = { label: string; pct: string; extra: string }
@@ -818,6 +818,32 @@ function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarCo
  * The layouts below fill `starts` with the index of the span each segment's
  * label opens with (after its separator), where the button can go.
  */
+/**
+ * A label or a plain field: one span in the text color, or under `rainbowText`
+ * one per character, each in the rainbow's next color, a stale segment's faded
+ * as its percent is.
+ */
+function pushText(out: Span[], T: Palette, seg: Segment, text: string): void {
+  const rb = seg.rainbow
+  if (!rb?.text || rb.colors.length < 2) {
+    out.push(sp(T, text, T.text))
+    return
+  }
+  const op = seg.stale && !seg.loading && seg.pct != null ? 0.45 : 1
+  let k = 0
+  for (const ch of Array.from(text)) {
+    if (ch === ' ') out.push(sp(T, ch, T.text))
+    else out.push(sp(T, ch, rb.colors[k++ % rb.colors.length]!, { live: !rb.still, op }))
+  }
+}
+
+/** The field after a percent: a warning or a colored reset as `extraSpan` makes it, anything else as `pushText` does. */
+function pushExtra(out: Span[], T: Palette, seg: Segment, text: string, color: ResetColor | undefined): void {
+  const colored = seg.warn != null || (color === 'time' && seg.kind !== 'ctx' && seg.resetMin != null)
+  if (colored) out.push(extraSpan(T, seg, text, color))
+  else pushText(out, T, seg, ' ' + text)
+}
+
 /** A percent's spans: one in its range color, or in the rainbow one per character, each in the next color. */
 function pushPct(out: Span[], T: Palette, seg: Segment, text: string): void {
   const pc = pctColor(seg, T)
@@ -861,14 +887,14 @@ function layoutBars(segs: Segment[], tier: Tier, s: BandInput, cols: number, T: 
     const p = parts[i]!
     if (i) out.push(sp(T, ' │ ', T.text, { op: 0.4 }))
     starts[i] = out.length
-    out.push(sp(T, p.label + ' ', T.text))
+    pushText(out, T, seg, p.label + ' ')
     if (seg.hasBar) {
       pushBar(out, seg, base + (k < rem ? 1 : 0), T, bars)
       k++
       out.push(sp(T, ' ', T.text))
     }
     pushPct(out, T, seg, p.pct)
-    if (p.extra) out.push(extraSpan(T, seg, p.extra, s.resetColor))
+    if (p.extra) pushExtra(out, T, seg, p.extra, s.resetColor)
     if (i === lastWin && staleTxt) out.push(sp(T, staleTxt, T.text, { italic: true, op: 0.7 }))
   })
   return out
@@ -892,9 +918,9 @@ function layoutJustified(segs: Segment[], tier: Tier, cols: number, T: Palette, 
       out.push(sp(T, rep(' ', left) + '·' + rep(' ', g - 1 - left), T.text, { op: 0.4 }))
     }
     starts[i] = out.length
-    out.push(sp(T, p.label + ' ', T.text))
+    pushText(out, T, seg, p.label + ' ')
     pushPct(out, T, seg, p.pct)
-    if (p.extra) out.push(extraSpan(T, seg, p.extra, color))
+    if (p.extra) pushExtra(out, T, seg, p.extra, color)
   })
   return out
 }
@@ -1094,6 +1120,8 @@ export type FlexSegment = {
   warns?: true
   /** A stale segment in the rainbow: built as a fresh one, for the desktop to paint in the rainbow faded as a stale color is. */
   faded?: true
+  /** Under `rainbowText`: the desktop draws the label and a plain field in the rainbow too. */
+  rainbowText?: true
 }
 
 /**
@@ -1323,6 +1351,7 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
     const frame = s.border?.scope === 'segment' && !seg.loading && !outline ? frameOf(seg.pct, framed[n]!.stale === true, s.border, T) : null
     if (frame) out.frame = frame
     if (seg.hasBar && partSlices(seg, T)) out.split = true
+    if (seg.rainbow?.text && seg.rainbow.colors.length > 1) out.rainbowText = true
     if (extra && seg.warn != null) {
       // A run-out warning keeps its red in the rainbow, so a stale one fades as ever.
       const wc = warnColor(old, T)
@@ -1524,6 +1553,8 @@ function desktopText(row: FlexRow): { text: number; bars: number } {
   let bars = 0
   for (const seg of row.segments) {
     text += seg.label.length + 1 + seg.pct.text.length + (seg.extra ? seg.extra.length + 1 : 0)
+    // A label drawn in the rainbow is a drawing, with a drawing's room at either end.
+    if (seg.rainbowText) text += 1
     if (seg.bar) {
       bars++
       text += 1

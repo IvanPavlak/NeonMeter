@@ -20,10 +20,10 @@ test('off, every option is as set', () => {
 })
 
 test('rainbow puts everything in the rainbow, running without a stop, over whatever those options are set to', () => {
-  const mine = { pulse: false, pulseMode: 'responsive', glow: false, rainbow: 'off', resetColor: 'plain', border: 'off', outline: 'sections', borderColor: '#FF073A', borderGlow: false, borderPulse: false, buttonGlow: false, buttonPulse: false, resetChipColor: '#B24BFF', resetChipGlow: false, resetChipPulse: false, resetChipMotion: 'still' }
+  const mine = { rainbowText: false, pulse: false, pulseMode: 'responsive', glow: false, rainbow: 'off', resetColor: 'plain', border: 'off', outline: 'sections', borderColor: '#FF073A', borderGlow: false, borderPulse: false, buttonGlow: false, buttonPulse: false, resetChipColor: '#B24BFF', resetChipGlow: false, resetChipPulse: false, resetChipMotion: 'still' }
   const { parsed, problems } = parseOptions({ ...mine, preset: 'rainbow' })
   expect(problems).toEqual([])
-  expect(parsed).toMatchObject({ rainbow: 'circle', pulse: true, pulseMode: 'always', glow: true, resetColor: 'time', border: 'always', outline: 'single', borderColor: '', borderGlow: true, borderPulse: true, buttonGlow: true, buttonPulse: true, resetChipColor: 'rainbow', resetChipGlow: true, resetChipPulse: true, resetChipMotion: 'circle' })
+  expect(parsed).toMatchObject({ rainbow: 'circle', rainbowText: true, pulse: true, pulseMode: 'always', glow: true, resetColor: 'time', border: 'always', outline: 'single', borderColor: '', borderGlow: true, borderPulse: true, buttonGlow: true, buttonPulse: true, resetChipColor: 'rainbow', resetChipGlow: true, resetChipPulse: true, resetChipMotion: 'circle' })
   // Every option the preset names is one of those, and it names nothing else.
   expect(Object.keys(PRESETS.rainbow).sort()).toEqual(Object.keys(mine).sort())
 })

@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-26
+
+### Added
+
+- `rainbowText`, off by default: with `rainbow` on, the text takes the rainbow too, each segment's label (`5-hour`, `Weekly`, `Fable`, `Context`) and its plain field (the context's token count, a reset in the text color). In the desktop app they are drawn as the percents are, under the halo, moving with the rainbow, and faded in a stale segment; in the terminal each character takes the next color. The separators, the stale marker, a run-out warning and the hover cards stay as they are.
+
+### Changed
+
+- The `rainbow` preset turns `rainbowText` on, so everything in the row is in the rainbow.
+
 ## [1.9.0] - 2026-11-26
 
 ### Added
@@ -231,7 +241,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.0...v1.7.1
