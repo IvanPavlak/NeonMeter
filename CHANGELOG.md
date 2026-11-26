@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-26
+
 ### Added
 
 - `dateFormat`: how every date is written, as a pattern of `D`, `DD`, `M`, `MM`, `MMM`, `YY` and `YYYY` with any punctuation between them. The default, `MMM D, YYYY`, is what the reset chip's card showed before (`Expires Dec 10, 2026`); `DD.MM.YYYY` reads `Expires 10.12.2026`. A pattern without a day and a month, or with other letters, is reported and the default used.
@@ -229,7 +231,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.2...v1.7.0
