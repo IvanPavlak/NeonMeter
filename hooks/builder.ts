@@ -276,10 +276,10 @@ export type ResetChips = { chips: { text?: string; lines: ChipLine[] }[]; color:
  * way round: a reset about to be lost is red, one with a month or more to go
  * blue (`timeRanges` sets where each color starts). `strong` draws a line
  * bold in the chip's own colors, the rainbow by default: the title and each
- * reset's name. `gap` is room between two groups of lines, without text. Any
- * other line is plain, dimmed.
+ * reset's name. `gap` is room between two lines, without text. `dim` draws a
+ * line grey, the card's last; any other line is plain, in the text color.
  */
-export type ChipLine = { text: string; left?: number; strong?: boolean; gap?: boolean }
+export type ChipLine = { text: string; left?: number; strong?: boolean; gap?: boolean; dim?: boolean }
 
 /** The days over which an expiry's color runs from red to blue. */
 export const EXPIRY_HORIZON_DAYS = 30
@@ -1098,7 +1098,7 @@ export type FlexButton = { position: ButtonPosition; ring: FlexSlice[]; label: s
  * One row of the context breakdown the desktop shows on hover: `Messages:
  * 25.5k, 2.6%` in its category color, or the card's title line without a dot.
  */
-export type ContextRow = { key: string; text: string; color: string; live: boolean; halo: boolean; dot?: false; rainbow?: readonly string[]; gap?: true }
+export type ContextRow = { key: string; text: string; color: string; live: boolean; halo: boolean; dot?: false; rainbow?: readonly string[]; gap?: true; center?: number; strong?: true }
 
 /** One row of the engine's breakdown, as the hooks module keeps it. */
 export type ContextDetailRow = { name: string; tokens: number; kind: 'used' | 'free' | 'buffer' | 'deferred' }
@@ -1314,23 +1314,32 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   if (frame) row.frame = frame
   const ring = s.button && s.ctx ? buttonRing(s.ctx, T, bars) : null
   if (ring) row.button = { position: s.button!, ring, label: `${s.buttonLabel ?? HANDOFF_LABEL} (${Math.round(s.ctx!.pct)}% of the context used)` }
-  if (s.resets?.chips.length) row.resets = s.resets.chips.map(c => ({ text: c.text ?? CHIP_TEXT, colors: chipColors(s.resets!, theme), rows: c.lines.map((line, i) => chipRow(line, i, T, chipColors(s.resets!, theme))) }))
+  if (s.resets?.chips.length) row.resets = s.resets.chips.map(c => ({ text: c.text ?? CHIP_TEXT, colors: chipColors(s.resets!, theme), rows: chipRows(c.lines, T, chipColors(s.resets!, theme)) }))
   // The hover card hangs on the Context segment, whichever way its bar is colored.
   if (s.ctx?.parts && s.ctx.tokens != null && usedOf(s.ctx.parts) > 0 && segs.some(seg => seg.kind === 'ctx')) row.context = contextRows(s.ctx.parts, s.ctx.window, T, s.ctx.tokens)
   return row
 }
 
+/** The dot before an expiry in a chip's card: a character of the line, so it is centered with it. */
+export const EXPIRY_DOT = '● '
+
 /**
- * A chip's card line as a row: an expiry in its color with a dot and a halo, a
- * strong line bold in the chip's colors (the rainbow across it, or its one
- * color) under a halo, a gap empty, any other dimmed; none pulses.
+ * A chip's card as rows, every one centered on the widest line (`center`, its
+ * characters): an expiry in its color with its dot under a halo, a strong
+ * line bold in the chip's colors (the rainbow across it, or its one color)
+ * under a halo, a gap empty, a dim line grey, any other in the text color; none
+ * pulses.
  */
-function chipRow(line: ChipLine, i: number, T: Palette, colors: readonly string[]): ContextRow {
-  const key = `line-${i}`
-  if (line.gap) return { key, text: '', color: T.text, live: false, halo: false, dot: false, gap: true }
-  if (line.left !== undefined) return { key, text: line.text, color: expiryColor(line.left, T), live: false, halo: true }
-  if (line.strong) return colors.length > 1 ? { key, text: line.text, color: colors[0]!, live: false, halo: true, dot: false, rainbow: colors } : { key, text: line.text, color: colors[0] ?? T.text, live: false, halo: true, dot: false }
-  return { key, text: line.text, color: mix(T.text, T.bg, 0.7), live: false, halo: false, dot: false }
+function chipRows(lines: readonly ChipLine[], T: Palette, colors: readonly string[]): ContextRow[] {
+  const textOf = (line: ChipLine) => (line.left !== undefined ? EXPIRY_DOT + line.text : line.text)
+  const center = Math.max(1, ...lines.map(line => textOf(line).length))
+  return lines.map((line, i) => {
+    const base = { key: `line-${i}`, text: textOf(line), live: false, dot: false, center } as const
+    if (line.gap) return { ...base, text: '', color: T.text, halo: false, gap: true }
+    if (line.left !== undefined) return { ...base, color: expiryColor(line.left, T), halo: true }
+    if (line.strong) return colors.length > 1 ? { ...base, color: colors[0]!, halo: true, strong: true, rainbow: colors } : { ...base, color: colors[0] ?? T.text, halo: true, strong: true }
+    return { ...base, color: line.dim ? mix(T.text, T.bg, 0.55) : T.text, halo: false }
+  })
 }
 
 /** The button's ring: the context percent as a bar's slices, colored by `barColoring`; null before the first response. */

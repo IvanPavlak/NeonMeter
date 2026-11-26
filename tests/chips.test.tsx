@@ -63,20 +63,25 @@ test('one chip counts the resets, and its card lists them all, the one that expi
     '2 limit resets available',
     '',
     'Weekly reset',
+    '',
     'Refills your weekly limit.',
+    '',
     'Expires Dec 10, 2026, in N days',
     '',
     'Fable reset',
+    '',
+    // One sentence over two lines stays together.
     'Refills your Fable allowance and gives back',
     'what Fable used on your weekly limit.',
+    '',
     'Expires Mar 9, 2027, in N days',
     '',
     'Use them in Settings > Usage.',
   ])
   // A reset without a day comes last and has no expiry line.
   const mixed = resetChipsOf(parseResets('full,weekly:2026-12-10')!, 'rainbow', NOW)!.chips[0]!.lines.map(l => l.text)
-  expect(mixed.filter(t => t !== '').slice(1, 6)).toEqual(['Weekly reset', 'Refills your weekly limit.', mixed[4], 'Full reset', 'Refills every limit, on every model.'])
-  expect(mixed.length).toBe(10)
+  expect(mixed.filter(t => t !== '').slice(1, 6)).toEqual(['Weekly reset', 'Refills your weekly limit.', mixed[6], 'Full reset', 'Refills every limit, on every model.'])
+  expect(mixed.filter(t => t === '').length).toBe(6)
   // No line is longer than the card shows at full size.
   expect(Math.max(...lines.map(l => l.text.length))).toBeLessThanOrEqual(44)
   // The day after the weekly reset's last day only the Fable one is left; after both, none.
@@ -95,11 +100,18 @@ test('an expiry is colored by how close it is, the other way round from a reset:
   expect(leftAt(40)).toBe(100)
   // On the desktop the expiry rows carry that color under a halo, with a dot; the other rows are plain.
   const rows = flexRow(input({ resets: resetChipsOf(held, 'rainbow', held[1]!.expires! - 2 * DAY)! }), 'dark', 'level')!.resets![0]!.rows
-  expect(rows[4]).toMatchObject({ color: '#FF073A', halo: true, live: false })
-  expect(rows[9]).toMatchObject({ color: '#1E90FF', halo: true })
+  const expiries = rows.filter(r => r.text.startsWith('● Expires'))
+  expect(expiries[0]).toMatchObject({ color: '#FF073A', halo: true, live: false, dot: false })
+  expect(expiries[1]).toMatchObject({ color: '#1E90FF', halo: true })
+  // Every row is as wide as the widest line, its text in the middle, so the lines are centered on one another.
+  expect(new Set(rows.map(r => r.center)).size).toBe(1)
+  expect(rows[0]!.center).toBe(Math.max(...rows.map(r => r.text.length)))
+  // What a reset refills is in the text color; only the last line is grey.
+  expect(rows.find(r => r.text === 'Refills your weekly limit.')!.color).toBe(T.text)
+  expect(rows[rows.length - 1]!.color).not.toBe(T.text)
   // The title and each reset's name are in the chip's rainbow; a gap is room between groups; the last line stays grey.
   expect(rows[0]).toMatchObject({ text: '2 limit resets available', rainbow: rainbowOf('dark'), halo: true, dot: false })
-  expect(rows[2]).toMatchObject({ text: 'Weekly reset', rainbow: rainbowOf('dark') })
+  expect(rows[2]).toMatchObject({ text: 'Weekly reset', rainbow: rainbowOf('dark'), strong: true })
   expect(rows[1]).toMatchObject({ text: '', gap: true })
   expect(rows[rows.length - 1]).toMatchObject({ text: 'Use them in Settings > Usage.', halo: false })
   expect(rows[rows.length - 1]!.rainbow).toBeUndefined()

@@ -85,8 +85,8 @@ function resetChip(c: FlexChip, n: number, els: DesktopElements, x: DesktopExtra
       {hoverCard(
         els,
         x,
-        // A gap is room half a line tall; every other row is its drawing.
-        c.rows.map(r => (r.gap ? <Svg source={frameSpacerSvg(FRAME_CAP)} alt="" height={DISPLAY_HEIGHT / 2} /> : <Svg source={contextRowSvg(r, x.chip)} alt={r.text} height={DISPLAY_HEIGHT} />)),
+        // A gap is the row's own drawing with nothing in it, half a line tall.
+        c.rows.map(r => <Svg source={contextRowSvg(r, x.chip)} alt={r.gap ? 'gap' : r.text} height={r.gap ? DISPLAY_HEIGHT / 2 : DISPLAY_HEIGHT} />),
         true,
       )}
     </Box>

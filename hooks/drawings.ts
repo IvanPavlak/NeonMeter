@@ -560,6 +560,31 @@ export function resetSvg(reset: Span, o: DesktopOptions): string {
   return textSvg(reset, { role: 'extra', weight: 400, charWidth: RESET_CHAR_WIDTH }, o)
 }
 
+/** About what a character of a card row measures across at `PCT_FONT_SIZE`, on average: it places a rainbow over a line's text. */
+const ROW_TEXT_WIDTH = 9
+
+/**
+ * A card row with its text centered: every row of the card is drawn `chars`
+ * characters wide, the widest line's, and its text sits in the middle of
+ * that, so the lines are centered on one another whatever the font measures
+ * (a drawing's own width is an estimate; text anchored at its middle needs
+ * none). An expiry's dot is a character of its text, so it stays beside it.
+ * A gap is the same drawing with nothing in it: room between two lines.
+ */
+function centeredRowSvg(row: ContextRow, chars: number, o: DesktopOptions): string {
+  const w = Math.ceil(chars * ROW_CHAR_WIDTH) + 2 * PAD
+  const h = ROW_HEIGHT
+  // An empty drawing takes no room in the app: a rect of nothing gives it its size.
+  if (row.gap) return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect data-role="row-gap" width="${w}" height="${h}" fill="#000000" fill-opacity="0"/></svg>`
+  const across = row.rainbow && row.rainbow.length > 1 ? row.rainbow.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track)) : null
+  const half = (row.text.length * ROW_TEXT_WIDTH) / 2
+  const attrs = `x="${w / 2}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${row.strong ? 600 : 400}" fill="${across ? 'url(#rw)' : row.color}"`
+  const text = esc(row.text)
+  const paintDef = across ? `<linearGradient id="rw" gradientUnits="userSpaceOnUse" x1="${(w / 2 - half).toFixed(1)}" y1="0" x2="${(w / 2 + half).toFixed(1)}" y2="0">${across.map((c, i) => `<stop offset="${+(i / (across.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('')}</linearGradient>` : ''
+  const glow = row.halo && o.glow ? `<g data-role="row-halo" ${halo(false, null)}<text ${attrs}>${text}</text></g>` : ''
+  return open(w, h, null, (row.halo && o.glow ? filters(w, h, null) : '') + paintDef) + glow + `<text data-role="row" ${attrs}>${text}</text></svg>`
+}
+
 /**
  * The button's ring, in the drawing's own pixels: 14 px across on
  * screen, the size of the app's own context ring beside the model picker.
@@ -654,6 +679,7 @@ const ROW_CHAR_WIDTH = 10.6
  * band, the autocompact buffer holds still without a halo.
  */
 export function contextRowSvg(row: ContextRow, o: DesktopOptions): string {
+  if (row.center !== undefined) return centeredRowSvg(row, row.center, o)
   const beat = beatOf(o, row.live)
   const live = row.live && beat !== null
   const textX = row.dot === false ? PAD : PAD + DOT_UNIT

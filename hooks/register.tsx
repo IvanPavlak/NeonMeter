@@ -220,19 +220,20 @@ export function resetChipsOf(held: readonly HeldReset[], color: string, now: num
     .filter(({ r }) => r.expires === null || r.expires >= now)
     .sort((a, b) => (a.r.expires ?? Infinity) - (b.r.expires ?? Infinity) || a.i - b.i)
   if (!left.length) return null
+  // A gap after every title and sentence; a sentence wrapped over two lines stays together.
+  const gap: ChipLine = { text: '', gap: true }
   const lines: ChipLine[] = [{ text: left.length === 1 ? '1 limit reset available' : `${left.length} limit resets available`, strong: true }]
   for (const { r } of left) {
     const [name, what] = RESET_NAMES[r.kind]
-    lines.push({ text: '', gap: true })
-    lines.push({ text: name, strong: true })
+    lines.push(gap, { text: name, strong: true }, gap)
     for (const part of wrapText(what, CARD_LINE)) lines.push({ text: part })
     if (r.expires === null) continue
+    lines.push(gap)
     const d = new Date(r.expires)
     const days = Math.floor((r.expires - now) / 86_400_000)
     lines.push({ text: `Expires ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${days === 0 ? 'today' : days === 1 ? 'in 1 day' : `in ${days} days`}`, left: Math.min(100, ((r.expires - now) / (EXPIRY_HORIZON_DAYS * 86_400_000)) * 100) })
   }
-  lines.push({ text: '', gap: true })
-  lines.push({ text: left.length === 1 ? 'Use it in Settings > Usage.' : 'Use them in Settings > Usage.' })
+  lines.push(gap, { text: left.length === 1 ? 'Use it in Settings > Usage.' : 'Use them in Settings > Usage.', dim: true })
   return { chips: [{ text: `+${left.length}`, lines }], color }
 }
 

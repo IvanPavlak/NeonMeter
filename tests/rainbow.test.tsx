@@ -162,12 +162,17 @@ describe('desktop', () => {
     expect(svg).toContain('preserveAspectRatio="none"')
   })
 
-  test('a card line in the rainbow runs the colors once across its text', () => {
-    const svg = contextRowSvg({ key: 't', text: '2 limit resets available', color: COLORS[0]!, live: false, halo: true, dot: false, rainbow: COLORS }, base)
+  test('a card line in the rainbow runs the colors once across its text, which sits in the middle of its drawing', () => {
+    const row = { key: 't', text: '2 limit resets available', color: COLORS[0]!, live: false, halo: true, dot: false, rainbow: COLORS, center: 44, strong: true } as const
+    const svg = contextRowSvg(row, base)
     expect(svg).toContain('<linearGradient id="rw"')
     expect(svg.split('<stop ').length - 1).toBe(6)
-    expect(svg).toMatch(/data-role="row"[^>]*fill="url\(#rw\)"/)
+    expect(svg).toMatch(/data-role="row"[^>]*text-anchor="middle"[^>]*fill="url\(#rw\)"/)
     expect(animations(svg)).toBe(0)
+    // A gap is the same width with nothing in it; a plain line the same width too.
+    const width = (s: string) => /width="(\d+)"/.exec(s)![1]
+    expect(width(contextRowSvg({ ...row, text: '', gap: true }, base))).toBe(width(svg))
+    expect(width(contextRowSvg({ key: 'p', text: 'short', color: '#FFFFFF', live: false, halo: false, dot: false, center: 44 }, base))).toBe(width(svg))
   })
 })
 
