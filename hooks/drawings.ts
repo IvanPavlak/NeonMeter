@@ -590,10 +590,12 @@ export function frameSpacerSvg(w: number): string {
 
 /**
  * The app's padding above and below the band inside its card, in CSS pixels,
- * measured on the desktop app: 13 on Windows, 10 on macOS, where 13 drew the
- * lines on the card's clipped edge and only part of them showed.
+ * measured on the desktop app: 10 on Windows and on macOS. Windows was first
+ * taken for 13: the drawings then stood 3 pixels past the card above and
+ * below, their lines on its clipped edge, and the card had those pixels to
+ * scroll, so the wheel over the band moved the row.
  */
-export const OUTLINE_PAD = { windows: 13, mac: 10 } as const
+export const OUTLINE_PAD = { windows: 10, mac: 10 } as const
 export type OutlinePad = (typeof OUTLINE_PAD)[keyof typeof OUTLINE_PAD]
 /** The card's corner radius, in the drawings' own pixels (about 10 CSS pixels, as the app rounds its card). */
 export const OUTLINE_RADIUS = 15
