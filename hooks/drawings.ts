@@ -29,7 +29,7 @@
 // the README's generator runs this very file; desktop.tsx
 // lays them out in the band.
 
-import type { ContextRow, FlexDot, FlexSlice, Palette, Span } from './builder'
+import type { ContextRow, FlexChip, FlexDot, FlexPace, FlexSlice, Palette, Span } from './builder'
 import type { Burst } from './color'
 import { pulseForeground } from './color'
 
@@ -48,7 +48,23 @@ export type DesktopOptions = {
   palette: Palette
   /** The bar's nominal width in dots (from the band's width); every bar drawing is this many `DOT_UNIT` wide. */
   dotCount: number
+  /** The `rainbow` option: everything live and colored by a percent is painted in these colors instead. */
+  rainbow?: Rainbow
+  /**
+   * The clock at the drawing, in milliseconds. With it, a pulse that never stops is in phase with the clock, not with
+   * the moment the drawing was made: a band drawn again mid-cycle (a rotation's turn, a new reading) carries on where
+   * the last one stood, so a turning rainbow never jumps back. Without it the animation starts with the drawing.
+   */
+  nowMs?: number
 }
+
+/**
+ * The rainbow theme: its colors, and how it moves. `still` holds it; `breathe`
+ * brightens it and widens the halo with the pulse, as the range colors do;
+ * `circle` runs it along the bars and the text and around the rings, once
+ * per pulse cycle, the halo breathing.
+ */
+export type Rainbow = { colors: readonly string[]; motion: 'still' | 'breathe' | 'circle' }
 
 /**
  * The drawings' geometry, in their own pixels. The app shows a drawing at the
@@ -101,10 +117,75 @@ type Beat = { ms: number; timing: string; mark: string } | null
 
 function beatOf(o: DesktopOptions, live: boolean): Beat {
   if (!o.pulse || !live) return null
-  if (o.pulseMode === 'always') return { ms: o.pulseMs, timing: 'repeatCount="indefinite"', mark: '' }
+  if (o.pulseMode === 'always') {
+    if (o.nowMs === undefined) return { ms: o.pulseMs, timing: 'repeatCount="indefinite"', mark: '' }
+    return { ms: o.pulseMs, timing: `begin="-${Math.round(((o.nowMs % o.pulseMs) + o.pulseMs) % o.pulseMs)}ms" repeatCount="indefinite"`, mark: '' }
+  }
   const { gen, elapsedMs, totalMs } = o.burst
   if (gen === 0 || elapsedMs >= totalMs) return null
   return { ms: o.pulseMs, timing: `begin="-${Math.round(elapsedMs)}ms" repeatDur="${Math.round(totalMs)}ms"`, mark: ` data-burst="${gen}"` }
+}
+
+/** Whether a drawing with something live in it is painted in the rainbow. */
+function rainbowOn(o: DesktopOptions, live: boolean): boolean {
+  return Boolean(o.rainbow && o.rainbow.colors.length > 1 && live)
+}
+
+/** A drawing's pulse as `beatOf` gives it, or, painted in a rainbow that holds still, none. */
+function beatFor(o: DesktopOptions, live: boolean): Beat {
+  return rainbowOn(o, live) && o.rainbow!.motion === 'still' ? null : beatOf(o, live)
+}
+
+/** The rainbow's paint, and how far one run of its colors reaches along a bar or a line of text, in a drawing's own pixels. */
+const RB = 'url(#rb)'
+export const RAINBOW_PERIOD = 126
+
+/**
+ * The rainbow as a gradient, its colors and the first one again so it closes on
+ * itself: along `period` and repeating, for bars and text, where `circle`
+ * slides it one period per pulse cycle; or across a circle of radius `r`, for
+ * rings, where `circle` turns it once per cycle. `breathe` brightens every
+ * stop with the pulse. `id` names it when a drawing holds two, and `dir: -1`
+ * slides it the other way: a frame's top edge runs right and its bottom edge
+ * left, so the colors go round.
+ */
+function rainbowPaint(o: DesktopOptions, beat: Beat, at: { period: number } | { cx: number; cy: number; r: number }, id = 'rb', dir: 1 | -1 = 1): string {
+  const rb = o.rainbow!
+  const colors = rb.colors.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track))
+  const loop = [...colors, colors[0]!]
+  const stops = loop.map((c, i) => `<stop offset="${+(i / (loop.length - 1)).toFixed(4)}" stop-color="${c}">${beat && rb.motion === 'breathe' ? animate('stop-color', c, peakOf(c), beat) : ''}</stop>`).join('')
+  const moving = beat && rb.motion === 'circle' ? beat : null
+  if ('period' in at) {
+    const slide = moving ? `<animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="${dir * at.period} 0" dur="${moving.ms}ms" ${moving.timing}/>` : ''
+    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${at.period}" y2="0" spreadMethod="repeat">${stops}${slide}</linearGradient>`
+  }
+  const turn = moving ? `<animateTransform attributeName="gradientTransform" type="rotate" from="0 ${at.cx} ${at.cy}" to="360 ${at.cx} ${at.cy}" dur="${moving.ms}ms" ${moving.timing}/>` : ''
+  return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${at.cx - at.r}" y1="${at.cy}" x2="${at.cx + at.r}" y2="${at.cy}">${stops}${turn}</linearGradient>`
+}
+
+/**
+ * A frame in the rainbow. Its edges are one drawing the app stretches, and its
+ * caps two more, and no drawing knows how wide another is: so each stretch of
+ * edge runs the whole rainbow, ending in the color it began with, and under
+ * `circle` slides it by exactly its own width per cycle, the top edge to the
+ * right and the bottom edge to the left. Every stretch then shows the same
+ * color at both its ends at any moment, whatever its width, so stretches meet
+ * without a seam, and a cap, whose line joins a top edge to a bottom edge,
+ * runs from the one's color to the other's: the colors go round the frame.
+ * Held still, every end is the first color, and so are the caps.
+ */
+function edgePaints(o: DesktopOptions, beat: Beat, w: number): string {
+  return rainbowPaint(o, beat, { period: w }, 'rbt', 1) + rainbowPaint(o, beat, { period: w }, 'rbb', -1)
+}
+
+/** A cap's paint in the rainbow, from the line's top `t` to its bottom `b`: null when the rainbow holds still or breathes, and the cap is the first color. */
+function capPaint(o: DesktopOptions, beat: Beat, t: number, b: number): string | null {
+  if (!beat || o.rainbow?.motion !== 'circle') return null
+  const colors = o.rainbow.colors.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track))
+  const loop = [...colors, colors[0]!]
+  // The top edge slides right, so the color at its end runs back through the rainbow; the bottom edge's runs forward.
+  const stop = (offset: number, values: string[]) => `<stop offset="${offset}" stop-color="${values[0]}"><animate attributeName="stop-color" values="${values.join(';')}" dur="${beat.ms}ms" ${beat.timing}/></stop>`
+  return `<linearGradient id="rbc" gradientUnits="userSpaceOnUse" x1="0" y1="${t}" x2="0" y2="${b}">${stop(0, [...loop].reverse())}${stop(1, loop)}</linearGradient>`
 }
 
 /** The pulse's ease, `cubic-bezier(0.42, 0, 0.58, 1)` (the spline below), at `x` of half a cycle. */
@@ -188,6 +269,9 @@ function paints(ids: Map<string, string>, beat: NonNullable<Beat> | null): strin
 // filter did without a filter's offscreen pass, and the pulse steps the
 // gradient's stops through the blur's widths as the blur's own animation did.
 // ---------------------------------------------------------------------------
+
+/** The line of a hollow dot, a striped cell's. */
+export const HOLLOW_WIDTH = 2
 
 /** The disc a dot's halo blurs: the dot and a little more. */
 const HALO_DISC = DOT_RADIUS + 1.2
@@ -288,9 +372,9 @@ const HALO_CLIP = `<clipPath id="hc" clipPathUnits="objectBoundingBox"><rect x="
  * element carries a `data-role` (`dot`, `dot-halo`) for a reader of the
  * markup; a live dot's `data-color` is its color, its fill the shared paint.
  */
-export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions): string {
+export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions, tick?: number): string {
   for (const halos of ['pulse', 'still', 'none'] as const) {
-    const svg = dotBar(dots, o, halos)
+    const svg = dotBar(dots, o, halos, tick)
     if (svg.length <= DRAWING_BUDGET || halos === 'none') return svg
   }
   return ''
@@ -306,9 +390,11 @@ const DRAWING_BUDGET = 120_000
  * The dot bar, its halos pulsing, or, when its markup would pass
  * `DRAWING_BUDGET`, at rest (the dots still pulse), and past that crisp.
  */
-function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 'still' | 'none'): string {
-  const beat = beatOf(o, dots.some(d => d.live))
+function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 'still' | 'none', tick?: number): string {
+  const rb = rainbowOn(o, dots.some(d => d.live))
+  const beat = beatFor(o, dots.some(d => d.live))
   if (halosAs === 'none') o = { ...o, glow: false }
+  let rainbowHalo = ''
   const w = dots.length * DOT_UNIT + 2 * PAD
   const h = ROW_HEIGHT
   const cy = MIDLINE
@@ -320,6 +406,13 @@ function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 
     const color = HEX.test(d.color) ? d.color.toUpperCase() : o.palette.track
     const filled = color !== o.palette.track.toUpperCase()
     const live = Boolean(d.live) && beat !== null
+    if (rb && d.live && filled) {
+      // In the rainbow every live dot takes the one paint, and their halos are one blurred copy of them all.
+      const shape = d.hollow ? `cx="${cx}" cy="${cy}" r="${DOT_RADIUS - HOLLOW_WIDTH / 2}" fill="none" stroke="${RB}" stroke-width="${HOLLOW_WIDTH}"` : `cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${RB}"`
+      if (o.glow && d.halo !== false) rainbowHalo += `<circle ${shape}/>`
+      body += `<circle data-role="${d.hollow ? 'dot-ring' : 'dot'}" ${shape}/>`
+      return
+    }
     if (filled && o.glow && d.halo !== false) {
       const key = color + (live ? '+' : '')
       let hg = halos.get(key)
@@ -329,11 +422,22 @@ function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 
       }
       body += `<circle data-role="dot-halo" cx="${cx}" cy="${cy}" r="${HALO_REACH}" fill="url(#${hg.id})" clip-path="url(#hc)"/>`
     }
+    if (d.hollow && filled) {
+      // A striped cell's dot: a ring of the dot's size, in the dot's paint.
+      const ring = `cx="${cx}" cy="${cy}" r="${DOT_RADIUS - HOLLOW_WIDTH / 2}" fill="none" stroke-width="${HOLLOW_WIDTH}"`
+      body += live ? `<circle data-role="dot-ring" ${ring} stroke="${paint(fills, color)}" data-color="${color}"/>` : `<circle data-role="dot-ring" ${ring} stroke="${color}"/>`
+      return
+    }
     body += live ? `<circle data-role="dot" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${paint(fills, color)}" data-color="${color}"/>` : `<circle data-role="dot" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${color}"/>`
   })
   let defs = halos.size ? HALO_CLIP : ''
   for (const hg of halos.values()) defs += haloGradient(hg.id, hg.color, hg.live && halosAs === 'pulse' ? beat : null)
   defs += paints(fills, beat)
+  if (rb) {
+    defs += rainbowPaint(o, beat, { period: RAINBOW_PERIOD }) + (rainbowHalo ? filters(w, h, beat) : '')
+    if (rainbowHalo) body = `<g data-role="dot-halo" ${halo(beat !== null, beat)}${rainbowHalo}</g>` + body
+  }
+  if (tick !== undefined) body += tickRect(PAD + (Math.min(100, Math.max(0, tick)) / 100) * dots.length * DOT_UNIT, o)
   return open(w, h, beat, defs) + body + '</svg>'
 }
 
@@ -345,9 +449,11 @@ function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 
  * slices pulse; a slice drawn `halo: false` (the context's autocompact
  * buffer) stays out of the halo.
  */
-export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): string {
-  const beat = beatOf(o, slices.some(sl => sl.live))
+export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions, pace?: FlexPace): string {
+  const rb = rainbowOn(o, slices.some(sl => sl.live))
+  const beat = beatFor(o, slices.some(sl => sl.live))
   const bar = Math.max(1, o.dotCount) * DOT_UNIT
+  let tipFill = o.palette.track
   const w = bar + 2 * PAD
   const h = ROW_HEIGHT
   const y = MIDLINE - BAR_THICKNESS / 2
@@ -365,12 +471,15 @@ export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): s
     if (color !== track.toUpperCase()) {
       filledTo = at + sl.grow
       // Each slice animates its own fill: a shared gradient paint would draw the bar's edges a shade darker.
-      const rect = `x="${(PAD + at * px).toFixed(2)}" y="${y}" width="${(sl.grow * px).toFixed(2)}" height="${BAR_THICKNESS}" fill="${color}" data-grow="${sl.grow.toFixed(1)}">${sl.live && beat ? animate('fill', color, peakOf(color), beat) : ''}</rect>`
+      // In the rainbow a live slice takes the one paint, which moves by itself.
+      const fill = rb && sl.live ? RB : color
+      tipFill = fill
+      const rect = `x="${(PAD + at * px).toFixed(2)}" y="${y}" width="${(sl.grow * px).toFixed(2)}" height="${BAR_THICKNESS}" fill="${fill}" data-grow="${sl.grow.toFixed(1)}">${sl.live && beat && fill !== RB ? animate('fill', color, peakOf(color), beat) : ''}</rect>`
       rects += `<rect data-role="slice" ${rect}`
       if (sl.halo !== false) {
         glowRects += `<rect data-role="slice-halo" ${rect}`
         glowTo = filledTo
-        glowColor = color
+        glowColor = fill
       }
     }
     at += sl.grow
@@ -382,13 +491,33 @@ export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): s
   // The tip reaches the pill's end in the last color, so a small percent fills its round dot.
   const tip = (role: string, to: number, color: string) => `<rect data-role="${role}-tip" x="${PAD}" y="${y}" width="${to.toFixed(2)}" height="${BAR_THICKNESS}" fill="${color}"/>`
   const glow = glowTo > 0 && o.glow ? `<g ${halo(anyLive, beat)}<g clip-path="url(#c)">${tip('slice-halo', glowPx, glowColor)}${glowRects}</g></g>` : ''
+  // The pace's stripes: cut out of the fill in the track's color, so the fill under them pulses as ever, or drawn
+  // in their own color on the track past the fill, under the fill's round end.
+  const st = pace?.stripe
+  const stripeColor = st ? (st.cut ? track : HEX.test(st.color) ? st.color.toUpperCase() : track) : ''
+  const stripeRect = st ? `<rect data-role="pace-stripe" data-cut="${st.cut}" x="${(PAD + st.from * px).toFixed(2)}" y="${y}" width="${(Math.max(0, st.to - st.from) * px).toFixed(2)}" height="${BAR_THICKNESS}" fill="url(#st)"/>` : ''
+  const stripeDefs = st ? `${stripePattern(stripeColor)}<clipPath id="t"><rect x="${PAD}" y="${y}" width="${bar}" height="${BAR_THICKNESS}" rx="${rx}"/></clipPath>` : ''
   return (
-    open(w, h, beat, filters(w, h, anyLive ? beat : null) + clip) +
+    open(w, h, beat, filters(w, h, anyLive ? beat : null) + clip + stripeDefs + (rb ? rainbowPaint(o, beat, { period: RAINBOW_PERIOD }) : '')) +
     `<rect data-role="track" x="${PAD}" y="${y}" width="${bar}" height="${BAR_THICKNESS}" rx="${rx}" fill="${track}"/>` +
+    (st && !st.cut ? `<g clip-path="url(#t)">${stripeRect}</g>` : '') +
     glow +
-    (filledTo > 0 ? `<g clip-path="url(#c)">${tip('slice', filledPx, lastColor(slices, track))}${rects}</g>` : '') +
+    (filledTo > 0 ? `<g clip-path="url(#c)">${tip('slice', filledPx, rb ? tipFill : lastColor(slices, track))}${rects}${st?.cut ? stripeRect : ''}</g>` : '') +
+    (pace?.tick !== undefined ? tickRect(PAD + (Math.min(100, Math.max(0, pace.tick)) / 100) * bar, o) : '') +
     '</svg>'
   )
+}
+
+/** The stripes' pattern: bands of `color` half the period wide, leaning as the bar's own stripes in the design do. */
+const STRIPE_PERIOD = 7
+function stripePattern(color: string): string {
+  return `<pattern id="st" width="${STRIPE_PERIOD}" height="${STRIPE_PERIOD}" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><rect width="${STRIPE_PERIOD / 2}" height="${STRIPE_PERIOD}" fill="${color}"/></pattern>`
+}
+
+/** The pace tick: a still notch in the text color across the bar at `x`, a little taller than the bar. */
+export const TICK_HEIGHT = 19.5
+function tickRect(x: number, o: DesktopOptions): string {
+  return `<rect data-role="pace-tick" x="${(x - RING_WIDTH / 2).toFixed(2)}" y="${(MIDLINE - TICK_HEIGHT / 2).toFixed(2)}" width="${RING_WIDTH}" height="${TICK_HEIGHT}" rx="${RING_WIDTH / 2}" fill="${o.palette.text}"/>`
 }
 
 /** The color of the last filled slice, what a bar's tip is painted. */
@@ -406,16 +535,17 @@ type TextLook = { role: string; weight: number; charWidth: number }
 
 /** Text in its color under a halo of the same color; live, it pulses. */
 function textSvg(span: Span, look: TextLook, o: DesktopOptions): string {
-  const beat = beatOf(o, Boolean(span.live))
+  const rb = rainbowOn(o, Boolean(span.live))
+  const beat = beatFor(o, Boolean(span.live))
   const live = Boolean(span.live) && beat !== null
   const w = Math.ceil(span.text.length * look.charWidth) + 2 * PAD
   const h = ROW_HEIGHT
-  const attrs = `x="${PAD}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${look.weight}" fill="${span.color}"`
+  const attrs = `x="${PAD}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${look.weight}" fill="${rb ? RB : span.color}"`
   const text = esc(span.text)
   return (
-    open(w, h, beat, o.glow ? filters(w, h, beat) : '') +
+    open(w, h, beat, (o.glow ? filters(w, h, beat) : '') + (rb ? rainbowPaint(o, beat, { period: RAINBOW_PERIOD }) : '')) +
     (o.glow ? `<text data-role="${look.role}-halo" ${attrs} ${halo(live, beat)}${text}</text>` : '') +
-    `<text data-role="${look.role}" ${attrs}>${text}${live ? animate('fill', span.color, peakOf(span.color), beat!) : ''}</text>` +
+    `<text data-role="${look.role}" ${attrs}>${text}${live && !rb ? animate('fill', span.color, peakOf(span.color), beat!) : ''}</text>` +
     '</svg>'
   )
 }
@@ -428,6 +558,31 @@ export function pctSvg(pct: Span, o: DesktopOptions): string {
 /** A reset under `resetColor: time`: regular-weight text in its time color under the halo; live, it pulses with the percents. */
 export function resetSvg(reset: Span, o: DesktopOptions): string {
   return textSvg(reset, { role: 'extra', weight: 400, charWidth: RESET_CHAR_WIDTH }, o)
+}
+
+/** About what a character of a card row measures across at `PCT_FONT_SIZE`, on average: it places a rainbow over a line's text. */
+const ROW_TEXT_WIDTH = 9
+
+/**
+ * A card row with its text centered: every row of the card is drawn `chars`
+ * characters wide, the widest line's, and its text sits in the middle of
+ * that, so the lines are centered on one another whatever the font measures
+ * (a drawing's own width is an estimate; text anchored at its middle needs
+ * none). An expiry's dot is a character of its text, so it stays beside it.
+ * A gap is the same drawing with nothing in it: room between two lines.
+ */
+function centeredRowSvg(row: ContextRow, chars: number, o: DesktopOptions): string {
+  const w = Math.ceil(chars * ROW_CHAR_WIDTH) + 2 * PAD
+  const h = ROW_HEIGHT
+  // An empty drawing takes no room in the app: a rect of nothing gives it its size.
+  if (row.gap) return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect data-role="row-gap" width="${w}" height="${h}" fill="#000000" fill-opacity="0"/></svg>`
+  const across = row.rainbow && row.rainbow.length > 1 ? row.rainbow.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track)) : null
+  const half = (row.text.length * ROW_TEXT_WIDTH) / 2
+  const attrs = `x="${w / 2}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${row.strong ? 600 : 400}" fill="${across ? 'url(#rw)' : row.color}"`
+  const text = esc(row.text)
+  const paintDef = across ? `<linearGradient id="rw" gradientUnits="userSpaceOnUse" x1="${(w / 2 - half).toFixed(1)}" y1="0" x2="${(w / 2 + half).toFixed(1)}" y2="0">${across.map((c, i) => `<stop offset="${+(i / (across.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('')}</linearGradient>` : ''
+  const glow = row.halo && o.glow ? `<g data-role="row-halo" ${halo(false, null)}<text ${attrs}>${text}</text></g>` : ''
+  return open(w, h, null, (row.halo && o.glow ? filters(w, h, null) : '') + paintDef) + glow + `<text data-role="row" ${attrs}>${text}</text></svg>`
 }
 
 /**
@@ -445,7 +600,8 @@ export const RING_WIDTH = 2.4
  * `data-role` (`ring-track`, `ring`, `ring-halo`).
  */
 export function buttonSvg(ring: readonly FlexSlice[], o: DesktopOptions): string {
-  const beat = beatOf(o, ring.some(sl => sl.live))
+  const rb = rainbowOn(o, ring.some(sl => sl.live))
+  const beat = beatFor(o, ring.some(sl => sl.live))
   const w = ROW_HEIGHT
   const h = ROW_HEIGHT
   const c = MIDLINE
@@ -459,14 +615,63 @@ export function buttonSvg(ring: readonly FlexSlice[], o: DesktopOptions): string
     const color = HEX.test(sl.color) ? sl.color.toUpperCase() : track
     if (color !== track.toUpperCase() && sl.grow > 0) {
       // The arc and its halo copy pulse alike, as a bar's slices and theirs do.
-      const arc = `${circle} stroke="${color}" stroke-dasharray="${((sl.grow / 100) * len).toFixed(2)} ${len.toFixed(2)}" stroke-dashoffset="${(-(at / 100) * len).toFixed(2)}">${sl.live && beat ? animate('stroke', color, peakOf(color), beat) : ''}</circle>`
+      const stroke = rb && sl.live ? RB : color
+      const arc = `${circle} stroke="${stroke}" stroke-dasharray="${((sl.grow / 100) * len).toFixed(2)} ${len.toFixed(2)}" stroke-dashoffset="${(-(at / 100) * len).toFixed(2)}">${sl.live && beat && stroke !== RB ? animate('stroke', color, peakOf(color), beat) : ''}</circle>`
       arcs += `<circle data-role="ring" ${arc}`
       glows += `<circle data-role="ring-halo" ${arc}`
     }
     at += sl.grow
   }
   const glow = arcs && o.glow ? `<g ${halo(beat !== null, beat)}${glows}</g>` : ''
-  return open(w, h, beat, o.glow ? filters(w, h, beat) : '') + `<circle data-role="ring-track" ${circle} stroke="${track}"/>` + glow + arcs + '</svg>'
+  const defs = (o.glow ? filters(w, h, beat) : '') + (rb ? rainbowPaint(o, beat, { cx: c, cy: c, r: RING_RADIUS + RING_WIDTH }) : '')
+  return open(w, h, beat, defs) + `<circle data-role="ring-track" ${circle} stroke="${track}"/>` + glow + arcs + '</svg>'
+}
+
+/**
+ * A reset chip's geometry, in the drawing's own pixels: a pill around its text,
+ * as tall as the button's ring is wide, with room around it for the halo.
+ */
+export const CHIP_HEIGHT = 2 * RING_RADIUS + RING_WIDTH
+export const CHIP_FONT_SIZE = 16.5
+export const CHIP_CHAR_WIDTH = 10.4
+export const CHIP_INSET = 8
+export const CHIP_PAD = 9
+
+/**
+ * A reset chip: its text in a pill, both in one paint under a halo of the
+ * pill. With six colors the paint is the rainbow, a gradient across the pill
+ * that, while the band pulses, turns once per cycle (`circle`) or stays put
+ * and brightens (`breathe`), and lies still otherwise or under `still`; with
+ * one, that color, brightening as a frame does. Every part
+ * carries a `data-role` (`chip`, `chip-text`, `chip-halo`).
+ */
+export function resetChipSvg(chip: FlexChip, o: DesktopOptions): string {
+  // `still` holds the chip whatever the band does; `breathe` and `circle` pulse with it.
+  const motion = chip.motion ?? 'circle'
+  const beat = motion === 'still' ? null : beatOf(o, true)
+  const inner = Math.ceil(chip.text.length * CHIP_CHAR_WIDTH) + 2 * CHIP_PAD
+  const w = inner + 2 * CHIP_INSET
+  const h = ROW_HEIGHT
+  const y = MIDLINE - CHIP_HEIGHT / 2
+  const colors = chip.colors.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track))
+  const rainbow = colors.length > 1
+  let defs = o.glow ? filters(w, h, beat) : ''
+  let pulse: ((attr: string) => string) | null = null
+  if (rainbow) {
+    // `circle` turns the rainbow; `breathe` holds it in place and brightens every color with the pulse.
+    const turn = beat && motion === 'circle' ? `<animateTransform attributeName="gradientTransform" type="rotate" from="0 ${w / 2} ${MIDLINE}" to="360 ${w / 2} ${MIDLINE}" dur="${beat.ms}ms" ${beat.timing}/>` : ''
+    const stops = colors.map((c, i) => `<stop offset="${+(i / (colors.length - 1)).toFixed(3)}" stop-color="${c}">${beat && motion === 'breathe' ? animate('stop-color', c, peakOf(c), beat) : ''}</stop>`).join('')
+    defs += `<linearGradient id="rb" gradientUnits="userSpaceOnUse" x1="${CHIP_INSET}" y1="0" x2="${w - CHIP_INSET}" y2="0">${stops}${turn}</linearGradient>`
+  } else if (beat) {
+    pulse = (attr: string) => animate(attr, colors[0]!, peakOf(colors[0]!), beat)
+  }
+  const paintOf = rainbow ? 'url(#rb)' : colors[0]!
+  const pill = `x="${CHIP_INSET}" y="${y.toFixed(2)}" width="${inner}" height="${CHIP_HEIGHT.toFixed(2)}" rx="${(CHIP_HEIGHT / 2).toFixed(2)}" fill="none" stroke="${paintOf}" stroke-width="${RING_WIDTH}"`
+  const strokePulse = pulse ? pulse('stroke') : ''
+  const fillPulse = pulse ? pulse('fill') : ''
+  const glow = o.glow ? `<g data-role="chip-halo" ${halo(beat !== null, beat)}<rect ${pill}>${strokePulse}</rect></g>` : ''
+  const text = `<text data-role="chip-text" x="${w / 2}" y="${(MIDLINE + CHIP_FONT_SIZE * BASELINE_DROP).toFixed(1)}" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${CHIP_FONT_SIZE}" font-weight="700" fill="${paintOf}">${esc(chip.text)}${fillPulse}</text>`
+  return open(w, h, beat, defs) + glow + `<rect data-role="chip" ${pill}>${strokePulse}</rect>` + text + '</svg>'
 }
 
 /** A breakdown row's character width at `PCT_FONT_SIZE`, generous so the drawing ends past its text. */
@@ -478,18 +683,22 @@ const ROW_CHAR_WIDTH = 10.6
  * band, the autocompact buffer holds still without a halo.
  */
 export function contextRowSvg(row: ContextRow, o: DesktopOptions): string {
+  if (row.center !== undefined) return centeredRowSvg(row, row.center, o)
   const beat = beatOf(o, row.live)
   const live = row.live && beat !== null
   const textX = row.dot === false ? PAD : PAD + DOT_UNIT
+  // A line in the rainbow: the colors once across its text, still.
+  const across = row.rainbow && row.rainbow.length > 1 ? row.rainbow.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track)) : null
+  const paintOf = across ? 'url(#rw)' : row.color
   const w = Math.ceil(textX + row.text.length * ROW_CHAR_WIDTH) + PAD
   const h = ROW_HEIGHT
   const dot = `cx="${PAD + DOT_UNIT / 2 - 3}" cy="${MIDLINE}" r="${DOT_RADIUS}"`
-  const attrs = `x="${textX}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${row.dot === false ? 600 : 400}" fill="${row.color}"`
+  const attrs = `x="${textX}" y="${(MIDLINE + PCT_FONT_SIZE * BASELINE_DROP).toFixed(1)}" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${PCT_FONT_SIZE}" font-weight="${row.dot === false ? 600 : 400}" fill="${paintOf}"`
   const pulse = live ? animate('fill', row.color, peakOf(row.color), beat!) : ''
   const text = esc(row.text)
   const glow = row.halo && o.glow ? `<g data-role="row-halo" ${halo(live, beat)}<circle ${dot} fill="${row.color}"/><text ${attrs}>${text}</text></g>` : ''
   return (
-    open(w, h, beat, row.halo && o.glow ? filters(w, h, beat) : '') +
+    open(w, h, beat, (row.halo && o.glow ? filters(w, h, beat) : '') + (across ? `<linearGradient id="rw" gradientUnits="userSpaceOnUse" x1="${textX}" y1="0" x2="${w - PAD}" y2="0">${across.map((c, i) => `<stop offset="${+(i / (across.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('')}</linearGradient>` : '')) +
     glow +
     (row.dot === false ? '' : `<circle data-role="row-dot" ${dot} fill="${row.color}">${pulse}</circle>`) +
     `<text data-role="row" ${attrs}>${text}${pulse}</text>` +
@@ -532,18 +741,20 @@ function frameFilter(id: string, x: number, w: number, sdX: number, beat: Beat):
 }
 
 /** A frame part's line and its halo copy, the halo blurred by filter `f`; live, the color and the halo pulse. */
-function frameStroke(d: string, f: FrameLook, o: DesktopOptions, beat: Beat): string {
-  const color = HEX.test(f.color) ? f.color.toUpperCase() : o.palette.track
+function frameStroke(d: string, f: FrameLook, o: DesktopOptions, beat: Beat, paintWith?: string): string {
+  const color = paintWith ?? (HEX.test(f.color) ? f.color.toUpperCase() : o.palette.track)
   const live = f.live && beat !== null
   const line = `d="${d}" fill="none" stroke="${color}" stroke-width="${FRAME_WIDTH}" stroke-linecap="butt"`
-  const pulse = live ? animate('stroke', color, peakOf(color), beat!) : ''
+  // A paint moves or brightens by itself; the halo breathes either way.
+  const pulse = live && !paintWith ? animate('stroke', color, peakOf(color), beat!) : ''
   const glow = o.glow ? `<path data-role="frame-halo" ${line} filter="url(#fg)" opacity="${GLOW.restHalo}">${live ? animate('opacity', GLOW.restHalo, GLOW.peakHalo, beat!) : ''}${pulse}</path>` : ''
   return glow + `<path data-role="frame" ${line}>${pulse}</path>`
 }
 
 /** One end of a frame: the rounded corners and a stretch of the edges, which run on past the drawing to meet the edges' drawing. */
 export function frameCapSvg(side: 'left' | 'right', f: FrameLook, o: DesktopOptions): string {
-  const beat = beatOf(o, f.live)
+  f = capLook(f, o)
+  const beat = beatFor(o, f.live)
   const w = FRAME_CAP
   const h = FRAME_HEIGHT
   const t = FRAME_INSET
@@ -553,19 +764,32 @@ export function frameCapSvg(side: 'left' | 'right', f: FrameLook, o: DesktopOpti
   const run = w + 3 * GLOW.peakBlur
   // Drawn as the left cap; the right cap is the same, mirrored.
   const d = `M${run} ${t}H${x + r}A${r} ${r} 0 0 0 ${x} ${t + r}V${b - r}A${r} ${r} 0 0 0 ${x + r} ${b}H${run}`
-  const filter = o.glow ? frameFilter('fg', -run, 3 * run, 1, beat) : ''
-  const body = side === 'left' ? frameStroke(d, f, o, beat) : `<g transform="translate(${w} 0) scale(-1 1)">${frameStroke(d, f, o, beat)}</g>`
+  const turning = rainbowOn(o, f.live) ? capPaint(o, beat, t, b) : null
+  const filter = (o.glow ? frameFilter('fg', -run, 3 * run, 1, beat) : '') + (turning ?? '')
+  const line = frameStroke(d, f, o, beat, turning ? 'url(#rbc)' : undefined)
+  const body = side === 'left' ? line : `<g transform="translate(${w} 0) scale(-1 1)">${line}</g>`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
 }
 
 /** The edges' drawing: the top and bottom lines, 100 wide, which the app stretches across the frame. */
 export function frameEdgesSvg(f: FrameLook, o: DesktopOptions): string {
-  const beat = beatOf(o, f.live)
+  const rb = rainbowOn(o, f.live)
+  const beat = beatFor(o, f.live)
   const w = 100
   const h = FRAME_HEIGHT
   const d = `M0 ${FRAME_INSET}H${w}M0 ${h - FRAME_INSET}H${w}`
-  const filter = o.glow ? frameFilter('fg', 0, w, 0, beat) : ''
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${frameStroke(d, f, o, beat)}</svg>`
+  const filter = (o.glow ? frameFilter('fg', 0, w, 0, beat) : '') + (rb ? edgePaints(o, beat, w) : '')
+  const lines = rb ? frameStroke(`M0 ${FRAME_INSET}H${w}`, f, o, beat, 'url(#rbt)') + frameStroke(`M0 ${h - FRAME_INSET}H${w}`, f, o, beat, 'url(#rbb)') : frameStroke(d, f, o, beat)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${lines}</svg>`
+}
+
+/**
+ * A cap's look in the rainbow while it holds still or breathes: the rainbow's
+ * first color, the one a frame's edges start and end in, so the line runs on
+ * without a seam; it brightens with the pulse as any frame does.
+ */
+function capLook(f: FrameLook, o: DesktopOptions): FrameLook {
+  return rainbowOn(o, f.live) ? { ...f, color: o.rainbow!.colors[0]! } : f
 }
 
 /** A drawing of nothing, `w` of the frame's pixels wide: room a frame keeps clear of the segment's text. */
@@ -621,7 +845,8 @@ function outlineFilter(id: string, x: number, w: number, h: number, sdX: number,
 
 /** One end of the outline, `h` of its own pixels tall: the two rounded corners and the side between them, the edges running on past the drawing to meet the edges' drawing beside it. */
 export function outlineCapSvg(side: 'left' | 'right', f: FrameLook, h: number, o: DesktopOptions): string {
-  const beat = beatOf(o, f.live)
+  f = capLook(f, o)
+  const beat = beatFor(o, f.live)
   const w = OUTLINE_CAP
   const t = OUTLINE_INSET
   const b = h - OUTLINE_INSET
@@ -630,8 +855,10 @@ export function outlineCapSvg(side: 'left' | 'right', f: FrameLook, h: number, o
   const r = Math.min(OUTLINE_RADIUS - OUTLINE_INSET, (b - t) / 2)
   const run = w + 3 * GLOW.peakBlur
   const d = `M${run} ${t}H${x + r}A${r} ${r} 0 0 0 ${x} ${t + r}V${b - r}A${r} ${r} 0 0 0 ${x + r} ${b}H${run}`
-  const filter = o.glow ? outlineFilter('fg', -run, 3 * run, h, 1, beat) : ''
-  const body = side === 'left' ? frameStroke(d, f, o, beat) : `<g transform="translate(${w} 0) scale(-1 1)">${frameStroke(d, f, o, beat)}</g>`
+  const turning = rainbowOn(o, f.live) ? capPaint(o, beat, t, b) : null
+  const filter = (o.glow ? outlineFilter('fg', -run, 3 * run, h, 1, beat) : '') + (turning ?? '')
+  const line = frameStroke(d, f, o, beat, turning ? 'url(#rbc)' : undefined)
+  const body = side === 'left' ? line : `<g transform="translate(${w} 0) scale(-1 1)">${line}</g>`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h.toFixed(2)}" viewBox="0 0 ${w} ${h.toFixed(2)}"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
 }
 
@@ -643,12 +870,76 @@ export function outlineCapSvg(side: 'left' | 'right', f: FrameLook, h: number, o
  */
 export function outlineEdgesSvg(f: FrameLook, h: number, o: DesktopOptions, right?: FrameLook): string {
   const live = f.live || Boolean(right?.live)
-  const beat = beatOf(o, live)
+  const rb = rainbowOn(o, live)
+  const beat = beatFor(o, live)
   const w = 100
   const t = OUTLINE_INSET
   const b = h - OUTLINE_INSET
-  const filter = o.glow ? outlineFilter('fg', 0, w, h, 0, beat) : ''
+  const filter = (o.glow ? outlineFilter('fg', 0, w, h, 0, beat) : '') + (rb ? edgePaints(o, beat, w) : '')
   const half = (from: number, to: number, look: FrameLook) => frameStroke(`M${from} ${t}H${to}M${from} ${b.toFixed(2)}H${to}`, look, o, beat)
-  const body = right ? half(0, 50, f) + half(50, w, right) : half(0, w, f)
+  // In the rainbow every stretch runs the whole of it and ends where it began, so sections meet without a seam (`edgePaints`).
+  const body = rb ? frameStroke(`M0 ${t}H${w}`, f, o, beat, 'url(#rbt)') + frameStroke(`M0 ${b.toFixed(2)}H${w}`, f, o, beat, 'url(#rbb)') : right ? half(0, 50, f) + half(50, w, right) : half(0, w, f)
   return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h.toFixed(2)}" viewBox="0 0 ${w} ${h.toFixed(2)}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
+}
+
+// ---------------------------------------------------------------------------
+// The outline in the rainbow: one drawing. In pieces, each piece could only
+// run the whole rainbow over its own width, so a separator or a gap, a few
+// pixels wide, showed all six colors squeezed into a speck. The band's width
+// is known to within a few percent (its columns), so here the whole outline
+// is drawn at that size, corners and all, and the app stretches it the little
+// that is left. The rainbow follows the line round: along the top to the
+// right, down the right side, back along the bottom, up the left side, a
+// whole number of rainbows to the lap so it closes on itself, and under
+// `circle` it travels one rainbow per pulse cycle.
+// ---------------------------------------------------------------------------
+
+/** About how long one rainbow is along the outline, in the drawing's own pixels; the lap is divided into a whole number of them. */
+export const RING_RAINBOW = 300
+
+/**
+ * The outline around the band's card, `w` by `h` of its own pixels, in the
+ * rainbow. The line is drawn four times, each clipped to its part of the lap
+ * (top, right end, bottom, left end) and painted with a gradient along that
+ * part, placed so each begins in the color the one before it ends in.
+ */
+export function outlineRingSvg(w: number, h: number, o: DesktopOptions): string {
+  const beat = beatFor(o, true)
+  const rb = o.rainbow!
+  const colors = rb.colors.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track))
+  const loop = [...colors, colors[0]!]
+  const x0 = OUTLINE_INSET
+  const x1 = w - OUTLINE_INSET
+  const t = OUTLINE_INSET
+  const b = h - OUTLINE_INSET
+  const r = Math.min(OUTLINE_RADIUS, (b - t) / 2)
+  // The lap, measured along straight runs: the top and the bottom between the corners, and the two ends top to bottom.
+  const along = Math.max(1, x1 - x0 - 2 * r)
+  const down = b - t
+  const lap = 2 * along + 2 * down
+  const period = lap / Math.max(1, Math.round(lap / RING_RAINBOW))
+  const stops = loop.map((c, i) => `<stop offset="${+(i / (loop.length - 1)).toFixed(4)}" stop-color="${c}">${beat && rb.motion === 'breathe' ? animate('stop-color', c, peakOf(c), beat) : ''}</stop>`).join('')
+  const moving = beat && rb.motion === 'circle' ? beat : null
+  // A part's gradient: from where its rainbow starts, `period` along its direction of travel, moving that way.
+  const part = (id: string, fromX: number, fromY: number, dx: number, dy: number) => {
+    const move = moving ? `<animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="${(dx * period).toFixed(2)} ${(dy * period).toFixed(2)}" dur="${moving.ms}ms" ${moving.timing}/>` : ''
+    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${fromX.toFixed(2)}" y1="${fromY.toFixed(2)}" x2="${(fromX + dx * period).toFixed(2)}" y2="${(fromY + dy * period).toFixed(2)}" spreadMethod="repeat">${stops}${move}</linearGradient>`
+  }
+  const left = x0 + r
+  const right = x1 - r
+  const defs =
+    part('rt', left, 0, 1, 0) +
+    part('rr', 0, t - along, 0, 1) +
+    part('rbm', right + along + down, 0, -1, 0) +
+    part('rl', 0, b + 2 * along + down, 0, -1) +
+    `<clipPath id="ct"><rect x="${left}" y="0" width="${along.toFixed(2)}" height="${(h / 2).toFixed(2)}"/></clipPath>` +
+    `<clipPath id="cr"><rect x="${right.toFixed(2)}" y="0" width="${(w - right).toFixed(2)}" height="${h.toFixed(2)}"/></clipPath>` +
+    `<clipPath id="cb"><rect x="${left}" y="${(h / 2).toFixed(2)}" width="${along.toFixed(2)}" height="${(h / 2).toFixed(2)}"/></clipPath>` +
+    `<clipPath id="cl"><rect x="0" y="0" width="${left}" height="${h.toFixed(2)}"/></clipPath>` +
+    (o.glow ? filters(w, h, beat) : '')
+  const d = `M${x0 + r} ${t}H${(x1 - r).toFixed(2)}A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${t + r}V${(b - r).toFixed(2)}A${r} ${r} 0 0 1 ${(x1 - r).toFixed(2)} ${b.toFixed(2)}H${x0 + r}A${r} ${r} 0 0 1 ${x0} ${(b - r).toFixed(2)}V${t + r}A${r} ${r} 0 0 1 ${x0 + r} ${t}Z`
+  const line = (role: string) =>
+    [['ct', 'rt'], ['cr', 'rr'], ['cb', 'rbm'], ['cl', 'rl']].map(([clip, paintId]) => `<g clip-path="url(#${clip})"><path data-role="${role}" d="${d}" fill="none" stroke="url(#${paintId})" stroke-width="${FRAME_WIDTH}"/></g>`).join('')
+  const glow = o.glow ? `<g ${halo(beat !== null, beat)}${line('ring-outline-halo')}</g>` : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h.toFixed(2)}" viewBox="0 0 ${w.toFixed(2)} ${h.toFixed(2)}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${defs}</defs>${glow}${line('ring-outline')}</svg>`
 }

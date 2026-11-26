@@ -183,6 +183,35 @@ def ring(cx, cy, pct, T, level=True):
             + halo(arcs) + arcs)
 
 
+# The reset chip: a pill around its count, both in the rainbow (the range colors from red to blue without the second
+# green, then violet), on its halo. It stands before everything else in the row, with a gap after it.
+VIOLET = {'dark': '#B24BFF', 'light': '#8A2BE2'}
+CHIP_W = 34
+CHIP_H = 18
+CHIP_ROOM = CHIP_W + 12
+_chip_n = 0
+
+
+def chip(x, y, T, name, text='+2'):
+    """The reset chip at `x`, centered on the row's line `y`, counting the resets held."""
+    global _chip_n
+    _chip_n += 1
+    r = T['ramp']
+    colors = [r[5], r[4], r[3], r[1], r[0], VIOLET[name]]
+    stops = ''.join(f'<stop offset="{i / (len(colors) - 1):.3f}" stop-color="{c}"/>' for i, c in enumerate(colors))
+    paint = f'<linearGradient id="chip{_chip_n}" gradientUnits="userSpaceOnUse" x1="{x}" y1="0" x2="{x + CHIP_W}" y2="0">{stops}</linearGradient>'
+    pill = (f'<rect x="{x}" y="{y - CHIP_H / 2}" width="{CHIP_W}" height="{CHIP_H}" rx="{CHIP_H / 2}" fill="none" '
+            f'stroke="url(#chip{_chip_n})" stroke-width="{RING_W}"/>')
+    label = (f'<text x="{x + CHIP_W / 2}" y="{y + 4.5}" {FONT} font-size="12.5" font-weight="700" fill="url(#chip{_chip_n})" '
+             f'text-anchor="middle">{text}</text>')
+    return f'<defs>{paint}</defs>' + halo(pill) + pill + label
+
+
+def chip_row(x, y, width, T, name, mode, windows):
+    """A band row with the reset chip before it, as `resetChips` draws it: the chip, then the row in the room left."""
+    return chip(x, y, T, name) + band_row(x + CHIP_ROOM, y, width - CHIP_ROOM, T, mode, windows)
+
+
 def glow_text(x, y, text, color, size=19.5, live=True, anchor='start'):
     attrs = f'x="{x}" y="{y}" {FONT} font-size="{size}" font-weight="700" fill="{color}" text-anchor="{anchor}"'
     return halo(f'<text {attrs}>{text}</text>') + f'<text {attrs}>{text}</text>'
@@ -313,10 +342,14 @@ def panel(x, y, w, h, T, title):
 # The `layout` option's two values, as the graphics title their groups.
 LAYOUT_ALL = 'Layout: All (Default)'
 LAYOUT_SINGLE = 'Layout: Single (One Segment at a Time)'
+# The reset chip's group: one row, the default look with the chip before it.
+WITH_CHIP = 'With the Reset Chip (resetChips, Off by Default)'
+CHIP_TITLE = 'Two Limit Resets Held'
+CHIP_GROUP_H = 28 + 70 + 14
 
 
 def hero():
-    W, H = 1200, 1440
+    W, H = 1200, 1440 + 2 * CHIP_GROUP_H
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', page_style(), defs(), page(W, H)]
     # stacked: the dark panel on top, the light one below, on the reader's page
     for n, (name, T) in enumerate(THEMES.items()):
@@ -333,6 +366,9 @@ def hero():
                 out.append(plain(44, title_y, title, T['dim'], size=13, weight=600))
                 out.append(draw(title_y + 26, mode))
             y += 28 + len(rows) * 70 + 14
+        out.append(plain(44, y, WITH_CHIP, T['text'], size=14, weight=600))
+        out.append(plain(44, y + 28, CHIP_TITLE, T['dim'], size=13, weight=600))
+        out.append(chip_row(44, y + 28 + 26, W - 88, T, name, 'level', [82, 18.2, 93]))
     out.append('</svg>')
     return '\n'.join(out)
 

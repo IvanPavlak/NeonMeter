@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-26
+
+### Added
+
+- The pace of each window, off by default. `pace` marks the 5-hour bar and every weekly bar with where an even use of the limit would stand now, the share of the window already gone: `tick` a still notch at that point, `stripes` the stretch between it and the fill (bright on the fill where the use is ahead of the pace, dim past it where it is behind), `both` the two, `projection` stripes from the fill to where the use lands at the reset. In the terminal the tick is `┃` and a striped cell `╍`; in the desktop app the stripes are drawn in the bar and striped dots are rings.
+- `paceWarn` (`five_hour` or `all`): once a window's use so far would pass 100% before its reset, its reset gives way to the time it runs out, `out in 1h23m`, in red, with the pulse and the glow.
+- `windowPopup`: in the desktop app, a card over a window's bar while the pointer is on it, with the percent used, the even pace, how far ahead of or behind it the use is, the projection, the run-out time and the reset.
+- A reset chip, off by default: `resetChips` lists the limit resets you hold (`fable:2027-03-09,weekly:2026-12-10`: `five_hour`, `weekly`, `full` or `fable`, each with an optional day it expires), and one chip before everything else in the row counts them (`+2`), in the rainbow or one color (`resetChipColor`), with a halo (`resetChipGlow`) and the band's pulse (`resetChipPulse`). A reset past its day drops out of the count by itself. In the desktop app the pointer on the chip opens a card listing every reset, centered, the one that expires first on top: a title and each reset's name in the chip's rainbow, what the reset refills in the text color, and when it expires, colored by how close that is on the six range colors over 30 days (red when about to expire, blue with a month or more to go), with a gap after every title and sentence and a grey last line saying where to use them. The list is kept by hand, since the usage endpoint does not report resets, and the chip takes no click.
+- `resetChipMotion` (`circle`, the default, `breathe` or `still`): whether the chip's rainbow turns once per pulse cycle, brightens in place, or holds still. Under `pulseMode: always` the chip moves in phase with the clock, so a redraw of the band never sets its rainbow back.
+- A rainbow theme, off by default: `rainbow` paints everything the percents color (the window bars and dots, the context bar when colored by its percent, the percents, the resets colored by the time left, the button's ring, the borders and the outline) in the rainbow instead of the range colors: red, orangered, yellow, lime, blue and violet. `still` holds it, `breathe` brightens it with the pulse, `circle` runs it along the bars and the text and around the ring once per pulse cycle, in phase with the clock under `pulseMode: always`. Under `circle` a segment's border and the band's run their top edge right and their bottom edge left, and the outline is one line round the whole card, the rainbow following it, a whole number of rainbows to the lap, without a joint. A context bar split by category, a run-out warning, a stale segment, a border in `borderColor` and the pace tick keep their own colors. In the terminal the bar cells and the percents' characters take the colors in turn and pulse; `circle` breathes there.
+- `scripts/benchmarking/headless.ps1 -Chips`: measures a band with the reset chip against the same band without it.
+- The option pictures for `pace`, `paceWarn`, `windowPopup`, `resetChips`, `resetChipColor`, `resetChipGlow` and `rainbow`.
+
 ## [1.6.2] - 2026-11-26
 
 ### Fixed
@@ -195,7 +208,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.5.0...v1.6.0

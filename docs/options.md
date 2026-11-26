@@ -5,7 +5,7 @@ nav_order: 4
 
 # Every option at a glance
 
-Each option below has a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`, `buttonPulse`) and `rotateSeconds` have none; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme; the colors are your own; `buttonPrompt` and `buttonLabel` are text, and the `button` picture's card shows the built-in prompt's label; `borderAt` is the `border` picture's threshold, and `borderGlow` and `borderPulse` work as `buttonGlow` and `buttonPulse` do. Every picture shows the same account at 93% of the context, so the button shows at the end of each row and the Context segment sits in its border.
+Each option below has a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`, `buttonPulse`, `resetChipPulse`, `resetChipMotion`) and `rotateSeconds` have none, and of `rainbow` only the look that holds still has one: `breathe` and `circle` are that look moving; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme; the colors are your own; `buttonPrompt` and `buttonLabel` are text, and the `button` picture's card shows the built-in prompt's label; `borderAt` is the `border` picture's threshold, and `borderGlow` and `borderPulse` work as `buttonGlow` and `buttonPulse` do. Every picture shows the same account at 93% of the context, so the button shows at the end of each row and the Context segment sits in its border.
 
 <h3><code>layout</code>: <code>all</code> or <code>single</code></h3>
 <p>Every segment in one row, or one segment across the whole row at a time, taking turns.</p>
@@ -145,4 +145,53 @@ Each option below has a picture of its values, the desktop band above the termin
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/outline-dark.svg">
   <img src="../design/readme/options/outline-light.svg" alt="The outline option: off, one red border around the whole card, and the card's border in each section's color: orangered, dodgerblue and red" width="100%">
+</picture>
+
+<h3><code>pace</code>: <code>off</code>, <code>tick</code>, <code>stripes</code>, <code>both</code> or <code>projection</code></h3>
+<p>With 36% of the 5-hour window gone and 82% of it used, and 55% of the week gone and 18% used: a tick where an even pace would be; stripes between it and the fill, bright where the use is ahead and dim where it is behind; both; or stripes to where the use lands at the reset.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/pace-dark.svg">
+  <img src="../design/readme/options/pace-light.svg" alt="The pace option: off, a tick on each window bar at the even pace, stripes between the pace and the fill, stripes and tick, and stripes from the fill to the projection, each as the desktop band and the terminal band draw it" width="100%">
+</picture>
+
+<h3><code>paceWarn</code>: <code>off</code>, <code>five_hour</code> or <code>all</code></h3>
+<p>The 5-hour window would pass 100% before its reset, so its reset gives way to the time it runs out, in red. The week is behind its pace, so under <code>all</code> it keeps its reset.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/paceWarn-dark.svg">
+  <img src="../design/readme/options/paceWarn-light.svg" alt="The paceWarn option: the 5-hour reset as ever, and under five_hour and under all replaced by out in 23m in red, the weekly reset unchanged" width="100%">
+</picture>
+
+<h3><code>windowPopup</code>: <code>false</code> or <code>true</code></h3>
+<p>The card the desktop app shows while the pointer is over a window's bar, drawn open over the 5-hour one: its use, the even pace, how far ahead of it the use is, where it lands at the reset, when it runs out and the reset.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/windowPopup-dark.svg">
+  <img src="../design/readme/options/windowPopup-light.svg" alt="The windowPopup option: the desktop band without a card, and with the 5-hour window's card open above it: its use, the even pace, how far ahead it is, the projection, when it runs out and the reset" width="100%">
+</picture>
+
+<h3><code>resetChips</code>: a list</h3>
+<p>One chip counting the limit resets you hold, <code>+2</code> for two, before everything else in the row. In the desktop app the pointer on it opens a card listing every reset, drawn open here: the title and each reset's name in the chip's rainbow, what it refills, and when it expires, colored by how close that is, the one that expires first on top.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/resetChips-dark.svg">
+  <img src="../design/readme/options/resetChips-light.svg" alt="The resetChips option: the band without a chip, and with one rainbow +2 chip before the 5-hour segment, as the desktop band and the terminal band draw it; over the desktop's chip its card is open, listing a weekly reset and a Fable reset with what each refills and when it expires" width="100%">
+</picture>
+
+<h3><code>resetChipColor</code>: <code>rainbow</code> or one color</h3>
+<p>The chip in the six rainbow colors, or in the one color set; the title and the names in its card follow.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/resetChipColor-dark.svg">
+  <img src="../design/readme/options/resetChipColor-light.svg" alt="The resetChipColor option: the +2 chip in the rainbow, and in violet" width="100%">
+</picture>
+
+<h3><code>resetChipGlow</code>: <code>true</code> or <code>false</code></h3>
+<p>The chip's halo, in the desktop app.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/resetChipGlow-dark.svg">
+  <img src="../design/readme/options/resetChipGlow-light.svg" alt="The resetChipGlow option: the desktop band's chip with and without its halo" width="100%">
+</picture>
+
+<h3><code>rainbow</code>: <code>off</code>, <code>still</code>, <code>breathe</code> or <code>circle</code></h3>
+<p>With <code>border: always</code> and the reset chip: the range colors, and the rainbow in their place on the bars, the percents, the button and the borders. The context bar split by category keeps its own colors. <code>breathe</code> and <code>circle</code> are the same rainbow moving, so they have no picture: one brightens with the pulse, the other runs along the bars and around the ring.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/rainbow-dark.svg">
+  <img src="../design/readme/options/rainbow-light.svg" alt="The rainbow option: the band in the range colors, and with its window bars, percents, button and borders in the rainbow, as the desktop band and the terminal band draw it" width="100%">
 </picture>

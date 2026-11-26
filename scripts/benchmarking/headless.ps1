@@ -2,9 +2,12 @@
 # engine the desktop app draws with: CPU and GPU of each band page, and how far the
 # working tree's frames are from the base's. Windows only (GPU counters, Edge).
 #
-#     pwsh scripts/benchmarking/headless.ps1 [-Base master] [-Rounds 3] [-Seconds 10] [-SkipFrames] [-SkipBands]
+#     pwsh scripts/benchmarking/headless.ps1 [-Base master] [-Rounds 3] [-Seconds 10] [-SkipFrames] [-SkipBands] [-Chips]
 #
 # -SkipFrames leaves out the pixel comparison, -SkipBands the CPU and GPU measurement.
+# -Chips measures the reset chip instead of the two versions: the working tree's band
+# with the chip before it (rainbow, one color, rainbow without a halo) against the same
+# band without them, pulsing without a stop and holding still.
 #
 # It builds the pages first (pages.mjs, Node 22.18 or later). Each page runs in its own
 # Edge with a throwaway profile under out/, so only the benchmark's processes are counted
@@ -22,7 +25,8 @@ param(
 	[int]$Seconds = 10,
 	[string]$Browser = '',
 	[switch]$SkipFrames,
-	[switch]$SkipBands
+	[switch]$SkipBands,
+	[switch]$Chips
 )
 
 $ErrorActionPreference = 'Stop'
@@ -112,6 +116,9 @@ if ($SkipBands) { return }
 
 # Both versions in both looks under `always`, and one still band: the floor, the page drawn once.
 $pages = @('bars', 'dots' | ForEach-Object { "band-base-$_-always.html", "band-work-$_-always.html" }) + 'band-work-dots-still.html'
+if ($Chips) {
+	$pages = @('band-work-bars-always.html', 'chips-rainbow-always.html', 'chips-one-always.html', 'chips-crisp-always.html', 'band-work-bars-still.html', 'chips-rainbow-still.html')
+}
 $results = foreach ($round in 1..$Rounds) {
 	foreach ($page in $pages) {
 		Write-Host "round $round of ${Rounds}: $page"

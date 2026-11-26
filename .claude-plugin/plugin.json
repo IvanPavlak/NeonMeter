@@ -1,6 +1,6 @@
 {
   "name": "neonmeter",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "Neon rate-limit and context meter for Claude Code, drawn above the prompt",
   "author": {
     "name": "Ivan Pavlak",
@@ -376,6 +376,83 @@
       "title": "Border color",
       "description": "One color like #FF073A for every border, on both themes; empty colors each border by its percent, as the bar and the percent are",
       "default": ""
+    },
+    "pace": {
+      "type": "string",
+      "title": "Pace",
+      "description": "How the 5-hour and weekly bars show the pace, the share of the window already gone: tick marks that point on the bar; stripes draws the stretch between it and the fill striped, bright where the use is ahead of it and dim where it is behind; both draws the two; projection stripes from the fill to where the use lands at the reset; off draws none",
+      "options": [
+        "off",
+        "tick",
+        "stripes",
+        "both",
+        "projection"
+      ],
+      "default": "off"
+    },
+    "paceWarn": {
+      "type": "string",
+      "title": "Run-out warning",
+      "description": "Once a window's use so far would pass 100% before its reset, show when it runs out (out in 1h23m) in place of the reset, in red: five_hour for the 5-hour window alone, all for the weekly limits too, off never",
+      "options": [
+        "off",
+        "five_hour",
+        "all"
+      ],
+      "default": "off"
+    },
+    "windowPopup": {
+      "type": "boolean",
+      "title": "Window pace on hover",
+      "description": "In the desktop app, show a window's use, the even pace, where it lands at the reset, when it runs out and the reset while the pointer is over its bar",
+      "default": false
+    },
+    "resetChips": {
+      "type": "string",
+      "title": "Reset chips",
+      "description": "The limit resets you hold, counted by a chip before everything else in the row (+2 for two), which lists them on hover in the desktop app, the one that expires first on top: a comma-separated list of five_hour, weekly, full or fable, each with an optional day it expires after a colon, such as fable:2027-03-09,weekly:2026-12-10 (the plugin cannot read them from your account; a reset past its day is left out); empty draws none",
+      "default": ""
+    },
+    "resetChipColor": {
+      "type": "string",
+      "title": "Reset chip color",
+      "description": "rainbow draws the chip in the six rainbow colors, turning while the band pulses; one color like #B24BFF draws it in that color",
+      "default": "rainbow"
+    },
+    "resetChipGlow": {
+      "type": "boolean",
+      "title": "Reset chip glow",
+      "description": "Draw the chip's halo in the desktop app; glow off draws none either way",
+      "default": true
+    },
+    "resetChipPulse": {
+      "type": "boolean",
+      "title": "Reset chip pulse",
+      "description": "Pulse the chip with the band, the rainbow turning once per cycle; pulse off holds it still either way",
+      "default": true
+    },
+    "resetChipMotion": {
+      "type": "string",
+      "title": "Reset chip motion",
+      "description": "How the chip moves while the band pulses: circle turns its rainbow once per cycle, breathe holds the rainbow in place and brightens it, still holds the chip whatever the band does; the halo breathes under circle and breathe",
+      "options": [
+        "circle",
+        "breathe",
+        "still"
+      ],
+      "default": "circle"
+    },
+    "rainbow": {
+      "type": "string",
+      "title": "Rainbow",
+      "description": "Paint everything the percents color (bars, dots, percents, colored resets, the button, the borders) in the rainbow instead of the range colors: still holds it, breathe brightens it with the pulse, circle runs it along the bars and around the rings with the pulse; off keeps the range colors",
+      "options": [
+        "off",
+        "still",
+        "breathe",
+        "circle"
+      ],
+      "default": "off"
     }
   }
 }

@@ -10,10 +10,10 @@
 
 import type { BoxProps, ButtonProps, ElementConstructor, RenderElement, SvgProps, TextProps } from 'claude-code'
 
-import type { FlexButton, Frame, FlexRow, FlexSegment } from './builder'
+import type { FlexButton, FlexChip, Frame, FlexRow, FlexSegment } from './builder'
 import { THEME_KEYS } from './builder'
 import type { DesktopOptions, OutlinePad } from './drawings'
-import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, pctSvg, resetSvg, smoothBarSvg } from './drawings'
+import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, outlineRingSvg, ROW_HEIGHT, pctSvg, resetChipSvg, resetSvg, smoothBarSvg } from './drawings'
 
 export type { DesktopOptions } from './drawings'
 
@@ -32,22 +32,29 @@ export type DesktopExtras = {
   button: DesktopOptions
   /** The frame's pulse and glow: the band's, less what `borderPulse` and `borderGlow` turn off. */
   frame: DesktopOptions
+  /** The reset chips' pulse and glow: the band's, less what `resetChipPulse` and `resetChipGlow` turn off. */
+  chip: DesktopOptions
   /** Show the context breakdown while the pointer is over the Context segment. */
   popup: boolean
   /** The hover cards' ground and border, in the app's appearance. */
   card: { background: string; border: string }
+  /** The band's width in the app's columns, which sizes the rainbow outline's one drawing. */
+  columns: number
   /** The card's padding above and below the band on this operating system, which the outline reaches across. */
   outlinePad: OutlinePad
 }
+
+/** About what one of the app's columns measures across, in CSS pixels (measured: offsets land about 9 px apart). */
+const CELL_PX = 9
 
 /** A blank label: the button's Button draws nothing of its own over the ring, only the app's hover mark. */
 const BLANK = '  '
 
 /** A card the app shows above `anchor`'s keyed Box while the pointer is over it. */
-function hoverCard(els: DesktopElements, x: DesktopExtras, content: RenderElement[]): RenderElement {
+function hoverCard(els: DesktopElements, x: DesktopExtras, content: RenderElement[], centered = false): RenderElement {
   const { Box } = els
   return (
-    <Box position="absolute" top={0} left={0} display="none" hover={{ display: 'flex' }} flexDirection="column" backgroundColor={x.card.background} borderStyle="round" borderColor={x.card.border} paddingX={1}>
+    <Box position="absolute" top={0} left={0} display="none" hover={{ display: 'flex' }} flexDirection="column" {...(centered ? ({ alignItems: 'center' } as const) : {})} backgroundColor={x.card.background} borderStyle="round" borderColor={x.card.border} paddingX={1}>
       {content}
     </Box>
   )
@@ -65,6 +72,23 @@ function actionButton(c: FlexButton, els: DesktopElements, x: DesktopExtras): Re
         </Button>
       </Box>
       {hoverCard(els, x, [<Text color={THEME_KEYS.text}>{c.label}</Text>])}
+    </Box>
+  )
+}
+
+/** A reset chip: its drawing, and a card naming the reset while the pointer is over it. It takes no press. */
+function resetChip(c: FlexChip, n: number, els: DesktopElements, x: DesktopExtras): RenderElement {
+  const { Box, Svg } = els
+  return (
+    <Box key={`reset-${n}`} position="relative" flexShrink={0}>
+      <Svg source={resetChipSvg(c, x.chip)} alt={c.rows[0]?.text ?? c.text} height={DISPLAY_HEIGHT} />
+      {hoverCard(
+        els,
+        x,
+        // A gap is the row's own drawing with nothing in it, half a line tall.
+        c.rows.map(r => <Svg source={contextRowSvg(r, x.chip)} alt={r.gap ? 'gap' : r.text} height={r.gap ? DISPLAY_HEIGHT / 2 : DISPLAY_HEIGHT} />),
+        true,
+      )}
     </Box>
   )
 }
@@ -162,6 +186,8 @@ function outlined(sections: Section[], colors: readonly Frame[], els: DesktopEle
 export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOptions, x: DesktopExtras): RenderElement {
   const { Box, Text, Svg } = els
   const children: RenderElement[] = []
+  // What the rainbow leaves in its own colors: a bar split by the context's categories, a run-out warning.
+  const { rainbow: _rainbow, ...own } = o
   let lastWin = -1
   row.segments.forEach((seg, n) => {
     if (seg.kind !== 'ctx') lastWin = n
@@ -178,10 +204,10 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   // The same pieces by section, for the outline: each segment's, each separator's, and the button with its neighbour.
   const sections: Section[] = []
   const into = (owner: Section['owner'], grow: boolean, ...items: RenderElement[]) => sections.push({ owner, grow, els: items })
-  if (button && at === 'start') {
-    children.push(actionButton(button, els, x), gap('button-gap'))
-    for (const piece of children) into(0, false, piece)
-  }
+  // The reset chips come first, before the button at the start.
+  ;(row.resets ?? []).forEach((c, n) => children.push(resetChip(c, n, els, x), gap(`reset-gap-${n}`)))
+  if (button && at === 'start') children.push(actionButton(button, els, x), gap('button-gap'))
+  for (const piece of children) into(0, false, piece)
   row.segments.forEach((seg: FlexSegment, n) => {
     // A frame marks where its segment ends: beside one, the separator is room alone.
     if (n > 0) {
@@ -193,10 +219,12 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
     if (button && at === 'context' && seg.kind === 'ctx') pieces.push(actionButton(button, els, x), gap('button-gap'))
     pieces.push(fixed(`label-${seg.kind}`, <Text color={THEME_KEYS.text}>{seg.label} </Text>))
     // The context bar's own Box is the breakdown card's anchor, as the app's own indicator opens its card over its bar.
-    const card = seg.kind === 'ctx' && x.popup && row.context?.length ? hoverCard(els, x, row.context.map(r => <Svg source={contextRowSvg(r, o)} alt={r.text} height={DISPLAY_HEIGHT} />)) : null
+    // A window's bar anchors its own card the same way, when the builder made one (`windowPopup`).
+    const cardRows = seg.kind === 'ctx' ? (x.popup ? row.context : undefined) : seg.card
+    const card = cardRows?.length ? hoverCard(els, x, cardRows.map(r => <Svg source={contextRowSvg(r, o)} alt={r.text} height={DISPLAY_HEIGHT} />)) : null
     if (seg.dots) {
       const filled = seg.dots.filter(d => HEX.test(d.color) && d.color.toUpperCase() !== o.palette.track.toUpperCase()).length
-      const svg = <Svg source={dotBarSvg(seg.dots, o)} alt={`${filled} of ${seg.dots.length} dots`} height={DISPLAY_HEIGHT} />
+      const svg = <Svg source={dotBarSvg(seg.dots, seg.split ? own : o, seg.pace?.tick)} alt={`${filled} of ${seg.dots.length} dots`} height={DISPLAY_HEIGHT} />
       pieces.push(
         <Box key={`dots-${seg.kind}`} flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" {...(card ? ({ position: 'relative' } as const) : {})}>
           {card ? [svg, card] : svg}
@@ -204,7 +232,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
       )
       pieces.push(gap(`gap-${seg.kind}`))
     } else if (seg.bar) {
-      const svg = <Svg source={smoothBarSvg(seg.bar, o)} alt={`${seg.kind} bar`} height={DISPLAY_HEIGHT} />
+      const svg = <Svg source={smoothBarSvg(seg.bar, seg.split ? own : o, seg.pace)} alt={`${seg.kind} bar`} height={DISPLAY_HEIGHT} />
       pieces.push(
         <Box key={`bar-${seg.kind}`} flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" {...(card ? ({ position: 'relative' } as const) : {})}>
           {card ? [svg, card] : svg}
@@ -227,7 +255,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
     if (seg.extra && seg.extraSpan) {
       // The gap is text and the reset a drawing, so the row reads as it does in plain text.
       pieces.push(gap(`extra-gap-${seg.kind}`))
-      pieces.push(fixed(`extra-${seg.kind}`, <Svg source={resetSvg(seg.extraSpan, o)} alt={seg.extra} height={DISPLAY_HEIGHT} />))
+      pieces.push(fixed(`extra-${seg.kind}`, <Svg source={resetSvg(seg.extraSpan, seg.warns ? own : o)} alt={seg.extra} height={DISPLAY_HEIGHT} />))
     } else if (seg.extra) {
       pieces.push(fixed(`extra-${seg.kind}`, <Text color={THEME_KEYS.text}> {seg.extra}</Text>))
     }
@@ -259,6 +287,24 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   if (row.outline) {
     // The row is as tall as its tallest piece: a frame's height while one shows, a drawing's otherwise.
     const tall = Boolean(row.frame) || row.segments.some(seg => seg.frame)
+    if (x.frame.rainbow && x.frame.rainbow.colors.length > 1 && row.outline.some(f => f.live)) {
+      // In the rainbow the outline is one drawing under the whole row (drawings.ts `outlineRingSvg`), in one section
+      // that reaches the card's edges at both ends, as the first and the last section do in `outlined`.
+      const tallness = outlineHeight(tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT, x.outlinePad)
+      const wide = ((Math.max(1, x.columns) + 2) * CELL_PX * ROW_HEIGHT) / DISPLAY_HEIGHT
+      return (
+        <Box key="band" position="relative" flexDirection="row" width="100%" alignItems="stretch">
+          <Box key="section-0" position="relative" flexDirection="row" alignItems="center" flexGrow={1} flexShrink={1} minWidth={0} marginLeft={-1} paddingLeft={1} marginRight={-1} paddingRight={1}>
+            <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
+              <Box flexGrow={1} flexShrink={1} minWidth={0}>
+                <Svg source={outlineRingSvg(wide, tallness, x.frame)} alt="border" height={(tallness * DISPLAY_HEIGHT) / ROW_HEIGHT} />
+              </Box>
+            </Box>
+            {children}
+          </Box>
+        </Box>
+      )
+    }
     const inner = outlined(sections, row.outline, els, x.frame, tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT, x.outlinePad)
     return (
       // Every section as tall as the row, so each one's stretch of the edges lands on the same line: centered in the
