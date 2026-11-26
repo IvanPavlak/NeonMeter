@@ -1184,9 +1184,10 @@ function flexPace(seg: Segment, T: Palette): FlexPace | null {
 /**
  * A window's hover card: its use, the even pace, how far ahead of or behind
  * it the use is, where it lands at the reset, when it runs out if it does,
- * and the reset. The colored rows glow; none pulses, the card is a reading.
+ * and the reset, which takes its time color under `resetColor: time` as it
+ * does in the band. The colored rows glow; none pulses, the card is a reading.
  */
-function windowRows(seg: Segment, label: string, T: Palette): ContextRow[] | null {
+function windowRows(seg: Segment, label: string, T: Palette, resetColor: ResetColor | undefined): ContextRow[] | null {
   const pace = seg.pace
   if (!pace || seg.loading || seg.pct == null) return null
   const dim = mix(T.text, T.bg, 0.7)
@@ -1202,7 +1203,12 @@ function windowRows(seg: Segment, label: string, T: Palette): ContextRow[] | nul
   else out.push(plain('delta', 'On pace'))
   if (pace.projected !== null) out.push(colored('projected', `Projected at reset: ${Math.round(pace.projected)}%`, T.ramp[rampIndex(Math.min(100, pace.projected))]!))
   if (pace.outMin !== null) out.push(colored('out', `Runs out: in ${fmtDur(pace.outMin)}`, T.ramp[T.ramp.length - 1]!))
-  if (seg.resetMin != null) out.push(plain('reset', `Resets: ${seg.resetAt ? seg.resetAt + ', ' : ''}in ${fmtDur(seg.resetMin)}`))
+  if (seg.resetMin != null) {
+    const text = `Resets: ${seg.resetAt ? seg.resetAt + ', ' : ''}in ${fmtDur(seg.resetMin)}`
+    // Under `resetColor: time` the reset is in its time color here as in the band, faded when stale.
+    const tc = resetColor === 'time' ? timeColor(seg, T) : null
+    out.push(tc ? colored('reset', text, mix(tc.color, T.bg, tc.op)) : plain('reset', text))
+  }
   return out
 }
 
@@ -1307,7 +1313,7 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
       if (pace) out.pace = pace
     }
     if (s.windowCard && seg.hasBar) {
-      const card = windowRows(seg, label, T)
+      const card = windowRows(seg, label, T, s.resetColor)
       if (card) out.card = card
     }
     return out
