@@ -13,6 +13,8 @@ Left to right the row shows:
     - only when your account reports a spend limit
 - **Context**
 
+Before the first of them stands the reset chip, when `resetChips` lists a limit reset you hold (off by default, see below).
+
 Each window segment is its label, a bar, the percent used and its reset: every window counts down to it, `in 3h13m` for the 5-hour window and `in 3d4h` for a weekly limit on the widest layout, `3h13m` and `3d4h` on narrower ones. `fiveHourReset` and `weeklyReset` switch either one to the other form, and `resetColor` set to `time` colors the reset by how much of its window is still to run. The context segment shows the percent and the tokens used against the model's window. The band is the strip Claude Code gives the plugin above the prompt; the row is the single line of cells or drawings it holds.
 
 **In the desktop app** the band shows the full labels and the bars stretch to fill whatever room the text leaves. Bars are smooth with rounded ends by default, or a row of dots with `desktopBars` set to `dots`. Everything filled glows. In a narrow chat, a split view's pane say, the row steps down until it fits, as the terminal's layouts do: the segment borders give way first (the outline stays), then the labels shorten (`5h`, `7d`, `Ctx`), then the resets lose their `in ` and the context its token count, then the fields go, and last the bars (sketched here in text):
@@ -35,11 +37,49 @@ Each window segment is its label, a bar, the percent used and its reset: every w
 
 In the terminal the band is one row of cells, so a border lights the rule above the row instead: a `━` stretch in the border's color over each framed segment, or across the whole rule for `borderScope: band` and the outline.
 
-**The pace** is off by default; three options turn it on, each on its own. A window's pace is the share of it already gone: 2h15m into a 5-hour window, 45%, and that is where an even use of the limit would stand. Used 62% by then, you are ahead of it, and at this rate the limit is gone in 1h23m, before the reset; used 30%, you have room to spare. `pace` draws that on the 5-hour bar and every weekly bar: `tick` a notch at the pace, `stripes` the stretch between the pace and the fill (bright on the fill where you are ahead, dim past it where you are behind), `both` the two, `projection` stripes from the fill to where the use lands at the reset. `paceWarn` trades the reset for the time the window runs out (`out in 1h23m`, in red) while it would, and only then. `windowPopup` opens a card over a window's bar in the desktop app with all of it in words. It is all worked out from the percent and the reset the band already has: no history is kept and nothing more is fetched. The projection is a straight line through the use so far, so it says nothing in the first tenth of a window, and it runs high for a weekly limit during working hours.
+**The pace** is off by default; three options turn it on, each on its own. A window's pace is the share of it already gone: 2h15m into a 5-hour window, 45%, and that is where an even use of the limit would stand. Used 62% by then, you are ahead of it, and at this rate the limit is gone in 1h23m, before the reset; used 30%, you have room to spare. `pace` draws that on the 5-hour bar and every weekly bar: `tick` a notch at the pace, `stripes` the stretch between the pace and the fill (bright on the fill where you are ahead, dim past it where you are behind), `both` the two, `projection` stripes from the fill to where the use lands at the reset. `paceWarn` trades the reset for the time the window runs out (`out in 1h23m`, in red) while it would, and only then. `windowPopup` opens a card over a window's bar in the desktop app with all of it in words. It is all worked out from the percent and the reset the band already has: no history is kept and nothing more is fetched. The projection is a straight line through the use so far, so it says nothing in the first tenth of a window, and it runs high for a weekly limit during working hours. Some ways to set it:
 
-**The reset chip** counts the limit resets you hold, the ones the app lists in Settings under Usage: with `resetChips` set to `fable:2027-03-09,weekly:2026-12-10` one chip reading `+2` stands before everything else in the row, in the rainbow by default, glowing, and turning with the band's pulse after a change; under `pulseMode: always` it turns without a stop, in phase with the clock, so a redraw of the band never sets it back. The plugin cannot read your resets, so the list is yours: take an entry out when you use its reset; one past its day drops out by itself, and the count falls with it. In the desktop app the pointer on the chip opens a card listing every reset, the one that expires first on top: its name and what it refills, and under it when it expires, colored by how close that is, the other way round from a window's reset under `resetColor: time`: red when the reset is about to be lost, blue with a month or more to go. The chip only tells; a click on it does nothing, and a reset is used in Settings.
+- `{"pace":"tick"}` marks each window bar where an even pace would be, and changes nothing else.
+- `{"pace":"both"}` adds the stripes: 62% used with 45% of the window gone stripes the fill from 45 to 62, 30% used with 55% gone stripes the track from 30 to 55, dim.
+- `{"pace":"projection"}` stripes from the fill to where the use lands: 62% at 45% of the window lands at 138%, so to the bar's end, in red.
+- `{"paceWarn":"five_hour"}` leaves the bars alone and shows `out in 1h23m` in place of the 5-hour reset while that window would run out; `"all"` does it for the weekly limits too.
+- `{"pace":"both","paceWarn":"five_hour","windowPopup":"true"}` turns all of it on. The card then reads, for that 5-hour window: `5-hour limit: 62% used`, `Even pace now: 45%`, `Ahead of pace: +17%`, `Projected at reset: 138%`, `Runs out: in 1h23m`, `Resets: 14:45, in 2h45m`.
 
-**The rainbow** is a theme for the whole band, off by default. With `rainbow` set, everything the percents color takes the rainbow instead of the range colors: the window bars and dots, the percents, the resets colored by the time left, the button's ring, the borders and the outline, in red, orangered, yellow, lime, blue and violet. `still` holds it; `breathe` brightens it and widens the halo with the pulse, as the range colors do; `circle` runs it along the bars and the text and around the ring, once per pulse cycle: three cycles after a change under the default `pulseMode`, or without a stop under `always`. What names something keeps its own color: a context bar split by category, a run-out warning in red, a stale segment's faded colors, a border in the `borderColor` you set. A percent's level is then read from its bar's length and its number, not from its color.
+**The reset chip** counts the limit resets you hold, the ones the app lists in Settings under Usage. It is off by default; `resetChips` turns it on:
+
+```bash
+echo '{"resetChips":"fable:2027-03-09,weekly:2026-12-10"}' | claude plugin configure neonmeter@neonmeter --values-stdin
+```
+
+One chip reading `+2` then stands before everything else in the row, in the rainbow by default (`resetChipColor` takes one color instead), glowing (`resetChipGlow`). It moves with the band's pulse, the way `resetChipMotion` says: `circle`, the default, turns its rainbow once per cycle, `breathe` holds the rainbow in place and brightens it, `still` holds it. Under the default `pulseMode` that is three cycles after a change; under `always` it never stops, in phase with the clock, so a redraw of the band never sets it back. The plugin cannot read your resets, so the list is yours: take an entry out when you use its reset; one past its day drops out by itself, and the count falls with it. **In the desktop app, point at the chip** and a card lists every reset, centered, the one that expires first on top:
+
+```text
+      2 limit resets available
+
+            Weekly reset
+
+     Refills your weekly limit.
+
+ ● Expires Dec 10, 2026, in 14 days
+
+            Fable reset
+
+Refills your Fable allowance and gives back
+   what Fable used on your weekly limit.
+
+ ● Expires Mar 9, 2027, in 103 days
+
+    Use them in Settings > Usage.
+```
+
+The title and each reset's name are in the chip's rainbow, what a reset refills in the text color, and the last line in grey. Each expiry is colored by how close it is, the other way round from a window's reset under `resetColor: time`: red when the reset is about to be lost, blue with a month or more to go (the six range colors over 30 days, where `timeRanges` says). A reset listed without a day has no expiry line and comes last. The chip only tells; a click on it does nothing, and a reset is used in Settings. In the terminal the chip is its characters in the rainbow's colors, without a card.
+
+**The rainbow** is a theme for the whole band, off by default. With `rainbow` set, everything the percents color takes the rainbow instead of the range colors: the window bars and dots, the context bar when it is colored by its percent, the percents, the resets colored by the time left, the button's ring, the borders and the outline, in red, orangered, yellow, lime, blue and violet. `still` holds it; `breathe` brightens it and widens the halo with the pulse, as the range colors do; `circle` runs it along the bars and the text and around the ring, once per pulse cycle: three cycles after a change under the default `pulseMode`, or without a stop under `always`, in phase with the clock, so a redraw of the band never sets it back. Under `circle` the borders go round too: a segment's border and the band's run their top edge to the right and their bottom edge to the left, and the outline is one line round the whole card, the rainbow following it along the top, down the right end, back along the bottom and up the left end, a whole number of rainbows to the lap, so it has no joint. What names something keeps its own color: a context bar split by category, a run-out warning in red, a stale segment's faded colors, a border in the `borderColor` you set, the pace tick. A percent's level is then read from its bar's length and its number, not from its color. In the terminal the bar cells and the percents' characters take the colors in turn and pulse; nothing runs there. Some ways to set it:
+
+- `{"rainbow":"still"}` paints the band in the rainbow and moves nothing.
+- `{"rainbow":"breathe"}` breathes three times after each change.
+- `{"rainbow":"circle","pulseMode":"always"}` keeps everything running, the chip included; set `pulseMs` higher (`"2000"`) for a slower run.
+- `{"rainbow":"circle","outline":"single","border":"always"}` runs the rainbow round the whole card at any percent.
 
 **In every chat** the band shows by default, each chat its own, side by side in the desktop app's split view too. With `{"everyChat":"false"}` one chat shows it: the one you last sent a prompt in.
 

@@ -45,6 +45,18 @@ From 75% of the context on, a round neon button colored by the context percent a
 
 From 90% on, a segment sits in a glowing neon border in its percent's color, so the limit about to bite stands out at a glance. It glows and breathes with the band. It can frame the whole row instead, show at any percent, take one color of your choosing, or stay off. An outline can also run around the whole card in the desktop app, in one color or with each section's stretch in its own.
 
+- **Tells you whether the pace holds**
+
+Off by default: `pace` marks each window bar where an even use of the limit would stand now, with a tick, stripes or a projection to the reset; `paceWarn` shows when a window runs out in place of its reset, once it would before the reset; and `windowPopup` says all of it in a card over the bar in the desktop app. It is worked out from the percent and the reset the band already has.
+
+- **Counts the resets you hold**
+
+Off by default: list your limit resets in `resetChips` and one rainbow chip before the row counts them (`+2`). In the desktop app, point at it for each reset, what it refills and when it expires, the one you would lose first on top and in red when it is close.
+
+- **Goes rainbow if you like**
+
+Off by default: `rainbow` paints the bars, the percents, the button and the borders in the rainbow instead of the range colors, held still, breathing with the pulse, or running along the bars and round the card.
+
 - **Knows your plan**
 
 When your account has a weekly limit for one model, the Weekly segment takes turns between the all-models week and that model, each with its own percent, color and reset. New per-model limits join by themselves.

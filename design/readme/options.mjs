@@ -43,6 +43,19 @@ const CTX = { pct: 93, tokens: 930000, window: 1000000, parts: { messages: 70000
 // The same context at 42%, for the pictures of when the button shows.
 const CTX_MID = { pct: 42, tokens: 420000, window: 1000000, parts: { messages: 300000, systemTools: 40000, mcpTools: 40000, skills: 10000, other: 30000, buffer: 33000 } }
 
+const GAP = { text: '', gap: true }
+const CHIP_LINES = [
+  { text: '2 limit resets available', strong: true }, GAP,
+  { text: 'Weekly reset', strong: true }, GAP,
+  { text: 'Refills your weekly limit.' }, GAP,
+  { text: 'Expires Dec 10, 2026, in 14 days', left: (14 / 30) * 100 }, GAP,
+  { text: 'Fable reset', strong: true }, GAP,
+  { text: 'Refills your Fable allowance and gives back' },
+  { text: 'what Fable used on your weekly limit.' }, GAP,
+  { text: 'Expires Mar 9, 2027, in 103 days', left: 100 }, GAP,
+  { text: 'Use them in Settings > Usage.', dim: true },
+]
+
 const DEFAULTS = {
   layout: 'all',
   barColoring: 'level',
@@ -107,7 +120,7 @@ export const OPTIONS = [
   { key: 'pace', title: 'Pace (5-hour Ahead of It, Weekly Behind)', values: ['off', 'tick', 'stripes', 'both', 'projection'], names: ['Off', 'A Tick at the Even Pace', 'Stripes between the Pace and the Fill', 'Stripes and Tick', 'Stripes to Where the Use Lands'] },
   { key: 'paceWarn', title: 'Run-out Warning', values: ['off', 'five_hour', 'all'], names: ['Off', 'The 5-hour Window', 'Every Window'] },
   { key: 'windowPopup', title: 'Window Pace on Hover (Desktop)', values: [false, true], names: ['Off', 'Shown over the Bar'], surfaces: ['desktop'], card: 'window' },
-  { key: 'resetChips', title: 'Reset Chips', values: ['', 'fable:2027-03-09,weekly:2026-12-10'], names: ['None', 'A Fable Reset and a Weekly Reset Held'] },
+  { key: 'resetChips', title: 'Reset Chip', values: ['', 'fable:2027-03-09,weekly:2026-12-10'], names: ['None', 'A Fable Reset and a Weekly Reset Held (the Card Shows on Hover)'], card: 'chip' },
   { key: 'resetChipColor', title: 'Reset Chip Color', values: ['rainbow', '#B24BFF'], names: ['Rainbow', 'One Color'], base: { resetChips: 'fable,weekly' } },
   { key: 'resetChipGlow', title: 'Reset Chip Glow (Desktop)', values: [true, false], names: ['Glow On', 'Glow Off'], surfaces: ['desktop'], base: { resetChips: 'fable,weekly' } },
   { key: 'rainbow', title: 'Rainbow', values: ['off', 'still'], names: ['The Range Colors', 'The Rainbow (Still, Breathing or Circling)'], base: { border: 'always', resetChips: 'fable,weekly' } },
@@ -143,9 +156,10 @@ function inputFor(o, ctx = CTX, theme = 'dark') {
   if (o.paceWarn !== 'off') input.paceWarn = o.paceWarn
   if (o.windowPopup) input.windowCard = true
   if (o.rainbow !== 'off') input.rainbow = { colors: B.rainbowOf(theme), still: true }
-  // One chip counting the list's entries; the pictures hold no card, so the lines are the names alone.
+  // One chip counting the list's entries, with the card the hooks module writes for these two resets on
+  // November 26, 2026 (register.tsx `resetChipsOf`): fixed lines, not the clock, so the picture is the same on every run.
   const held = o.resetChips.split(',').map(e => e.trim().split(':')[0]).filter(Boolean)
-  if (held.length) input.resets = { chips: [{ text: `+${held.length}`, lines: held.map(text => ({ text })) }], color: o.resetChipColor }
+  if (held.length) input.resets = { chips: [{ text: `+${held.length}`, lines: CHIP_LINES }], color: o.resetChipColor }
   if (o.border !== 'off') input.border = { show: o.border, at: o.borderAt, scope: o.borderScope, ...(o.borderColor ? { color: o.borderColor } : {}), ...(o.outline !== 'off' ? { outline: o.outline } : {}) }
   // The default layout's first Weekly turn, or every turn of the single layout, as the hooks module takes them.
   return o.layout === 'single' ? B.singleVariants(input) : B.weeklyVariants(input).slice(0, 1)
@@ -325,7 +339,7 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       x += placed.w
     }
   }
-  return { out: under + out, ctxX, winX, window: winCard, context: row.context ?? null, opts, buttonX, button: btn ?? null, outline: row.outline ?? null, cuts, frameOpts: { ...opts, glow: o.glow && o.borderGlow } }
+  return { out: under + out, ctxX, winX, window: winCard, chipRows: row.resets?.[0]?.rows ?? null, chipOpts: { ...own, glow: o.glow && o.resetChipGlow }, context: row.context ?? null, opts, buttonX, button: btn ?? null, outline: row.outline ?? null, cuts, frameOpts: { ...opts, glow: o.glow && o.borderGlow } }
 }
 
 /**
@@ -384,6 +398,30 @@ function contextCard(context, opts, theme, x, bottom) {
   return { out, h }
 }
 
+/** A chip card's rows' heights: a gap half a line, any other row a line. */
+const chipRowHeights = rows => rows.map(r => (r.gap ? D.DISPLAY_HEIGHT / 2 : D.DISPLAY_HEIGHT))
+const chipCardHeight = rows => chipRowHeights(rows).reduce((a, b) => a + b, 0) + 2 * CARD_PAD
+
+/** The card the app shows over the reset chip: its rows, each as wide as the widest line with its text in the middle, its bottom at `bottom`. */
+function chipCard(rows, opts, theme, x, bottom) {
+  const heights = chipRowHeights(rows)
+  const rowW = Number(/width="([\d.]+)"/.exec(D.contextRowSvg(rows[0], opts))[1]) * SCALE
+  const w = rowW + 2 * CARD_PAD
+  const h = chipCardHeight(rows)
+  const top = bottom - h
+  let out = `<rect x="${x.toFixed(2)}" y="${top}" width="${w.toFixed(2)}" height="${h}" rx="8" fill="${CARD[theme].background}" stroke="${CARD[theme].border}"/>`
+  let y = top + CARD_PAD
+  rows.forEach((r, k) => {
+    const n = ++uid
+    out += D.contextRowSvg(r, opts)
+      .replace(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="[\d.]+" height="[\d.]+"/, `<svg x="${(x + CARD_PAD).toFixed(2)}" y="${y}" width="${rowW.toFixed(2)}" height="${heights[k]}"`)
+      .replace(/id="(\w+)"/g, `id="$1${n}"`)
+      .replace(/url\(#(\w+)\)/g, `url(#$1${n})`)
+    y += heights[k]
+  })
+  return out
+}
+
 /**
  * The card the app shows over the button, naming what it does: one
  * line in the text color, its right edge at the button's when it would run
@@ -436,7 +474,9 @@ function desktopBox(turns, o, theme, y, card = false) {
   // A window's card hangs over its segment the same way, under `windowPopup`.
   const hover = card === 'window' ? rows.find(r => r.window && r.winX !== null) : null
   const over = open ? open.context : hover ? hover.window : null
-  const cardH = over ? over.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : pressed ? D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4 + 8 : 0
+  // The reset chip's card hangs over the chip, at the row's start.
+  const chip = card === 'chip' ? rows.find(r => r.chipRows) : null
+  const cardH = over ? over.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : pressed ? D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4 + 8 : chip ? chipCardHeight(chip.chipRows) + 8 : 0
   const boxY = y + cardH
   const h = 2 * DESK_PAD + (turns.length - 1) * DESK_ROW + D.DISPLAY_HEIGHT
   let out = `<rect x="${PAD}" y="${boxY}" width="${W - 2 * PAD}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
@@ -450,6 +490,7 @@ function desktopBox(turns, o, theme, y, card = false) {
   }
   if (open) out += contextCard(open.context, open.opts, theme, open.ctxX, boxY - 8).out
   if (hover) out += contextCard(hover.window, hover.opts, theme, hover.winX, boxY - 8).out
+  if (chip) out += chipCard(chip.chipRows, chip.chipOpts, theme, PAD + DESK_PAD, boxY - 8)
   if (pressed) out += buttonCard(pressed.button.label, theme, pressed.buttonX, boxY - 8)
   return { out, h: h + cardH }
 }
