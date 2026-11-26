@@ -2205,6 +2205,281 @@
    ]
   ]
  },
+ "dark-120-chip": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "+",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true,
+     "chip": true
+    },
+    {
+     "text": "1",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true,
+     "chip": true
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Weekly ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 18%",
+     "color": "#1E90FF",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3d4h  ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "◉",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true,
+     "button": true
+    }
+   ],
+   [
+    {
+     "text": "+",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true,
+     "chip": true
+    },
+    {
+     "text": "1",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true,
+     "chip": true
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "5-hour ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━━━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 82%",
+     "color": "#FF5F1F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Fable  ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━━━━━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 69%",
+     "color": "#00D45A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3d4h  ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " │ ",
+     "color": "#6E7074"
+    },
+    {
+     "text": "Context ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "━━━━━━━━━━",
+     "color": "#1E90FF",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#FF5F1F",
+     "live": true
+    },
+    {
+     "text": "━━",
+     "color": "#00D45A",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#39FF14",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#21262D"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " 93%",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": " ",
+     "color": "#FFFFFF"
+    },
+    {
+     "text": "◉",
+     "color": "#FF073A",
+     "bold": true,
+     "live": true,
+     "button": true
+    }
+   ]
+  ]
+ },
  "light-120": {
   "tier": "full",
   "turns": [
@@ -4381,6 +4656,281 @@
     },
     {
      "text": "●●●●",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": "◉",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true,
+     "button": true
+    }
+   ]
+  ]
+ },
+ "light-120-chip": {
+  "tier": "full",
+  "turns": [
+   [
+    {
+     "text": "+",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true,
+     "chip": true
+    },
+    {
+     "text": "1",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true,
+     "chip": true
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": "5-hour ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Weekly ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━━━━━━━━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 18%",
+     "color": "#1874D2",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3d4h  ",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Context ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 93%",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " 930k/1M",
+     "color": "#000000"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": "◉",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true,
+     "button": true
+    }
+   ],
+   [
+    {
+     "text": "+",
+     "color": "#E8001F",
+     "bold": true,
+     "live": true,
+     "chip": true
+    },
+    {
+     "text": "1",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true,
+     "chip": true
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": "5-hour ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━━━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 82%",
+     "color": "#E84A00",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3h13m",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Fable  ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━━━━━",
+     "color": "#EBEDF0"
+    },
+    {
+     "text": " ",
+     "color": "#000000"
+    },
+    {
+     "text": " 69%",
+     "color": "#139A43",
+     "bold": true,
+     "live": true
+    },
+    {
+     "text": " in 3d4h  ",
+     "color": "#000000"
+    },
+    {
+     "text": " │ ",
+     "color": "#999999"
+    },
+    {
+     "text": "Context ",
+     "color": "#000000"
+    },
+    {
+     "text": "━━━━━━━━━━",
+     "color": "#1874D2",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#E84A00",
+     "live": true
+    },
+    {
+     "text": "━━",
+     "color": "#139A43",
+     "live": true
+    },
+    {
+     "text": "━",
+     "color": "#32A800",
+     "live": true
+    },
+    {
+     "text": "━",
      "color": "#EBEDF0"
     },
     {
