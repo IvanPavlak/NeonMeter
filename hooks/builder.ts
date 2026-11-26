@@ -267,7 +267,10 @@ export type BandInput = {
  * top. `color` is `rainbow`, the chip in the six rainbow colors, or one
  * `#RRGGBB` color.
  */
-export type ResetChips = { chips: { text?: string; lines: ChipLine[] }[]; color: string }
+export type ResetChips = { chips: { text?: string; lines: ChipLine[] }[]; color: string; motion?: ChipMotion }
+
+/** How a chip moves while the band pulses: its rainbow turning, brightening in place, or not at all. */
+export type ChipMotion = 'circle' | 'breathe' | 'still'
 
 /**
  * One line of a chip's hover card. With `left`, the share of `EXPIRY_HORIZON_DAYS`
@@ -307,16 +310,18 @@ function chipColors(resets: ResetChips, theme: Theme): string[] {
 /**
  * The chips' cells, the terminal's: `+1` and a space each, its two characters
  * taking the rainbow's colors in turn (so two chips run through four of them),
- * or the one color set; bold and live, they pulse with the row.
+ * or the one color set; bold and live, they pulse with the row, unless the
+ * chip holds still. (Cells cannot turn: `circle` pulses there as `breathe` does.)
  */
 function chipSpans(resets: ResetChips, theme: Theme, T: Palette): Span[] {
   const colors = chipColors(resets, theme)
+  const still = resets.motion === 'still'
   const out: Span[] = []
   let n = 0
   for (const c of resets.chips) {
     const text = c.text ?? CHIP_TEXT
-    if (colors.length === 1) out.push({ text, color: colors[0]!, bold: true, live: true, chip: true })
-    else for (const ch of Array.from(text)) out.push({ text: ch, color: colors[n++ % colors.length]!, bold: true, live: true, chip: true })
+    if (colors.length === 1) out.push(still ? { text, color: colors[0]!, bold: true, chip: true } : { text, color: colors[0]!, bold: true, live: true, chip: true })
+    else for (const ch of Array.from(text)) out.push(still ? { text: ch, color: colors[n++ % colors.length]!, bold: true, chip: true } : { text: ch, color: colors[n++ % colors.length]!, bold: true, live: true, chip: true })
     out.push(sp(T, ' ', T.text))
   }
   return out
@@ -1122,7 +1127,7 @@ export type FlexRow = {
 }
 
 /** A reset chip as the desktop draws it: its text, its colors (six for the rainbow, one otherwise) and its hover card's rows, an expiry in its color under a halo. */
-export type FlexChip = { text: string; colors: string[]; rows: ContextRow[] }
+export type FlexChip = { text: string; colors: string[]; rows: ContextRow[]; motion?: ChipMotion }
 
 function slicesOf(seg: Segment, T: Palette, bars: BarColoring): FlexSlice[] {
   if (seg.loading) return [{ grow: 100, color: T.neutral, live: true }]
@@ -1314,7 +1319,7 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   if (frame) row.frame = frame
   const ring = s.button && s.ctx ? buttonRing(s.ctx, T, bars) : null
   if (ring) row.button = { position: s.button!, ring, label: `${s.buttonLabel ?? HANDOFF_LABEL} (${Math.round(s.ctx!.pct)}% of the context used)` }
-  if (s.resets?.chips.length) row.resets = s.resets.chips.map(c => ({ text: c.text ?? CHIP_TEXT, colors: chipColors(s.resets!, theme), rows: chipRows(c.lines, T, chipColors(s.resets!, theme)) }))
+  if (s.resets?.chips.length) row.resets = s.resets.chips.map(c => ({ text: c.text ?? CHIP_TEXT, colors: chipColors(s.resets!, theme), rows: chipRows(c.lines, T, chipColors(s.resets!, theme)), ...(s.resets!.motion ? { motion: s.resets!.motion } : {}) }))
   // The hover card hangs on the Context segment, whichever way its bar is colored.
   if (s.ctx?.parts && s.ctx.tokens != null && usedOf(s.ctx.parts) > 0 && segs.some(seg => seg.kind === 'ctx')) row.context = contextRows(s.ctx.parts, s.ctx.window, T, s.ctx.tokens)
   return row

@@ -203,6 +203,24 @@ describe('desktop', () => {
     expect(burst).toContain('data-burst="3"')
   })
 
+  test('resetChipMotion: breathe holds the rainbow in place and brightens it; still holds the chip whatever the band does', () => {
+    const row = (motion: 'circle' | 'breathe' | 'still') => flexRow(input({ resets: resetChipsOf(held, 'rainbow', NOW, motion)! }), 'dark', 'level')!.resets![0]!
+    expect(row('circle').motion).toBeUndefined()
+    const breathing = resetChipSvg(row('breathe'), always)
+    expect(breathing).not.toContain('animateTransform')
+    expect(breathing.split('attributeName="stop-color"').length - 1).toBe(6)
+    // The halo breathes with it.
+    expect(breathing).toContain('attributeName="stdDeviation"')
+    expect(resetChipSvg(row('still'), always)).not.toContain('<animate')
+    expect(resetChipSvg(row('circle'), always)).not.toContain('attributeName="stop-color"')
+    // In the terminal a still chip's cells are not live; the other two pulse.
+    const cells = (motion: 'circle' | 'breathe' | 'still') => band(input({ resets: resetChipsOf(held, 'rainbow', NOW, motion)! }), 120, 'dark', 'level')!.spans.filter(s => s.chip)
+    expect(cells('still').every(s => !s.live)).toBe(true)
+    expect(cells('breathe').every(s => s.live)).toBe(true)
+    const parsed = parseOptions({ resetChipMotion: 'breathe' }).parsed
+    expect([parsed.resetChipMotion, parseOptions({}).parsed.resetChipMotion, parseOptions({ resetChipMotion: 'spin' }).parsed.resetChipMotion]).toEqual(['breathe', 'circle', 'circle'])
+  })
+
   test('glow off draws no halo and no filter; pulse off, no animation; one color brightens as a frame does', () => {
     const chip = flexRow(input({ resets: chips() }), 'dark', 'level')!.resets![0]!
     const crisp = resetChipSvg(chip, { ...always, glow: false })

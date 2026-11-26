@@ -4,7 +4,7 @@ import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Reg
 import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
 import { band, configureDesign, EXPIRY_HORIZON_DAYS, fitDesktop, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, rainbowOf, resetShare, RULE_GLYPH, RULE_KEY, singleVariants, THEMES, timeIndex, warnMin, weeklyVariants } from './builder'
-import type { BandInput, ButtonPosition, ChipLine, ContextBar, FlexRow, OptionSegment, PaceStyle, PaceWarn, ResetChips, WindowInput, WindowKind } from './builder'
+import type { BandInput, ButtonPosition, ChipLine, ChipMotion, ContextBar, FlexRow, OptionSegment, PaceStyle, PaceWarn, ResetChips, WindowInput, WindowKind } from './builder'
 import type { Burst } from './color'
 import { desktopBand } from './desktop'
 import type { DesktopExtras } from './desktop'
@@ -143,6 +143,8 @@ export type Options = {
   resetChipGlow: boolean
   /** Pulse the chips with the band, the rainbow turning; the `pulse` option off holds them still either way. */
   resetChipPulse: boolean
+  /** How the chip moves while the band pulses: `circle` turns its rainbow, `breathe` brightens it in place, `still` holds it. */
+  resetChipMotion: ChipMotion
   /** The rainbow theme, in place of the range colors: held `still`, breathing with the pulse (`breathe`) or running with it (`circle`); `off`, the range colors. */
   rainbow: 'off' | 'still' | 'breathe' | 'circle'
 }
@@ -214,7 +216,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
  * and those without a day last, in the list's order among equals. Null when
  * none is left.
  */
-export function resetChipsOf(held: readonly HeldReset[], color: string, now: number): ResetChips | null {
+export function resetChipsOf(held: readonly HeldReset[], color: string, now: number, motion: ChipMotion = 'circle'): ResetChips | null {
   const left = held
     .map((r, i) => ({ r, i }))
     .filter(({ r }) => r.expires === null || r.expires >= now)
@@ -234,7 +236,7 @@ export function resetChipsOf(held: readonly HeldReset[], color: string, now: num
     lines.push({ text: `Expires ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${days === 0 ? 'today' : days === 1 ? 'in 1 day' : `in ${days} days`}`, left: Math.min(100, ((r.expires - now) / (EXPIRY_HORIZON_DAYS * 86_400_000)) * 100) })
   }
   lines.push(gap, { text: left.length === 1 ? 'Use it in Settings > Usage.' : 'Use them in Settings > Usage.', dim: true })
-  return { chips: [{ text: `+${left.length}`, lines }], color }
+  return { chips: [{ text: `+${left.length}`, lines }], color, ...(motion === 'circle' ? {} : { motion }) }
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
@@ -289,6 +291,7 @@ const DEFAULTS: Options = {
   resetChipColor: 'rainbow',
   resetChipGlow: true,
   resetChipPulse: true,
+  resetChipMotion: 'circle',
   rainbow: 'off',
 }
 
@@ -432,6 +435,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const resetChipColor = options.resetChipColor === undefined || options.resetChipColor === '' || options.resetChipColor === 'rainbow' ? DEFAULTS.resetChipColor : pick('resetChipColor', parseColor, DEFAULTS.resetChipColor, 'rainbow, or one color like "#B24BFF"')
   const resetChipGlow = typeof options.resetChipGlow === 'boolean' ? options.resetChipGlow : DEFAULTS.resetChipGlow
   const resetChipPulse = typeof options.resetChipPulse === 'boolean' ? options.resetChipPulse : DEFAULTS.resetChipPulse
+  const resetChipMotion = options.resetChipMotion === 'breathe' || options.resetChipMotion === 'still' ? options.resetChipMotion : DEFAULTS.resetChipMotion
   const rainbow = options.rainbow === 'still' || options.rainbow === 'breathe' || options.rainbow === 'circle' ? options.rainbow : DEFAULTS.rainbow
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
@@ -495,6 +499,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       resetChipColor,
       resetChipGlow,
       resetChipPulse,
+      resetChipMotion,
       rainbow,
     },
     rejected,
@@ -1160,7 +1165,7 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
 /** The band's reset chips at `now`, as an input field; nothing when none is held or left. */
 function resetsInput(options: Options, now: number): { resets?: ResetChips } {
   if (!options.resetChips.length) return {}
-  const resets = resetChipsOf(options.resetChips, options.resetChipColor, now)
+  const resets = resetChipsOf(options.resetChips, options.resetChipColor, now, options.resetChipMotion)
   return resets ? { resets } : {}
 }
 

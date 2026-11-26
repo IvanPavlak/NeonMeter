@@ -431,6 +431,17 @@
       "description": "Pulse the chip with the band, the rainbow turning once per cycle; pulse off holds it still either way",
       "default": true
     },
+    "resetChipMotion": {
+      "type": "string",
+      "title": "Reset chip motion",
+      "description": "How the chip moves while the band pulses: circle turns its rainbow once per cycle, breathe holds the rainbow in place and brightens it, still holds the chip whatever the band does; the halo breathes under circle and breathe",
+      "options": [
+        "circle",
+        "breathe",
+        "still"
+      ],
+      "default": "circle"
+    },
     "rainbow": {
       "type": "string",
       "title": "Rainbow",

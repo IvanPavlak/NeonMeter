@@ -640,12 +640,15 @@ export const CHIP_PAD = 9
 /**
  * A reset chip: its text in a pill, both in one paint under a halo of the
  * pill. With six colors the paint is the rainbow, a gradient across the pill
- * that turns once per pulse cycle while the band pulses and lies still
- * otherwise; with one, that color, brightening as a frame does. Every part
+ * that, while the band pulses, turns once per cycle (`circle`) or stays put
+ * and brightens (`breathe`), and lies still otherwise or under `still`; with
+ * one, that color, brightening as a frame does. Every part
  * carries a `data-role` (`chip`, `chip-text`, `chip-halo`).
  */
 export function resetChipSvg(chip: FlexChip, o: DesktopOptions): string {
-  const beat = beatOf(o, true)
+  // `still` holds the chip whatever the band does; `breathe` and `circle` pulse with it.
+  const motion = chip.motion ?? 'circle'
+  const beat = motion === 'still' ? null : beatOf(o, true)
   const inner = Math.ceil(chip.text.length * CHIP_CHAR_WIDTH) + 2 * CHIP_PAD
   const w = inner + 2 * CHIP_INSET
   const h = ROW_HEIGHT
@@ -655,8 +658,9 @@ export function resetChipSvg(chip: FlexChip, o: DesktopOptions): string {
   let defs = o.glow ? filters(w, h, beat) : ''
   let pulse: ((attr: string) => string) | null = null
   if (rainbow) {
-    const turn = beat ? `<animateTransform attributeName="gradientTransform" type="rotate" from="0 ${w / 2} ${MIDLINE}" to="360 ${w / 2} ${MIDLINE}" dur="${beat.ms}ms" ${beat.timing}/>` : ''
-    const stops = colors.map((c, i) => `<stop offset="${+(i / (colors.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('')
+    // `circle` turns the rainbow; `breathe` holds it in place and brightens every color with the pulse.
+    const turn = beat && motion === 'circle' ? `<animateTransform attributeName="gradientTransform" type="rotate" from="0 ${w / 2} ${MIDLINE}" to="360 ${w / 2} ${MIDLINE}" dur="${beat.ms}ms" ${beat.timing}/>` : ''
+    const stops = colors.map((c, i) => `<stop offset="${+(i / (colors.length - 1)).toFixed(3)}" stop-color="${c}">${beat && motion === 'breathe' ? animate('stop-color', c, peakOf(c), beat) : ''}</stop>`).join('')
     defs += `<linearGradient id="rb" gradientUnits="userSpaceOnUse" x1="${CHIP_INSET}" y1="0" x2="${w - CHIP_INSET}" y2="0">${stops}${turn}</linearGradient>`
   } else if (beat) {
     pulse = (attr: string) => animate(attr, colors[0]!, peakOf(colors[0]!), beat)
