@@ -73,6 +73,7 @@ const DEFAULTS = {
   resetChips: '',
   resetChipColor: 'rainbow',
   resetChipGlow: true,
+  rainbow: 'off',
 }
 
 // Every option a picture can show. The pulse options (`pulse`, `pulseMode`, `pulseCount`,
@@ -109,6 +110,7 @@ export const OPTIONS = [
   { key: 'resetChips', title: 'Reset Chips', values: ['', 'fable:2027-03-09,weekly:2026-12-10'], names: ['None', 'A Fable Reset and a Weekly Reset Held'] },
   { key: 'resetChipColor', title: 'Reset Chip Color', values: ['rainbow', '#B24BFF'], names: ['Rainbow', 'One Color'], base: { resetChips: 'fable,weekly' } },
   { key: 'resetChipGlow', title: 'Reset Chip Glow (Desktop)', values: [true, false], names: ['Glow On', 'Glow Off'], surfaces: ['desktop'], base: { resetChips: 'fable,weekly' } },
+  { key: 'rainbow', title: 'Rainbow', values: ['off', 'still'], names: ['The Range Colors', 'The Rainbow (Still, Breathing or Circling)'], base: { border: 'always', resetChips: 'fable,weekly' } },
 ]
 
 const shown = v => (Array.isArray(v) ? v.join(',') : String(v))
@@ -121,7 +123,7 @@ function buttonShown(o, ctx) {
 }
 
 /** The band input for a set of options: the account above, with each window's reset display. */
-function inputFor(o, ctx = CTX) {
+function inputFor(o, ctx = CTX, theme = 'dark') {
   const asFive = { ...FIVE, resetAs: o.fiveHourReset }
   const week = { ...WEEK, resetAs: o.weeklyReset }
   const fable = { ...FABLE, resetAs: o.weeklyReset }
@@ -140,9 +142,10 @@ function inputFor(o, ctx = CTX) {
   if (o.pace !== 'off') input.pace = o.pace
   if (o.paceWarn !== 'off') input.paceWarn = o.paceWarn
   if (o.windowPopup) input.windowCard = true
-  // One chip per entry of the list; the pictures hold no card, so the lines are the names alone.
+  if (o.rainbow !== 'off') input.rainbow = { colors: B.rainbowOf(theme), still: true }
+  // One chip counting the list's entries; the pictures hold no card, so the lines are the names alone.
   const held = o.resetChips.split(',').map(e => e.trim().split(':')[0]).filter(Boolean)
-  if (held.length) input.resets = { chips: held.map(kind => ({ lines: [kind] })), color: o.resetChipColor }
+  if (held.length) input.resets = { chips: [{ text: `+${held.length}`, lines: held.map(text => ({ text })) }], color: o.resetChipColor }
   if (o.border !== 'off') input.border = { show: o.border, at: o.borderAt, scope: o.borderScope, ...(o.borderColor ? { color: o.borderColor } : {}), ...(o.outline !== 'off' ? { outline: o.outline } : {}) }
   // The default layout's first Weekly turn, or every turn of the single layout, as the hooks module takes them.
   return o.layout === 'single' ? B.singleVariants(input) : B.weeklyVariants(input).slice(0, 1)
@@ -212,7 +215,9 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const plain = B.flexRow(turn, theme, o.barColoring)
   const count = B.desktopDotCount(plain, COLS)
   const row = B.flexRow(turn, theme, o.barColoring, o.desktopBars === 'dots' ? count : undefined)
-  const opts = { pulse: false, pulseMs: 800, pulseMode: 'responsive', burst: { gen: 0, elapsedMs: 0, totalMs: 0 }, glow: o.glow, palette: T, dotCount: count }
+  const own = { pulse: false, pulseMs: 800, pulseMode: 'responsive', burst: { gen: 0, elapsedMs: 0, totalMs: 0 }, glow: o.glow, palette: T, dotCount: count }
+  // The rainbow paints what the percents color; a bar split by category and a run-out warning keep their own.
+  const opts = o.rainbow === 'off' ? own : { ...own, rainbow: { colors: B.rainbowOf(theme), motion: 'still' } }
   const items = []
   const text = (t, color, extra = {}) => items.push({ kind: 'text', t, color, ...extra })
   const draw = svg => items.push({ kind: 'svg', svg })
@@ -220,7 +225,7 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const button = () => items.push({ kind: 'button' }) && draw(D.buttonSvg(btn.ring, { ...opts, glow: o.glow && o.buttonGlow }))
   const at = btn ? (btn.position === 'context' && !row.segments.some(s => s.kind === 'ctx') ? 'end' : btn.position) : null
   for (const chip of row.resets ?? []) {
-    draw(D.resetChipSvg(chip, { ...opts, glow: o.glow && o.resetChipGlow }))
+    draw(D.resetChipSvg(chip, { ...own, glow: o.glow && o.resetChipGlow }))
     text(' ', T.text)
   }
   if (at === 'start') {
@@ -251,14 +256,14 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       text(' ', T.text)
     }
     text(seg.label + ' ', T.text)
-    if (seg.dots) items.push({ kind: 'grow', svg: D.dotBarSvg(seg.dots, opts, seg.pace?.tick) })
-    else if (seg.bar) items.push({ kind: 'grow', svg: D.smoothBarSvg(seg.bar, opts, seg.pace) })
+    if (seg.dots) items.push({ kind: 'grow', svg: D.dotBarSvg(seg.dots, seg.split ? own : opts, seg.pace?.tick) })
+    else if (seg.bar) items.push({ kind: 'grow', svg: D.smoothBarSvg(seg.bar, seg.split ? own : opts, seg.pace) })
     if (seg.dots || seg.bar) text(' ', T.text)
     if (!seg.pct.live && seg.pct.color.toUpperCase() === T.text.toUpperCase()) text(seg.pct.text, T.text, { bold: true })
     else draw(D.pctSvg(seg.pct, opts))
     if (seg.extra && seg.extraSpan) {
       text(' ', T.text)
-      draw(D.resetSvg(seg.extraSpan, opts))
+      draw(D.resetSvg(seg.extraSpan, seg.warns ? own : opts))
     } else if (seg.extra) text(' ' + seg.extra, T.text)
     if (n === lastWin && row.stale) text('  ' + row.stale.text, dim, { italic: true })
     if (seg.frame) frameTo()
@@ -493,7 +498,7 @@ function picture(option, theme) {
     body += `<text x="${W / 2}" y="${y + 13}" ${SANS} font-size="13" font-weight="600" fill="${P.caption}" text-anchor="middle">${esc(name)}</text>`
     body += `<text x="${W / 2}" y="${y + 30}" ${MONO} font-size="12" fill="${P.caption}" fill-opacity="0.75" text-anchor="middle" xml:space="preserve">${esc(setting)}</text>`
     y += 40
-    const turns = inputFor(o, option.ctx ?? CTX)
+    const turns = inputFor(o, option.ctx ?? CTX, theme)
     // Each surface under a small label of its own, the terminal set a little apart.
     const surfaceLabel = (text) => {
       body += `<text x="${PAD}" y="${y + 11}" ${SANS} font-size="11" font-weight="600" letter-spacing="0.6" fill="${P.caption}" fill-opacity="0.8">${text}</text>`

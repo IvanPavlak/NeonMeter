@@ -5,8 +5,8 @@
 #     pwsh scripts/benchmarking/headless.ps1 [-Base master] [-Rounds 3] [-Seconds 10] [-SkipFrames] [-SkipBands] [-Chips]
 #
 # -SkipFrames leaves out the pixel comparison, -SkipBands the CPU and GPU measurement.
-# -Chips measures the reset chips instead of the two versions: the working tree's band
-# with two chips before it (rainbow, one color, rainbow without a halo) against the same
+# -Chips measures the reset chip instead of the two versions: the working tree's band
+# with the chip before it (rainbow, one color, rainbow without a halo) against the same
 # band without them, pulsing without a stop and holding still.
 #
 # It builds the pages first (pages.mjs, Node 22.18 or later). Each page runs in its own

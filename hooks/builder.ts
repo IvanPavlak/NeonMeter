@@ -256,17 +256,38 @@ export type BandInput = {
   windowCard?: boolean
   /** The limit resets held, a chip each at the start of the row; absent or empty, none. */
   resets?: ResetChips
+  /** The rainbow theme in the terminal: the window bars' cells and the percents' characters take these colors in turn, still or live. Absent, the range colors. */
+  rainbow?: { colors: readonly string[]; still: boolean }
 }
 
 /**
  * The limit resets the account holds, as the `resetChips` option lists them:
- * each a `+1` chip before everything else in the row, and the lines its hover
- * card says (its name, what it refills, when it expires). `color` is
- * `rainbow`, every chip in the six rainbow colors, or one `#RRGGBB` color.
+ * a chip before everything else in the row that counts them (`+2`), and the
+ * lines its hover card says, one reset each, the one that expires first on
+ * top. `color` is `rainbow`, the chip in the six rainbow colors, or one
+ * `#RRGGBB` color.
  */
-export type ResetChips = { chips: { lines: string[] }[]; color: string }
+export type ResetChips = { chips: { text?: string; lines: ChipLine[] }[]; color: string }
 
-/** What a chip reads. */
+/**
+ * One line of a chip's hover card. With `left`, the share of `EXPIRY_HORIZON_DAYS`
+ * a reset still has before it expires (0 to 100), the line is an expiry and is
+ * colored by it, as `resetColor: time` colors a window's reset but the other
+ * way round: a reset about to be lost is red, one with a month or more to go
+ * blue (`timeRanges` sets where each color starts). `strong` draws a line
+ * bold, a title or a reset's name; any other line is plain.
+ */
+export type ChipLine = { text: string; left?: number; strong?: boolean }
+
+/** The days over which an expiry's color runs from red to blue. */
+export const EXPIRY_HORIZON_DAYS = 30
+
+/** An expiry's color: the time range of the share of the horizon it has left, counted from the hot end. */
+export function expiryColor(left: number, T: Palette): string {
+  return T.ramp[T.ramp.length - 1 - timeIndex(Math.min(100, Math.max(0, left)))]!
+}
+
+/** What a chip reads when it names no count of its own. */
 export const CHIP_TEXT = '+1'
 
 /** The rainbow a chip is drawn in: the range colors from the last to the first, without the second green, then violet. */
@@ -289,16 +310,22 @@ function chipColors(resets: ResetChips, theme: Theme): string[] {
 function chipSpans(resets: ResetChips, theme: Theme, T: Palette): Span[] {
   const colors = chipColors(resets, theme)
   const out: Span[] = []
-  resets.chips.forEach((_, i) => {
-    if (colors.length === 1) out.push({ text: CHIP_TEXT, color: colors[0]!, bold: true, live: true, chip: true })
-    else Array.from(CHIP_TEXT).forEach((ch, k) => out.push({ text: ch, color: colors[(i * 2 + k) % colors.length]!, bold: true, live: true, chip: true }))
+  let n = 0
+  for (const c of resets.chips) {
+    const text = c.text ?? CHIP_TEXT
+    if (colors.length === 1) out.push({ text, color: colors[0]!, bold: true, live: true, chip: true })
+    else for (const ch of Array.from(text)) out.push({ text: ch, color: colors[n++ % colors.length]!, bold: true, live: true, chip: true })
     out.push(sp(T, ' ', T.text))
-  })
+  }
   return out
 }
 
-/** The columns the chips take at the start of the terminal row. */
-const CHIP_COLS = CHIP_TEXT.length + 1
+/** The columns the chips take at the start of the terminal row: each its text and a space. */
+function chipCols(resets: ResetChips | undefined): number {
+  let cols = 0
+  for (const c of resets?.chips ?? []) cols += Array.from(c.text ?? CHIP_TEXT).length + 1
+  return cols
+}
 
 /**
  * How a window's bar shows its pace, the share of the window already gone:
@@ -365,6 +392,8 @@ type Segment = {
   paceStyle?: PaceStyle
   /** Minutes until the window runs out, when it warns. */
   warn?: number
+  /** The rainbow theme, when it is on (the terminal's cells and percents). */
+  rainbow?: { colors: readonly string[]; still: boolean }
 }
 
 type Pieces = { label: string; pct: string; extra: string }
@@ -492,6 +521,7 @@ function segmentsOf(s: BandInput): Segment[] {
     if (s.contextBar === 'breakdown' && s.ctx.parts && s.ctx.tokens != null) ctx.parts = s.ctx.parts
     all.push(ctx)
   }
+  if (s.rainbow && s.rainbow.colors.length > 1) for (const seg of all) seg.rainbow = s.rainbow
   // The `segments` option filters and orders; a kind the account has no segment for is skipped.
   const out: Segment[] = []
   for (const option of s.segments) {
@@ -755,6 +785,11 @@ function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarCo
     return
   }
   const { cells: row, tick } = barCells(seg, len, T, bars)
+  // In the rainbow every live cell takes the next color, whatever its percent.
+  const rb = seg.rainbow
+  if (rb && !seg.stale) row.forEach((c, i) => {
+    if (c.kind !== 'track' && c.live) row[i] = { ...c, color: rb.colors[i % rb.colors.length]!, live: !rb.still }
+  })
   if (tick !== null) row[tick] = { kind: 'track', color: T.text, live: false, op: 1 }
   // Cells of one look become one span, so a bar is a few spans, not one per cell.
   let run = ''
@@ -775,6 +810,21 @@ function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarCo
  * The layouts below fill `starts` with the index of the span each segment's
  * label opens with (after its separator), where the button can go.
  */
+/** A percent's spans: one in its range color, or in the rainbow one per character, each in the next color. */
+function pushPct(out: Span[], T: Palette, seg: Segment, text: string): void {
+  const pc = pctColor(seg, T)
+  const rb = seg.rainbow
+  if (!rb || !pc.live || seg.loading) {
+    out.push(sp(T, text, pc.color, { live: pc.live, op: pc.op, bold: true }))
+    return
+  }
+  let k = 0
+  for (const ch of Array.from(text)) {
+    if (ch === ' ') out.push(sp(T, ch, pc.color, { bold: true }))
+    else out.push(sp(T, ch, rb.colors[k++ % rb.colors.length]!, { live: !rb.still, bold: true }))
+  }
+}
+
 function layoutBars(segs: Segment[], tier: Tier, s: BandInput, cols: number, T: Palette, bars: BarColoring, starts: number[] = []): Span[] | null {
   const min = tier === 'full' ? 8 : 4
   const parts = segs.map((seg, i) => piecesOf(seg, tier, i === segs.length - 1))
@@ -808,8 +858,7 @@ function layoutBars(segs: Segment[], tier: Tier, s: BandInput, cols: number, T: 
       k++
       out.push(sp(T, ' ', T.text))
     }
-    const pc = pctColor(seg, T)
-    out.push(sp(T, p.pct, pc.color, { live: pc.live, op: pc.op, bold: true }))
+    pushPct(out, T, seg, p.pct)
     if (p.extra) out.push(extraSpan(T, seg, p.extra, s.resetColor))
     if (i === lastWin && staleTxt) out.push(sp(T, staleTxt, T.text, { italic: true, op: 0.7 }))
   })
@@ -833,10 +882,9 @@ function layoutJustified(segs: Segment[], tier: Tier, cols: number, T: Palette, 
       const left = Math.floor((g - 1) / 2)
       out.push(sp(T, rep(' ', left) + '·' + rep(' ', g - 1 - left), T.text, { op: 0.4 }))
     }
-    const pc = pctColor(seg, T)
     starts[i] = out.length
     out.push(sp(T, p.label + ' ', T.text))
-    out.push(sp(T, p.pct, pc.color, { live: pc.live, op: pc.op, bold: true }))
+    pushPct(out, T, seg, p.pct)
     if (p.extra) out.push(extraSpan(T, seg, p.extra, color))
   })
   return out
@@ -909,7 +957,7 @@ export function band(s: BandInput, cols: number, theme: Theme, bars: BarColoring
   // The button takes its cell and a space.
   const button = s.button && s.ctx && s.ctx.tokens != null ? buttonSpan(s.ctx, T) : null
   // The reset chips stand before everything else, each its cells and a space.
-  const lead = s.resets?.chips.length ? s.resets.chips.length * CHIP_COLS : 0
+  const lead = chipCols(s.resets)
   const width = Math.max(1, cols - (button ? 2 : 0) - lead)
   const starts: number[] = []
   let spans = layoutBars(segs, 'full', s, width, T, bars, starts)
@@ -1031,6 +1079,10 @@ export type FlexSegment = {
   pace?: FlexPace
   /** The window's hover card, under `windowPopup`: its pace, projection and reset, a row each. */
   card?: ContextRow[]
+  /** The bar is split by the context's categories: its colors name them, and the rainbow leaves them be. */
+  split?: true
+  /** The field after the percent is a run-out warning: it stays red in the rainbow. */
+  warns?: true
 }
 
 /**
@@ -1067,8 +1119,8 @@ export type FlexRow = {
   resets?: FlexChip[]
 }
 
-/** A reset chip as the desktop draws it: its text, its colors (six for the rainbow, one otherwise) and its hover card's lines. */
-export type FlexChip = { text: string; colors: string[]; lines: string[] }
+/** A reset chip as the desktop draws it: its text, its colors (six for the rainbow, one otherwise) and its hover card's rows, an expiry in its color under a halo. */
+export type FlexChip = { text: string; colors: string[]; rows: ContextRow[] }
 
 function slicesOf(seg: Segment, T: Palette, bars: BarColoring): FlexSlice[] {
   if (seg.loading) return [{ grow: 100, color: T.neutral, live: true }]
@@ -1234,8 +1286,10 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
     if (seg.hasBar && dotCount && dotCount > 0) out.dots = dotsOf(seg, dotCount, T, bars)
     const frame = s.border?.scope === 'segment' && !seg.loading && !outline ? frameOf(seg.pct, seg.stale === true, s.border, T) : null
     if (frame) out.frame = frame
+    if (seg.hasBar && partSlices(seg, T)) out.split = true
     if (extra && seg.warn != null) {
       const wc = warnColor(seg, T)
+      out.warns = true
       out.extraSpan = sp(T, extra, wc.color, { live: wc.live, op: wc.op })
     } else if (extra && s.resetColor === 'time' && seg.kind !== 'ctx' && seg.resetMin != null) {
       const tc = timeColor(seg, T)
@@ -1258,10 +1312,16 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   if (frame) row.frame = frame
   const ring = s.button && s.ctx ? buttonRing(s.ctx, T, bars) : null
   if (ring) row.button = { position: s.button!, ring, label: `${s.buttonLabel ?? HANDOFF_LABEL} (${Math.round(s.ctx!.pct)}% of the context used)` }
-  if (s.resets?.chips.length) row.resets = s.resets.chips.map(c => ({ text: CHIP_TEXT, colors: chipColors(s.resets!, theme), lines: c.lines }))
+  if (s.resets?.chips.length) row.resets = s.resets.chips.map(c => ({ text: c.text ?? CHIP_TEXT, colors: chipColors(s.resets!, theme), rows: c.lines.map((line, i) => chipRow(line, i, T)) }))
   // The hover card hangs on the Context segment, whichever way its bar is colored.
   if (s.ctx?.parts && s.ctx.tokens != null && usedOf(s.ctx.parts) > 0 && segs.some(seg => seg.kind === 'ctx')) row.context = contextRows(s.ctx.parts, s.ctx.window, T, s.ctx.tokens)
   return row
+}
+
+/** A chip's card line as a row: an expiry in its color with a dot and a halo, a strong line bold, any other dimmed; none pulses. */
+function chipRow(line: ChipLine, i: number, T: Palette): ContextRow {
+  if (line.left !== undefined) return { key: `line-${i}`, text: line.text, color: expiryColor(line.left, T), live: false, halo: true }
+  return { key: `line-${i}`, text: line.text, color: line.strong ? T.text : mix(T.text, T.bg, 0.7), live: false, halo: false, dot: false }
 }
 
 /** The button's ring: the context percent as a bar's slices, colored by `barColoring`; null before the first response. */

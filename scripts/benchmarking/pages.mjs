@@ -10,7 +10,7 @@
 // - `band-<side>-<look>-<mode>.html`: one desktop band, 1460 px wide, as the app shows
 //   it: labels as text, every bar and percent as an image 20 px tall. `look` is `bars`
 //   or `dots`, `mode` is `always` (pulseMode: always) or `still` (pulse: false).
-// - `chips-<look>-<mode>.html`: the working tree's smooth-bar band with two reset chips
+// - `chips-<look>-<mode>.html`: the working tree's smooth-bar band with the reset chip
 //   before it: `look` is `rainbow`, `one` (one color) or `crisp` (rainbow, no halo),
 //   `mode` as above. Compare with `band-work-bars-<mode>.html`, the same band without them.
 // - `frame-<side>-<rest|mid|peak>.html`: a dot bar, a ramp bar, a percent and a colored
@@ -93,8 +93,8 @@ for (const [side, D] of Object.entries(sides)) {
       if (side === 'work' && look === 'bars' && D.resetChipSvg) {
         const rainbow = [ramp[5], ramp[4], ramp[3], ramp[1], ramp[0], '#B24BFF']
         for (const [name, colors, glow] of [['rainbow', rainbow, true], ['one', ['#B24BFF'], true], ['crisp', rainbow, false]]) {
-          const chip = img(D.resetChipSvg({ text: '+1', colors, lines: [] }, { ...o, glow })) + '<span>&nbsp;</span>'
-          write(`chips-${name}-${mode}.html`, page(`<div style="display:flex;align-items:center;width:1460px;height:140px;padding:0 12px;box-sizing:border-box;white-space:nowrap">${chip}${chip}${row}</div>`))
+          const chip = img(D.resetChipSvg({ text: '+2', colors, rows: [] }, { ...o, glow })) + '<span>&nbsp;</span>'
+          write(`chips-${name}-${mode}.html`, page(`<div style="display:flex;align-items:center;width:1460px;height:140px;padding:0 12px;box-sizing:border-box;white-space:nowrap">${chip}${row}</div>`))
         }
       }
     }

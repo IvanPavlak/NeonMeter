@@ -3,8 +3,8 @@ import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Reg
 
 import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
-import { band, configureDesign, fitDesktop, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, RULE_GLYPH, RULE_KEY, singleVariants, THEMES, timeIndex, warnMin, weeklyVariants } from './builder'
-import type { BandInput, ButtonPosition, ContextBar, FlexRow, OptionSegment, PaceStyle, PaceWarn, ResetChips, WindowInput, WindowKind } from './builder'
+import { band, configureDesign, EXPIRY_HORIZON_DAYS, fitDesktop, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, rainbowOf, resetShare, RULE_GLYPH, RULE_KEY, singleVariants, THEMES, timeIndex, warnMin, weeklyVariants } from './builder'
+import type { BandInput, ButtonPosition, ChipLine, ContextBar, FlexRow, OptionSegment, PaceStyle, PaceWarn, ResetChips, WindowInput, WindowKind } from './builder'
 import type { Burst } from './color'
 import { desktopBand } from './desktop'
 import type { DesktopExtras } from './desktop'
@@ -135,7 +135,7 @@ export type Options = {
   paceWarn: 'off' | PaceWarn
   /** Show a window's pace, projection and reset when the pointer is over its bar (desktop). */
   windowPopup: boolean
-  /** The limit resets held, a chip each at the start of the row: `fable:2027-03-09,weekly:2026-12-10`; empty, none. */
+  /** The limit resets held, counted by a chip at the start of the row: `fable:2027-03-09,weekly:2026-12-10`; empty, none. */
   resetChips: HeldReset[]
   /** `rainbow`, or one `#RRGGBB` color for every chip. */
   resetChipColor: string
@@ -143,6 +143,8 @@ export type Options = {
   resetChipGlow: boolean
   /** Pulse the chips with the band, the rainbow turning; the `pulse` option off holds them still either way. */
   resetChipPulse: boolean
+  /** The rainbow theme, in place of the range colors: held `still`, breathing with the pulse (`breathe`) or running with it (`circle`); `off`, the range colors. */
+  rainbow: 'off' | 'still' | 'breathe' | 'circle'
 }
 
 /** A limit reset the account holds: its kind, and the day it expires (the end of that day, local time) when one is given. */
@@ -187,24 +189,30 @@ export function parseResets(value: unknown): HeldReset[] | null {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
 
 /**
- * The chips the band draws at `now`: one per held reset that has not expired,
- * with its hover card's lines. Null when none is left.
+ * The chip the band draws at `now`: one, counting the held resets that have
+ * not expired (`+2`), with its hover card's lines: a title, then for each
+ * reset its name and what it refills and, under it, when it expires, which
+ * the card colors by how close that is; the one that expires first on top
+ * and those without a day last, in the list's order among equals. Null when
+ * none is left.
  */
 export function resetChipsOf(held: readonly HeldReset[], color: string, now: number): ResetChips | null {
-  const chips = held
-    .filter(r => r.expires === null || r.expires >= now)
-    .map(r => {
-      const [name, what] = RESET_NAMES[r.kind]
-      const lines = [name, what]
-      if (r.expires !== null) {
-        const d = new Date(r.expires)
-        const days = Math.floor((r.expires - now) / 86_400_000)
-        lines.push(`Expires ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} (${days === 0 ? 'today' : days === 1 ? 'in 1 day' : `in ${days} days`}).`)
-      }
-      lines.push('Use it in Settings > Usage.')
-      return { lines }
-    })
-  return chips.length ? { chips, color } : null
+  const left = held
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => r.expires === null || r.expires >= now)
+    .sort((a, b) => (a.r.expires ?? Infinity) - (b.r.expires ?? Infinity) || a.i - b.i)
+  if (!left.length) return null
+  const lines: ChipLine[] = [{ text: left.length === 1 ? '1 limit reset available' : `${left.length} limit resets available`, strong: true }]
+  for (const { r } of left) {
+    const [name, what] = RESET_NAMES[r.kind]
+    lines.push({ text: `${name}: ${what}`, strong: true })
+    if (r.expires === null) continue
+    const d = new Date(r.expires)
+    const days = Math.floor((r.expires - now) / 86_400_000)
+    lines.push({ text: `Expires ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${days === 0 ? 'today' : days === 1 ? 'in 1 day' : `in ${days} days`}`, left: Math.min(100, ((r.expires - now) / (EXPIRY_HORIZON_DAYS * 86_400_000)) * 100) })
+  }
+  lines.push({ text: left.length === 1 ? 'Use it in Settings > Usage.' : 'Use them in Settings > Usage.' })
+  return { chips: [{ text: `+${left.length}`, lines }], color }
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
@@ -259,6 +267,7 @@ const DEFAULTS: Options = {
   resetChipColor: 'rainbow',
   resetChipGlow: true,
   resetChipPulse: true,
+  rainbow: 'off',
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -401,6 +410,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const resetChipColor = options.resetChipColor === undefined || options.resetChipColor === '' || options.resetChipColor === 'rainbow' ? DEFAULTS.resetChipColor : pick('resetChipColor', parseColor, DEFAULTS.resetChipColor, 'rainbow, or one color like "#B24BFF"')
   const resetChipGlow = typeof options.resetChipGlow === 'boolean' ? options.resetChipGlow : DEFAULTS.resetChipGlow
   const resetChipPulse = typeof options.resetChipPulse === 'boolean' ? options.resetChipPulse : DEFAULTS.resetChipPulse
+  const rainbow = options.rainbow === 'still' || options.rainbow === 'breathe' || options.rainbow === 'circle' ? options.rainbow : DEFAULTS.rainbow
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
   const segments: SegmentKind[] = []
@@ -463,6 +473,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       resetChipColor,
       resetChipGlow,
       resetChipPulse,
+      rainbow,
     },
     rejected,
     problems,
@@ -1168,8 +1179,8 @@ export function changeKey(input: BandInput): string {
     // The breakdown's split, in whole percents of the window, and the button showing up.
     input.ctx?.parts && input.ctx.window > 0 ? CONTEXT_PARTS.map(k => Math.round((input.ctx!.parts![k] / input.ctx!.window) * 100)) : null,
     input.button ?? null,
-    // A chip expiring is a change; without chips the key is the one it always was.
-    ...(input.resets ? [input.resets.chips.length] : []),
+    // A reset expiring is a change; without a chip the key is the one it always was.
+    ...(input.resets ? [input.resets.chips.map(c => c.text ?? '').join(',')] : []),
   ])
 }
 
@@ -1303,6 +1314,8 @@ export const register: Register = (on, options) => {
 
     const palette = THEMES[t ?? 'dark']
     const input = inputOf(r, c, hv ?? DEFAULT_HEALTH, now, env.options)
+    // The terminal's rainbow: cells and percents in its colors; the desktop paints its own in the drawings.
+    if (env.options.rainbow !== 'off' && e.surface !== 'desktop') input.rainbow = { colors: rainbowOf(t ?? 'dark'), still: env.options.rainbow === 'still' }
     const burst = burstOf(env.bursts, bandKey, changeKey(input), now, env.options.pulseMs, env.options.pulseCount)
     const base = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, ground: palette.bg }
     const single = env.options.layout === 'single'
@@ -1352,12 +1365,16 @@ export const register: Register = (on, options) => {
       // A row that stepped down sizes its smooth bars to what its own text leaves.
       const dotCount = row === full ? (turn?.dotCount ?? desktopDotCount(plain, e.props.bodyColumns)) : desktopDotCount(row, e.props.bodyColumns)
       const { Text, Svg, Button } = $.ui.resolve(e) as ElementTable<'desktop'>
-      const o = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, glow: env.options.glow, palette: THEMES[dt], dotCount }
+      const plainO = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, glow: env.options.glow, palette: THEMES[dt], dotCount }
+      // In the rainbow every drawing is in phase with the clock, so a band drawn again carries on where the last stood.
+      const o = env.options.rainbow === 'off' ? plainO : { ...plainO, rainbow: { colors: rainbowOf(dt), motion: env.options.rainbow }, nowMs: now }
       const extras: DesktopExtras = {
         onPress: () => pressButton($),
         button: { ...o, pulse: o.pulse && env.options.buttonPulse, glow: o.glow && env.options.buttonGlow },
-        frame: { ...o, pulse: o.pulse && env.options.borderPulse, glow: o.glow && env.options.borderGlow },
-        chip: { ...o, pulse: o.pulse && env.options.resetChipPulse, glow: o.glow && env.options.resetChipGlow },
+        // A border in the one color set keeps it in the rainbow.
+        frame: { ...(env.options.borderColor ? plainO : o), pulse: o.pulse && env.options.borderPulse, glow: o.glow && env.options.borderGlow },
+        // The chips turn in phase with the clock, so a redraw never sets their rainbow back.
+        chip: { ...plainO, nowMs: now, pulse: o.pulse && env.options.resetChipPulse, glow: o.glow && env.options.resetChipGlow },
         popup: env.options.contextPopup,
         card: CARD[dt],
         outlinePad: env.outlinePad,

@@ -73,11 +73,11 @@ function actionButton(c: FlexButton, els: DesktopElements, x: DesktopExtras): Re
 
 /** A reset chip: its drawing, and a card naming the reset while the pointer is over it. It takes no press. */
 function resetChip(c: FlexChip, n: number, els: DesktopElements, x: DesktopExtras): RenderElement {
-  const { Box, Text, Svg } = els
+  const { Box, Svg } = els
   return (
     <Box key={`reset-${n}`} position="relative" flexShrink={0}>
-      <Svg source={resetChipSvg(c, x.chip)} alt={c.lines[0] ?? c.text} height={DISPLAY_HEIGHT} />
-      {hoverCard(els, x, c.lines.map(line => <Text color={THEME_KEYS.text}>{line}</Text>))}
+      <Svg source={resetChipSvg(c, x.chip)} alt={c.rows[0]?.text ?? c.text} height={DISPLAY_HEIGHT} />
+      {hoverCard(els, x, c.rows.map(r => <Svg source={contextRowSvg(r, x.chip)} alt={r.text} height={DISPLAY_HEIGHT} />))}
     </Box>
   )
 }
@@ -175,6 +175,8 @@ function outlined(sections: Section[], colors: readonly Frame[], els: DesktopEle
 export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOptions, x: DesktopExtras): RenderElement {
   const { Box, Text, Svg } = els
   const children: RenderElement[] = []
+  // What the rainbow leaves in its own colors: a bar split by the context's categories, a run-out warning.
+  const { rainbow: _rainbow, ...own } = o
   let lastWin = -1
   row.segments.forEach((seg, n) => {
     if (seg.kind !== 'ctx') lastWin = n
@@ -211,7 +213,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
     const card = cardRows?.length ? hoverCard(els, x, cardRows.map(r => <Svg source={contextRowSvg(r, o)} alt={r.text} height={DISPLAY_HEIGHT} />)) : null
     if (seg.dots) {
       const filled = seg.dots.filter(d => HEX.test(d.color) && d.color.toUpperCase() !== o.palette.track.toUpperCase()).length
-      const svg = <Svg source={dotBarSvg(seg.dots, o, seg.pace?.tick)} alt={`${filled} of ${seg.dots.length} dots`} height={DISPLAY_HEIGHT} />
+      const svg = <Svg source={dotBarSvg(seg.dots, seg.split ? own : o, seg.pace?.tick)} alt={`${filled} of ${seg.dots.length} dots`} height={DISPLAY_HEIGHT} />
       pieces.push(
         <Box key={`dots-${seg.kind}`} flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" {...(card ? ({ position: 'relative' } as const) : {})}>
           {card ? [svg, card] : svg}
@@ -219,7 +221,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
       )
       pieces.push(gap(`gap-${seg.kind}`))
     } else if (seg.bar) {
-      const svg = <Svg source={smoothBarSvg(seg.bar, o, seg.pace)} alt={`${seg.kind} bar`} height={DISPLAY_HEIGHT} />
+      const svg = <Svg source={smoothBarSvg(seg.bar, seg.split ? own : o, seg.pace)} alt={`${seg.kind} bar`} height={DISPLAY_HEIGHT} />
       pieces.push(
         <Box key={`bar-${seg.kind}`} flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" {...(card ? ({ position: 'relative' } as const) : {})}>
           {card ? [svg, card] : svg}
@@ -242,7 +244,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
     if (seg.extra && seg.extraSpan) {
       // The gap is text and the reset a drawing, so the row reads as it does in plain text.
       pieces.push(gap(`extra-gap-${seg.kind}`))
-      pieces.push(fixed(`extra-${seg.kind}`, <Svg source={resetSvg(seg.extraSpan, o)} alt={seg.extra} height={DISPLAY_HEIGHT} />))
+      pieces.push(fixed(`extra-${seg.kind}`, <Svg source={resetSvg(seg.extraSpan, seg.warns ? own : o)} alt={seg.extra} height={DISPLAY_HEIGHT} />))
     } else if (seg.extra) {
       pieces.push(fixed(`extra-${seg.kind}`, <Text color={THEME_KEYS.text}> {seg.extra}</Text>))
     }

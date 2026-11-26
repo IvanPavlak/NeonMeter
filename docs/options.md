@@ -5,7 +5,7 @@ nav_order: 4
 
 # Every option at a glance
 
-Each option below has a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`, `buttonPulse`, `resetChipPulse`) and `rotateSeconds` have none; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme; the colors are your own; `buttonPrompt` and `buttonLabel` are text, and the `button` picture's card shows the built-in prompt's label; `borderAt` is the `border` picture's threshold, and `borderGlow` and `borderPulse` work as `buttonGlow` and `buttonPulse` do. Every picture shows the same account at 93% of the context, so the button shows at the end of each row and the Context segment sits in its border.
+Each option below has a picture of its values, the desktop band above the terminal band, drawn by the plugin's own builder and drawings. The pictures hold still, so the pulse options (`pulse`, `pulseMode`, `pulseCount`, `pulseMs`, `buttonPulse`, `resetChipPulse`) and `rotateSeconds` have none, and of `rainbow` only the look that holds still has one; `theme` and `desktopTheme` are the pictures themselves: they follow your GitHub theme; the colors are your own; `buttonPrompt` and `buttonLabel` are text, and the `button` picture's card shows the built-in prompt's label; `borderAt` is the `border` picture's threshold, and `borderGlow` and `borderPulse` work as `buttonGlow` and `buttonPulse` do. Every picture shows the same account at 93% of the context, so the button shows at the end of each row and the Context segment sits in its border.
 
 <h3><code>layout</code>: <code>all</code> or <code>single</code></h3>
 <p>Every segment in one row, or one segment across the whole row at a time, taking turns.</p>
@@ -169,22 +169,29 @@ Each option below has a picture of its values, the desktop band above the termin
 </picture>
 
 <h3><code>resetChips</code>: a list</h3>
-<p>One <code>+1</code> for each limit reset you hold, before everything else in the row.</p>
+<p>One chip counting the limit resets you hold, <code>+2</code> for two, before everything else in the row.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/resetChips-dark.svg">
-  <img src="../design/readme/options/resetChips-light.svg" alt="The resetChips option: the band without chips, and with two rainbow +1 chips before the 5-hour segment, as the desktop band and the terminal band draw them" width="100%">
+  <img src="../design/readme/options/resetChips-light.svg" alt="The resetChips option: the band without a chip, and with one rainbow +2 chip before the 5-hour segment, as the desktop band and the terminal band draw it" width="100%">
 </picture>
 
 <h3><code>resetChipColor</code>: <code>rainbow</code> or one color</h3>
-<p>Each chip in the six rainbow colors, or every chip in the one color set.</p>
+<p>The chip in the six rainbow colors, or in the one color set.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/resetChipColor-dark.svg">
-  <img src="../design/readme/options/resetChipColor-light.svg" alt="The resetChipColor option: two rainbow chips, and two violet ones" width="100%">
+  <img src="../design/readme/options/resetChipColor-light.svg" alt="The resetChipColor option: the +2 chip in the rainbow, and in violet" width="100%">
 </picture>
 
 <h3><code>resetChipGlow</code>: <code>true</code> or <code>false</code></h3>
-<p>The chips' halo, in the desktop app.</p>
+<p>The chip's halo, in the desktop app.</p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/resetChipGlow-dark.svg">
-  <img src="../design/readme/options/resetChipGlow-light.svg" alt="The resetChipGlow option: the desktop band's chips with and without their halo" width="100%">
+  <img src="../design/readme/options/resetChipGlow-light.svg" alt="The resetChipGlow option: the desktop band's chip with and without its halo" width="100%">
+</picture>
+
+<h3><code>rainbow</code>: <code>off</code>, <code>still</code>, <code>breathe</code> or <code>circle</code></h3>
+<p>With <code>border: always</code> and the reset chip: the range colors, and the rainbow in their place on the bars, the percents, the button and the borders. The context bar split by category keeps its own colors. <code>breathe</code> and <code>circle</code> are the same rainbow moving, so they have no picture: one brightens with the pulse, the other runs along the bars and around the ring.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/rainbow-dark.svg">
+  <img src="../design/readme/options/rainbow-light.svg" alt="The rainbow option: the band in the range colors, and with its window bars, percents, button and borders in the rainbow, as the desktop band and the terminal band draw it" width="100%">
 </picture>

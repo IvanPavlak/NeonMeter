@@ -1,16 +1,17 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import type { BandInput } from '../hooks/builder'
-import { band, CHIP_TEXT, flexRow, rainbowOf, textOf as textOfSpans, THEMES } from '../hooks/builder'
+import { band, expiryColor, flexRow, rainbowOf, textOf as textOfSpans, THEMES } from '../hooks/builder'
 import type { DesktopOptions } from '../hooks/drawings'
 import { resetChipSvg } from '../hooks/drawings'
 import { changeKey, parseOptions, parseResets, resetChipsOf } from '../hooks/register'
 import { NOW, mountBand, rowOf, setup, start } from './kit'
 
-// The reset chips: one `+1` per limit reset the `resetChips` option lists,
-// before everything else in the row, in the rainbow or one color. Off by
-// default (the list is empty), and the golden rows pin that the default row is
-// unchanged. A chip names its reset on hover and takes no press.
+// The reset chip: one chip counting the limit resets the `resetChips` option
+// lists (`+2`), before everything else in the row, in the rainbow or one
+// color. Off by default (the list is empty), and the golden rows pin that the
+// default row is unchanged. On hover it lists every reset, the one that
+// expires first on top, each expiry colored by how close it is. It takes no press.
 
 const DAY = 86_400_000
 const held = parseResets('fable:2027-03-09,weekly:2026-12-10')!
@@ -52,34 +53,65 @@ test('the options default to no chips, the rainbow, glow and pulse on', () => {
   expect(bad.problems.length).toBe(2)
 })
 
-test('a chip names its reset, what it refills and when it expires; an expired one is left out', () => {
-  expect(chips().chips.map(c => c.lines[0])).toEqual(['Fable reset', 'Weekly reset'])
-  expect(chips().chips[1]!.lines[1]).toBe('Refills your weekly limit.')
-  expect(chips().chips[0]!.lines[2]).toMatch(/^Expires Mar 9, 2027 \(in \d+ days\)\.$/)
+test('one chip counts the resets, and its card lists them all, the one that expires first on top', () => {
+  const { chips: all } = chips()
+  expect(all.length).toBe(1)
+  expect(all[0]!.text).toBe('+2')
+  const lines = all[0]!.lines
+  // The list names Fable first; the weekly reset expires sooner, so it leads.
+  expect(lines.map(l => l.text.replace(/in \d+ days/, 'in N days'))).toEqual([
+    '2 limit resets available',
+    'Weekly reset: Refills your weekly limit.',
+    'Expires Dec 10, 2026, in N days',
+    'Fable reset: Refills your Fable allowance and gives back what Fable used on your weekly limit.',
+    'Expires Mar 9, 2027, in N days',
+    'Use them in Settings > Usage.',
+  ])
+  // A reset without a day comes last and has no expiry line.
+  const mixed = resetChipsOf(parseResets('full,weekly:2026-12-10')!, 'rainbow', NOW)!.chips[0]!.lines.map(l => l.text)
+  expect(mixed[1]).toMatch(/^Weekly reset/)
+  expect(mixed[3]).toBe('Full reset: Refills every limit, on every model.')
+  expect(mixed.length).toBe(5)
   // The day after the weekly reset's last day only the Fable one is left; after both, none.
-  expect(resetChipsOf(held, 'rainbow', held[1]!.expires! + DAY)!.chips.length).toBe(1)
+  const one = resetChipsOf(held, 'rainbow', held[1]!.expires! + DAY)!.chips[0]!
+  expect([one.text, one.lines[0]!.text, one.lines[one.lines.length - 1]!.text]).toEqual(['+1', '1 limit reset available', 'Use it in Settings > Usage.'])
   expect(resetChipsOf(held, 'rainbow', held[0]!.expires! + DAY)).toBeNull()
 })
 
+test('an expiry is colored by how close it is, the other way round from a reset: red when close, blue with a month to go', () => {
+  const T = THEMES.dark
+  const leftAt = (daysBefore: number) => resetChipsOf(held, 'rainbow', held[1]!.expires! - daysBefore * DAY)!.chips[0]!.lines.find(l => l.left !== undefined)!.left!
+  // The weekly reset with 2, 12 and 40 days to go, of a 30-day horizon.
+  expect(expiryColor(leftAt(2), T)).toBe('#FF073A')
+  expect(expiryColor(leftAt(12), T)).toBe('#FFF01F')
+  expect(expiryColor(leftAt(40), T)).toBe('#1E90FF')
+  expect(leftAt(40)).toBe(100)
+  // On the desktop the expiry rows carry that color under a halo, with a dot; the other rows are plain.
+  const rows = flexRow(input({ resets: resetChipsOf(held, 'rainbow', held[1]!.expires! - 2 * DAY)! }), 'dark', 'level')!.resets![0]!.rows
+  expect(rows[2]).toMatchObject({ color: '#FF073A', halo: true, live: false })
+  expect(rows[4]).toMatchObject({ color: '#1E90FF', halo: true })
+  expect(rows[0]).toMatchObject({ color: T.text, halo: false, dot: false })
+})
+
 describe('terminal', () => {
-  test('the chips stand before everything, the button at the start included, and the row keeps its width', () => {
+  test('the chip stands before everything, the button at the start included, and the row keeps its width', () => {
     const plain = band(input({ button: 'start' }), 120, 'dark', 'level')!
     const row = band(input({ button: 'start', resets: chips() }), 120, 'dark', 'level')!
     const text = textOfSpans(row.spans)
     expect(text.length).toBe(120)
-    expect(text.startsWith(`${CHIP_TEXT} ${CHIP_TEXT} ◉ 5-hour `)).toBe(true)
+    expect(text.startsWith('+2 ◉ 5-hour ')).toBe(true)
     // The bars give up the room; the text is the same.
-    expect(text.replace(/━+/g, '━')).toBe(`${CHIP_TEXT} ${CHIP_TEXT} ` + textOfSpans(plain.spans).replace(/━+/g, '━'))
+    expect(text.replace(/━+/g, '━')).toBe('+2 ' + textOfSpans(plain.spans).replace(/━+/g, '━'))
   })
 
   test('the rainbow runs through the characters, live; one color draws each chip in it', () => {
     const rainbow = rainbowOf('dark')
     const cells = band(input({ resets: chips() }), 120, 'dark', 'level')!.spans.filter(s => s.chip)
-    expect(cells.map(s => s.text).join('')).toBe('+1+1')
-    expect(cells.map(s => s.color)).toEqual(rainbow.slice(0, 4))
+    expect(cells.map(s => s.text).join('')).toBe('+2')
+    expect(cells.map(s => s.color)).toEqual(rainbow.slice(0, 2))
     expect(cells.every(s => s.live && s.bold)).toBe(true)
     const one = band(input({ resets: chips('#B24BFF') }), 120, 'dark', 'level')!.spans.filter(s => s.chip)
-    expect(one.map(s => [s.text, s.color])).toEqual([['+1', '#B24BFF'], ['+1', '#B24BFF']])
+    expect(one.map(s => [s.text, s.color])).toEqual([['+2', '#B24BFF']])
   })
 
   test('a frame on the rule stays over its segment when the chips move the row', () => {
@@ -103,7 +135,7 @@ describe('terminal', () => {
     const ui = await mountBand($, 'terminal', 120)
     const row = await rowOf(ui)
     expect(row.length).toBe(120)
-    expect(row.startsWith('+1 +1 5-hour ')).toBe(true)
+    expect(row.startsWith('+2 5-hour ')).toBe(true)
     await ui.unmount()
   })
 })
@@ -117,11 +149,11 @@ describe('desktop', () => {
     expect(flexRow(input(), 'dark', 'level')!.resets).toBeUndefined()
   })
 
-  test('each chip carries its text, the six rainbow colors and its card', () => {
+  test('the chip carries its count, the six rainbow colors and its card', () => {
     const row = flexRow(input({ resets: chips() }), 'dark', 'level')!
-    expect(row.resets!.map(c => c.text)).toEqual(['+1', '+1'])
+    expect(row.resets!.map(c => c.text)).toEqual(['+2'])
     expect(row.resets![0]!.colors).toEqual(rainbowOf('dark'))
-    expect(row.resets![1]!.lines[0]).toBe('Weekly reset')
+    expect(row.resets![0]!.rows[1]!.text).toBe('Weekly reset: Refills your weekly limit.')
     expect(flexRow(input({ resets: chips('#B24BFF') }), 'dark', 'level')!.resets![0]!.colors).toEqual(['#B24BFF'])
   })
 
@@ -135,6 +167,8 @@ describe('desktop', () => {
     const moving = resetChipSvg(chip, always)
     expect(moving).toContain('<animateTransform attributeName="gradientTransform" type="rotate"')
     expect(moving).toContain('dur="800ms" repeatCount="indefinite"')
+    // Given the clock, it is in phase with it: drawn again 300 ms into a cycle, it carries on from there.
+    expect(resetChipSvg(chip, { ...always, nowMs: 8 * 800 + 300 })).toContain('dur="800ms" begin="-300ms" repeatCount="indefinite"')
     // During a responsive burst it is in phase with the band and ends with it.
     const burst = resetChipSvg(chip, { ...still, burst: { gen: 3, elapsedMs: 400, totalMs: 2400 } })
     expect(burst).toContain('begin="-400ms" repeatDur="2400ms"')
