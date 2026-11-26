@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `dateFormat`: how every date is written, as a pattern of `D`, `DD`, `M`, `MM`, `MMM`, `YY` and `YYYY` with any punctuation between them. The default, `MMM D, YYYY`, is what the reset chip's card showed before (`Expires Dec 10, 2026`); `DD.MM.YYYY` reads `Expires 10.12.2026`. A pattern without a day and a month, or with other letters, is reported and the default used.
+
 ## [1.7.1] - 2026-11-26
 
 ### Changed

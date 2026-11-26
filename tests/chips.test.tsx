@@ -4,7 +4,7 @@ import type { BandInput } from '../hooks/builder'
 import { band, expiryColor, flexRow, rainbowOf, textOf as textOfSpans, THEMES } from '../hooks/builder'
 import type { DesktopOptions } from '../hooks/drawings'
 import { resetChipSvg } from '../hooks/drawings'
-import { changeKey, parseOptions, parseResets, resetChipsOf } from '../hooks/register'
+import { changeKey, fmtDate, parseDateFormat, parseOptions, parseResets, resetChipsOf } from '../hooks/register'
 import { NOW, mountBand, rowOf, setup, start } from './kit'
 
 // The reset chip: one chip counting the limit resets the `resetChips` option
@@ -88,6 +88,22 @@ test('one chip counts the resets, and its card lists them all, the one that expi
   const one = resetChipsOf(held, 'rainbow', held[1]!.expires! + DAY)!.chips[0]!
   expect([one.text, one.lines[0]!.text, one.lines[one.lines.length - 1]!.text]).toEqual(['+1', '1 limit reset available', 'Use it in Settings > Usage.'])
   expect(resetChipsOf(held, 'rainbow', held[0]!.expires! + DAY)).toBeNull()
+})
+
+test('dateFormat writes every expiry day by its pattern; a pattern without a day and a month, or with other letters, is refused', () => {
+  expect(parseOptions({}).parsed.dateFormat).toBe('MMM D, YYYY')
+  const expiries = (dateFormat?: string) => resetChipsOf(held, 'rainbow', NOW, 'circle', dateFormat)!.chips[0]!.lines.filter(l => l.left !== undefined).map(l => l.text.replace(/, in \d+ days$/, ''))
+  expect(expiries()).toEqual(['Expires Dec 10, 2026', 'Expires Mar 9, 2027'])
+  expect(expiries(parseOptions({ dateFormat: 'DD.MM.YYYY' }).parsed.dateFormat)).toEqual(['Expires 10.12.2026', 'Expires 09.03.2027'])
+  expect(fmtDate(held[0]!.expires!, 'YYYY-MM-DD')).toBe('2027-03-09')
+  expect(fmtDate(held[0]!.expires!, 'D. M. YY')).toBe('9. 3. 27')
+  expect(fmtDate(held[0]!.expires!, 'D MMM')).toBe('9 Mar')
+  expect(parseDateFormat(' DD/MM/YYYY ')).toBe('DD/MM/YYYY')
+  for (const bad of ['', 'YYYY', 'MM.YYYY', 'DD.MM.YYYY at noon', 'dd.mm.yyyy', 'DD.MM.YYYY DD.MM.YYYY', 7]) expect(parseDateFormat(bad)).toBeNull()
+  const bad = parseOptions({ dateFormat: 'someday' })
+  expect([bad.parsed.dateFormat, bad.problems.length]).toEqual(['MMM D, YYYY', 1])
+  // Empty is the default, not a problem.
+  expect(parseOptions({ dateFormat: '' }).problems).toEqual([])
 })
 
 test('an expiry is colored by how close it is, the other way round from a reset: red when close, blue with a month to go', () => {
