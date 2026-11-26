@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- The desktop pulse costs less in the same look: a halo's opacity is now the last step of its blur's filter, not an `opacity` on the blurred element, so the app draws each halo in one layer where it drew two, one render pass less a halo on every frame. Under `preset: rainbow`, the heaviest band (27 halos), headless Microsoft Edge measured 36.0% of a core against 39.0% and 6.9% GPU against 8.9% with bars, 38.3% against 42.2% and 6.9% against 8.8% with dots. No pixel of any drawing differs by more than 2 of 255, in the rainbow or out of it, at rest or in the pulse. See [Resource use](docs/resource-use.md).
+- The desktop pulse costs less in the same look: a halo's opacity is now the last step of its blur's filter, not an `opacity` on the blurred element, so the app draws each halo in one layer where it drew two, one render pass less a halo on every frame. Under `preset: rainbow`, the heaviest band (27 halos), headless Microsoft Edge measured 36.0% of a core against 39.0% and 6.9% GPU against 8.9% with bars, 38.3% against 42.2% and 6.9% against 8.8% with dots. In the desktop app the GPU fell from about 3.3% to 2.8%; its CPU, three quarters of it the app's own renderer, did not measurably change. No pixel of any drawing differs by more than 2 of 255, in the rainbow or out of it, at rest or in the pulse. See [Resource use](docs/resource-use.md).
 - `scripts/benchmarking/headless.ps1 -Rainbow` measures the band under `preset: rainbow`, and the frame comparison covers the rainbow's drawings.
 
 ## [1.10.0] - 2026-11-26
