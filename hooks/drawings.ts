@@ -145,21 +145,47 @@ export const RAINBOW_PERIOD = 126
  * itself: along `period` and repeating, for bars and text, where `circle`
  * slides it one period per pulse cycle; or across a circle of radius `r`, for
  * rings, where `circle` turns it once per cycle. `breathe` brightens every
- * stop with the pulse. `move: false` holds it in place whatever the motion (a
- * frame's edges, which its caps could not follow).
+ * stop with the pulse. `id` names it when a drawing holds two, and `dir: -1`
+ * slides it the other way: a frame's top edge runs right and its bottom edge
+ * left, so the colors go round.
  */
-function rainbowPaint(o: DesktopOptions, beat: Beat, at: { period: number } | { cx: number; cy: number; r: number }, move = true): string {
+function rainbowPaint(o: DesktopOptions, beat: Beat, at: { period: number } | { cx: number; cy: number; r: number }, id = 'rb', dir: 1 | -1 = 1): string {
   const rb = o.rainbow!
   const colors = rb.colors.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track))
   const loop = [...colors, colors[0]!]
   const stops = loop.map((c, i) => `<stop offset="${+(i / (loop.length - 1)).toFixed(4)}" stop-color="${c}">${beat && rb.motion === 'breathe' ? animate('stop-color', c, peakOf(c), beat) : ''}</stop>`).join('')
-  const moving = beat && rb.motion === 'circle' && move ? beat : null
+  const moving = beat && rb.motion === 'circle' ? beat : null
   if ('period' in at) {
-    const slide = moving ? `<animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="${at.period} 0" dur="${moving.ms}ms" ${moving.timing}/>` : ''
-    return `<linearGradient id="rb" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${at.period}" y2="0" spreadMethod="repeat">${stops}${slide}</linearGradient>`
+    const slide = moving ? `<animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="${dir * at.period} 0" dur="${moving.ms}ms" ${moving.timing}/>` : ''
+    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${at.period}" y2="0" spreadMethod="repeat">${stops}${slide}</linearGradient>`
   }
   const turn = moving ? `<animateTransform attributeName="gradientTransform" type="rotate" from="0 ${at.cx} ${at.cy}" to="360 ${at.cx} ${at.cy}" dur="${moving.ms}ms" ${moving.timing}/>` : ''
-  return `<linearGradient id="rb" gradientUnits="userSpaceOnUse" x1="${at.cx - at.r}" y1="${at.cy}" x2="${at.cx + at.r}" y2="${at.cy}">${stops}${turn}</linearGradient>`
+  return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${at.cx - at.r}" y1="${at.cy}" x2="${at.cx + at.r}" y2="${at.cy}">${stops}${turn}</linearGradient>`
+}
+
+/**
+ * A frame in the rainbow. Its edges are one drawing the app stretches, and its
+ * caps two more, and no drawing knows how wide another is: so each stretch of
+ * edge runs the whole rainbow, ending in the color it began with, and under
+ * `circle` slides it by exactly its own width per cycle, the top edge to the
+ * right and the bottom edge to the left. Every stretch then shows the same
+ * color at both its ends at any moment, whatever its width, so stretches meet
+ * without a seam, and a cap, whose line joins a top edge to a bottom edge,
+ * runs from the one's color to the other's: the colors go round the frame.
+ * Held still, every end is the first color, and so are the caps.
+ */
+function edgePaints(o: DesktopOptions, beat: Beat, w: number): string {
+  return rainbowPaint(o, beat, { period: w }, 'rbt', 1) + rainbowPaint(o, beat, { period: w }, 'rbb', -1)
+}
+
+/** A cap's paint in the rainbow, from the line's top `t` to its bottom `b`: null when the rainbow holds still or breathes, and the cap is the first color. */
+function capPaint(o: DesktopOptions, beat: Beat, t: number, b: number): string | null {
+  if (!beat || o.rainbow?.motion !== 'circle') return null
+  const colors = o.rainbow.colors.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track))
+  const loop = [...colors, colors[0]!]
+  // The top edge slides right, so the color at its end runs back through the rainbow; the bottom edge's runs forward.
+  const stop = (offset: number, values: string[]) => `<stop offset="${offset}" stop-color="${values[0]}"><animate attributeName="stop-color" values="${values.join(';')}" dur="${beat.ms}ms" ${beat.timing}/></stop>`
+  return `<linearGradient id="rbc" gradientUnits="userSpaceOnUse" x1="0" y1="${t}" x2="0" y2="${b}">${stop(0, [...loop].reverse())}${stop(1, loop)}</linearGradient>`
 }
 
 /** The pulse's ease, `cubic-bezier(0.42, 0, 0.58, 1)` (the spline below), at `x` of half a cycle. */
@@ -684,9 +710,10 @@ function frameFilter(id: string, x: number, w: number, sdX: number, beat: Beat):
 /** A frame part's line and its halo copy, the halo blurred by filter `f`; live, the color and the halo pulse. */
 function frameStroke(d: string, f: FrameLook, o: DesktopOptions, beat: Beat, paintWith?: string): string {
   const color = paintWith ?? (HEX.test(f.color) ? f.color.toUpperCase() : o.palette.track)
-  const live = f.live && beat !== null && !paintWith
+  const live = f.live && beat !== null
   const line = `d="${d}" fill="none" stroke="${color}" stroke-width="${FRAME_WIDTH}" stroke-linecap="butt"`
-  const pulse = live ? animate('stroke', color, peakOf(color), beat!) : ''
+  // A paint moves or brightens by itself; the halo breathes either way.
+  const pulse = live && !paintWith ? animate('stroke', color, peakOf(color), beat!) : ''
   const glow = o.glow ? `<path data-role="frame-halo" ${line} filter="url(#fg)" opacity="${GLOW.restHalo}">${live ? animate('opacity', GLOW.restHalo, GLOW.peakHalo, beat!) : ''}${pulse}</path>` : ''
   return glow + `<path data-role="frame" ${line}>${pulse}</path>`
 }
@@ -704,8 +731,10 @@ export function frameCapSvg(side: 'left' | 'right', f: FrameLook, o: DesktopOpti
   const run = w + 3 * GLOW.peakBlur
   // Drawn as the left cap; the right cap is the same, mirrored.
   const d = `M${run} ${t}H${x + r}A${r} ${r} 0 0 0 ${x} ${t + r}V${b - r}A${r} ${r} 0 0 0 ${x + r} ${b}H${run}`
-  const filter = o.glow ? frameFilter('fg', -run, 3 * run, 1, beat) : ''
-  const body = side === 'left' ? frameStroke(d, f, o, beat) : `<g transform="translate(${w} 0) scale(-1 1)">${frameStroke(d, f, o, beat)}</g>`
+  const turning = rainbowOn(o, f.live) ? capPaint(o, beat, t, b) : null
+  const filter = (o.glow ? frameFilter('fg', -run, 3 * run, 1, beat) : '') + (turning ?? '')
+  const line = frameStroke(d, f, o, beat, turning ? 'url(#rbc)' : undefined)
+  const body = side === 'left' ? line : `<g transform="translate(${w} 0) scale(-1 1)">${line}</g>`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
 }
 
@@ -716,14 +745,15 @@ export function frameEdgesSvg(f: FrameLook, o: DesktopOptions): string {
   const w = 100
   const h = FRAME_HEIGHT
   const d = `M0 ${FRAME_INSET}H${w}M0 ${h - FRAME_INSET}H${w}`
-  const filter = (o.glow ? frameFilter('fg', 0, w, 0, beat) : '') + (rb ? rainbowPaint(o, beat, { period: w }, false) : '')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${frameStroke(d, f, o, beat, rb ? RB : undefined)}</svg>`
+  const filter = (o.glow ? frameFilter('fg', 0, w, 0, beat) : '') + (rb ? edgePaints(o, beat, w) : '')
+  const lines = rb ? frameStroke(`M0 ${FRAME_INSET}H${w}`, f, o, beat, 'url(#rbt)') + frameStroke(`M0 ${h - FRAME_INSET}H${w}`, f, o, beat, 'url(#rbb)') : frameStroke(d, f, o, beat)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${lines}</svg>`
 }
 
 /**
- * A cap's look in the rainbow: the rainbow's first color, the one a frame's
- * edges start and end in, so the line runs on without a seam; it brightens
- * with the pulse as any frame does.
+ * A cap's look in the rainbow while it holds still or breathes: the rainbow's
+ * first color, the one a frame's edges start and end in, so the line runs on
+ * without a seam; it brightens with the pulse as any frame does.
  */
 function capLook(f: FrameLook, o: DesktopOptions): FrameLook {
   return rainbowOn(o, f.live) ? { ...f, color: o.rainbow!.colors[0]! } : f
@@ -792,8 +822,10 @@ export function outlineCapSvg(side: 'left' | 'right', f: FrameLook, h: number, o
   const r = Math.min(OUTLINE_RADIUS - OUTLINE_INSET, (b - t) / 2)
   const run = w + 3 * GLOW.peakBlur
   const d = `M${run} ${t}H${x + r}A${r} ${r} 0 0 0 ${x} ${t + r}V${b - r}A${r} ${r} 0 0 0 ${x + r} ${b}H${run}`
-  const filter = o.glow ? outlineFilter('fg', -run, 3 * run, h, 1, beat) : ''
-  const body = side === 'left' ? frameStroke(d, f, o, beat) : `<g transform="translate(${w} 0) scale(-1 1)">${frameStroke(d, f, o, beat)}</g>`
+  const turning = rainbowOn(o, f.live) ? capPaint(o, beat, t, b) : null
+  const filter = (o.glow ? outlineFilter('fg', -run, 3 * run, h, 1, beat) : '') + (turning ?? '')
+  const line = frameStroke(d, f, o, beat, turning ? 'url(#rbc)' : undefined)
+  const body = side === 'left' ? line : `<g transform="translate(${w} 0) scale(-1 1)">${line}</g>`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h.toFixed(2)}" viewBox="0 0 ${w} ${h.toFixed(2)}"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
 }
 
@@ -810,9 +842,9 @@ export function outlineEdgesSvg(f: FrameLook, h: number, o: DesktopOptions, righ
   const w = 100
   const t = OUTLINE_INSET
   const b = h - OUTLINE_INSET
-  const filter = (o.glow ? outlineFilter('fg', 0, w, h, 0, beat) : '') + (rb ? rainbowPaint(o, beat, { period: w }, false) : '')
-  const half = (from: number, to: number, look: FrameLook) => frameStroke(`M${from} ${t}H${to}M${from} ${b.toFixed(2)}H${to}`, look, o, beat, rb ? RB : undefined)
-  // In the rainbow every stretch runs the whole of it and ends where it began, so sections meet without a seam.
-  const body = right && !rb ? half(0, 50, f) + half(50, w, right) : half(0, w, f)
+  const filter = (o.glow ? outlineFilter('fg', 0, w, h, 0, beat) : '') + (rb ? edgePaints(o, beat, w) : '')
+  const half = (from: number, to: number, look: FrameLook) => frameStroke(`M${from} ${t}H${to}M${from} ${b.toFixed(2)}H${to}`, look, o, beat)
+  // In the rainbow every stretch runs the whole of it and ends where it began, so sections meet without a seam (`edgePaints`).
+  const body = rb ? frameStroke(`M0 ${t}H${w}`, f, o, beat, 'url(#rbt)') + frameStroke(`M0 ${b.toFixed(2)}H${w}`, f, o, beat, 'url(#rbb)') : right ? half(0, 50, f) + half(50, w, right) : half(0, w, f)
   return `<svg xmlns="http://www.w3.org/2000/svg" width="4000" height="${h.toFixed(2)}" viewBox="0 0 ${w} ${h.toFixed(2)}" preserveAspectRatio="none"${beat?.mark ?? ''}><defs>${filter}</defs>${body}</svg>`
 }

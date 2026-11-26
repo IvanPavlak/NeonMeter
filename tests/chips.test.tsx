@@ -61,17 +61,21 @@ test('one chip counts the resets, and its card lists them all, the one that expi
   // The list names Fable first; the weekly reset expires sooner, so it leads.
   expect(lines.map(l => l.text.replace(/in \d+ days/, 'in N days'))).toEqual([
     '2 limit resets available',
-    'Weekly reset: Refills your weekly limit.',
+    'Weekly reset',
+    'Refills your weekly limit.',
     'Expires Dec 10, 2026, in N days',
-    'Fable reset: Refills your Fable allowance and gives back what Fable used on your weekly limit.',
+    'Fable reset',
+    'Refills your Fable allowance and gives back',
+    'what Fable used on your weekly limit.',
     'Expires Mar 9, 2027, in N days',
     'Use them in Settings > Usage.',
   ])
   // A reset without a day comes last and has no expiry line.
   const mixed = resetChipsOf(parseResets('full,weekly:2026-12-10')!, 'rainbow', NOW)!.chips[0]!.lines.map(l => l.text)
-  expect(mixed[1]).toMatch(/^Weekly reset/)
-  expect(mixed[3]).toBe('Full reset: Refills every limit, on every model.')
-  expect(mixed.length).toBe(5)
+  expect(mixed.slice(1, 6)).toEqual(['Weekly reset', 'Refills your weekly limit.', mixed[3], 'Full reset', 'Refills every limit, on every model.'])
+  expect(mixed.length).toBe(7)
+  // No line is longer than the card shows at full size.
+  expect(Math.max(...lines.map(l => l.text.length))).toBeLessThanOrEqual(44)
   // The day after the weekly reset's last day only the Fable one is left; after both, none.
   const one = resetChipsOf(held, 'rainbow', held[1]!.expires! + DAY)!.chips[0]!
   expect([one.text, one.lines[0]!.text, one.lines[one.lines.length - 1]!.text]).toEqual(['+1', '1 limit reset available', 'Use it in Settings > Usage.'])
@@ -88,8 +92,8 @@ test('an expiry is colored by how close it is, the other way round from a reset:
   expect(leftAt(40)).toBe(100)
   // On the desktop the expiry rows carry that color under a halo, with a dot; the other rows are plain.
   const rows = flexRow(input({ resets: resetChipsOf(held, 'rainbow', held[1]!.expires! - 2 * DAY)! }), 'dark', 'level')!.resets![0]!.rows
-  expect(rows[2]).toMatchObject({ color: '#FF073A', halo: true, live: false })
-  expect(rows[4]).toMatchObject({ color: '#1E90FF', halo: true })
+  expect(rows[3]).toMatchObject({ color: '#FF073A', halo: true, live: false })
+  expect(rows[7]).toMatchObject({ color: '#1E90FF', halo: true })
   expect(rows[0]).toMatchObject({ color: T.text, halo: false, dot: false })
 })
 
@@ -153,7 +157,7 @@ describe('desktop', () => {
     const row = flexRow(input({ resets: chips() }), 'dark', 'level')!
     expect(row.resets!.map(c => c.text)).toEqual(['+2'])
     expect(row.resets![0]!.colors).toEqual(rainbowOf('dark'))
-    expect(row.resets![0]!.rows[1]!.text).toBe('Weekly reset: Refills your weekly limit.')
+    expect(row.resets![0]!.rows[1]!.text).toBe('Weekly reset')
     expect(flexRow(input({ resets: chips('#B24BFF') }), 'dark', 'level')!.resets![0]!.colors).toEqual(['#B24BFF'])
   })
 

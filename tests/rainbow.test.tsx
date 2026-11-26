@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import type { BandInput } from '../hooks/builder'
 import { band, flexRow, rainbowOf, textOf as textOfSpans, THEMES } from '../hooks/builder'
 import type { DesktopOptions, Rainbow } from '../hooks/drawings'
-import { buttonSvg, dotBarSvg, frameCapSvg, frameEdgesSvg, outlineEdgesSvg, pctSvg, RAINBOW_PERIOD, smoothBarSvg } from '../hooks/drawings'
+import { buttonSvg, dotBarSvg, frameCapSvg, frameEdgesSvg, outlineCapSvg, outlineEdgesSvg, pctSvg, RAINBOW_PERIOD, smoothBarSvg } from '../hooks/drawings'
 import { parseOptions } from '../hooks/register'
 import { mountBand, setup, spansOf, start } from './kit'
 
@@ -115,16 +115,34 @@ describe('desktop', () => {
     expect(row.segments.map(s => s.warns ?? false)).toEqual([true, false, false])
   })
 
-  test('a frame runs the whole rainbow along its edges and ends where it began, its caps in the first color; it does not run', () => {
+  test('a frame runs the whole rainbow along each edge and ends where it began, so stretches of any width meet without a seam', () => {
     const frame = { color: '#00D45A', live: true }
-    const edges = frameEdgesSvg(frame, with_('circle'))
-    expect(edges).toContain('x2="100" y2="0" spreadMethod="repeat"')
-    expect(edges).toContain('stroke="url(#rb)"')
-    expect(edges).not.toContain('animateTransform')
-    expect(frameCapSvg('left', frame, with_('circle'))).toContain(`stroke="${COLORS[0]}"`)
+    const still = frameEdgesSvg(frame, with_('still'))
+    expect(still).toContain('<linearGradient id="rbt" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="0" spreadMethod="repeat">')
+    expect(still).toContain('stroke="url(#rbt)"')
+    expect(still).toContain('stroke="url(#rbb)"')
+    expect(animations(still)).toBe(0)
+    // Held still, every end is the first color, and so are the caps.
+    expect(frameCapSvg('left', frame, with_('still'))).toContain(`stroke="${COLORS[0]}"`)
     // An outline's separator stretch is one run too, not two halves.
     const sep = outlineEdgesSvg(frame, 60, with_('still'), { color: '#1E90FF', live: true })
-    expect(sep.split('data-role="frame"').length - 1).toBe(1)
+    expect(sep.split('data-role="frame"').length - 1).toBe(2)
+  })
+
+  test('circle goes round the frame: the top edge runs right, the bottom left, by one stretch per cycle, and the caps follow', () => {
+    const frame = { color: '#00D45A', live: true }
+    const edges = frameEdgesSvg(frame, with_('circle'))
+    expect(edges).toContain('type="translate" from="0 0" to="100 0" dur="800ms" repeatCount="indefinite"')
+    expect(edges).toContain('type="translate" from="0 0" to="-100 0" dur="800ms" repeatCount="indefinite"')
+    // The halo still breathes.
+    expect(edges).toContain('attributeName="opacity"')
+    const loop = [...COLORS, COLORS[0]]
+    for (const cap of [frameCapSvg('right', frame, with_('circle')), outlineCapSvg('left', frame, 60, with_('circle'))]) {
+      expect(cap).toContain('stroke="url(#rbc)"')
+      // The end of a top edge runs back through the rainbow, that of a bottom edge forward.
+      expect(cap).toContain(`<stop offset="0" stop-color="${COLORS[0]}"><animate attributeName="stop-color" values="${[...loop].reverse().join(';')}" dur="800ms" repeatCount="indefinite"/>`)
+      expect(cap).toContain(`<stop offset="1" stop-color="${COLORS[0]}"><animate attributeName="stop-color" values="${loop.join(';')}" dur="800ms" repeatCount="indefinite"/>`)
+    }
   })
 })
 

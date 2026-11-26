@@ -186,12 +186,30 @@ export function parseResets(value: unknown): HeldReset[] | null {
   return out
 }
 
+/** The longest line of a chip's card, in characters: the app shrinks a card's wider row to fit, text and all. */
+const CARD_LINE = 44
+
+/** `text` in lines of at most `width` characters, broken at spaces. */
+export function wrapText(text: string, width: number): string[] {
+  const out: string[] = []
+  let line = ''
+  for (const word of text.split(' ')) {
+    if (line && line.length + 1 + word.length > width) {
+      out.push(line)
+      line = word
+    } else line = line ? `${line} ${word}` : word
+  }
+  if (line) out.push(line)
+  return out
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
 
 /**
  * The chip the band draws at `now`: one, counting the held resets that have
  * not expired (`+2`), with its hover card's lines: a title, then for each
- * reset its name and what it refills and, under it, when it expires, which
+ * reset its name, what it refills (in lines short enough for the card) and,
+ * under them, when it expires, which
  * the card colors by how close that is; the one that expires first on top
  * and those without a day last, in the list's order among equals. Null when
  * none is left.
@@ -205,7 +223,8 @@ export function resetChipsOf(held: readonly HeldReset[], color: string, now: num
   const lines: ChipLine[] = [{ text: left.length === 1 ? '1 limit reset available' : `${left.length} limit resets available`, strong: true }]
   for (const { r } of left) {
     const [name, what] = RESET_NAMES[r.kind]
-    lines.push({ text: `${name}: ${what}`, strong: true })
+    lines.push({ text: name, strong: true })
+    for (const part of wrapText(what, CARD_LINE)) lines.push({ text: part })
     if (r.expires === null) continue
     const d = new Date(r.expires)
     const days = Math.floor((r.expires - now) / 86_400_000)

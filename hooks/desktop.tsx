@@ -46,10 +46,10 @@ export type DesktopExtras = {
 const BLANK = '  '
 
 /** A card the app shows above `anchor`'s keyed Box while the pointer is over it. */
-function hoverCard(els: DesktopElements, x: DesktopExtras, content: RenderElement[]): RenderElement {
+function hoverCard(els: DesktopElements, x: DesktopExtras, content: RenderElement[], centered = false): RenderElement {
   const { Box } = els
   return (
-    <Box position="absolute" top={0} left={0} display="none" hover={{ display: 'flex' }} flexDirection="column" backgroundColor={x.card.background} borderStyle="round" borderColor={x.card.border} paddingX={1}>
+    <Box position="absolute" top={0} left={0} display="none" hover={{ display: 'flex' }} flexDirection="column" {...(centered ? ({ alignItems: 'center' } as const) : {})} backgroundColor={x.card.background} borderStyle="round" borderColor={x.card.border} paddingX={1}>
       {content}
     </Box>
   )
@@ -77,7 +77,7 @@ function resetChip(c: FlexChip, n: number, els: DesktopElements, x: DesktopExtra
   return (
     <Box key={`reset-${n}`} position="relative" flexShrink={0}>
       <Svg source={resetChipSvg(c, x.chip)} alt={c.rows[0]?.text ?? c.text} height={DISPLAY_HEIGHT} />
-      {hoverCard(els, x, c.rows.map(r => <Svg source={contextRowSvg(r, x.chip)} alt={r.text} height={DISPLAY_HEIGHT} />))}
+      {hoverCard(els, x, c.rows.map(r => <Svg source={contextRowSvg(r, x.chip)} alt={r.text} height={DISPLAY_HEIGHT} />), true)}
     </Box>
   )
 }
