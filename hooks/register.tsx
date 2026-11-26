@@ -149,6 +149,8 @@ export type Options = {
   dateFormat: string
   /** The rainbow theme, in place of the range colors: held `still`, breathing with the pulse (`breathe`) or running with it (`circle`); `off`, the range colors. */
   rainbow: 'off' | 'still' | 'breathe' | 'circle'
+  /** With `rainbow` on, paint the text too: each segment's label and its plain field (the token count, a reset in the text color). */
+  rainbowText: boolean
   /** A named look that sets a group of options at once, over whatever they are set to (`PRESETS`); `off`, every option as set. */
   preset: 'off' | PresetName
 }
@@ -162,9 +164,11 @@ export type Options = {
  */
 export const PRESETS = {
   // Everything in the rainbow, running without a stop: the bars, the percents, the resets (colored, so the rainbow
-  // takes them), the button, the reset chip, and a border round every segment's card that never goes out.
+  // takes them), the labels and the token count, the button, the reset chip, and a border round every segment's
+  // card that never goes out.
   rainbow: {
     rainbow: 'circle',
+    rainbowText: true,
     pulse: true,
     pulseMode: 'always',
     glow: true,
@@ -362,6 +366,7 @@ const DEFAULTS: Options = {
   resetChipMotion: 'circle',
   dateFormat: DEFAULT_DATE_FORMAT,
   rainbow: 'off',
+  rainbowText: false,
   preset: 'off',
 }
 
@@ -510,6 +515,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const resetChipPulse = typeof options.resetChipPulse === 'boolean' ? options.resetChipPulse : DEFAULTS.resetChipPulse
   const resetChipMotion = options.resetChipMotion === 'breathe' || options.resetChipMotion === 'still' ? options.resetChipMotion : DEFAULTS.resetChipMotion
   const dateFormat = options.dateFormat === undefined || options.dateFormat === '' ? DEFAULTS.dateFormat : pick('dateFormat', parseDateFormat, DEFAULTS.dateFormat, 'a date pattern of D, DD, M, MM, MMM, YY and YYYY with a day and a month, such as "DD.MM.YYYY"')
+  const rainbowText = typeof options.rainbowText === 'boolean' ? options.rainbowText : DEFAULTS.rainbowText
   const rainbow = options.rainbow === 'still' || options.rainbow === 'breathe' || options.rainbow === 'circle' ? options.rainbow : DEFAULTS.rainbow
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
@@ -576,6 +582,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       resetChipMotion,
       dateFormat,
       rainbow,
+      rainbowText,
       preset,
     },
     rejected,
@@ -1419,7 +1426,7 @@ export const register: Register = (on, options) => {
     const input = inputOf(r, c, hv ?? DEFAULT_HEALTH, now, env.options)
     // The terminal's rainbow: cells and percents in its colors. The desktop paints its own in the drawings, and takes
     // from this only which stale segments to paint faded.
-    if (env.options.rainbow !== 'off') input.rainbow = { colors: rainbowOf(t ?? 'dark'), still: env.options.rainbow === 'still' }
+    if (env.options.rainbow !== 'off') input.rainbow = { colors: rainbowOf(t ?? 'dark'), still: env.options.rainbow === 'still', ...(env.options.rainbowText ? { text: true } : {}) }
     const burst = burstOf(env.bursts, bandKey, changeKey(input), now, env.options.pulseMs, env.options.pulseCount)
     const base = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, ground: palette.bg }
     const single = env.options.layout === 'single'

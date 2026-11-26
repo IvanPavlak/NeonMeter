@@ -560,6 +560,11 @@ export function resetSvg(reset: Span, o: DesktopOptions): string {
   return textSvg(reset, { role: 'extra', weight: 400, charWidth: RESET_CHAR_WIDTH }, o)
 }
 
+/** A label under `rainbowText`: regular-weight text, which the rainbow paints as it does a percent. */
+export function labelSvg(label: Span, o: DesktopOptions): string {
+  return textSvg(label, { role: 'label', weight: 400, charWidth: RESET_CHAR_WIDTH }, o)
+}
+
 /** About what a character of a card row measures across at `PCT_FONT_SIZE`, on average: it places a rainbow over a line's text. */
 const ROW_TEXT_WIDTH = 9
 
