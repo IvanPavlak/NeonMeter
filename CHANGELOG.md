@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-11-26
+
 ### Fixed
 
 - The outline in the desktop app on Windows, and the band moving under the mouse wheel. The outline was placed for 13 CSS pixels of padding above and below the band; the app pads its card by 10 there too, so the drawings stood 3 pixels past the card, the lines on its clipped edge, and a wheel tick over the band scrolled the row by those pixels, the top line out of the card. The outline now reaches across 10 pixels on both systems and runs along the card's own edge on every side, and the band has nothing to scroll.
@@ -193,7 +195,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.2...HEAD
+[1.6.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.4.1...v1.5.0
