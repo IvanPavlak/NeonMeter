@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- The pace of each window, off by default. `pace` marks the 5-hour bar and every weekly bar with where an even use of the limit would stand now, the share of the window already gone: `tick` a still notch at that point, `stripes` the stretch between it and the fill (bright on the fill where the use is ahead of the pace, dim past it where it is behind), `both` the two, `projection` stripes from the fill to where the use lands at the reset. In the terminal the tick is `┃` and a striped cell `╍`; in the desktop app the stripes are drawn in the bar and striped dots are rings.
+- `paceWarn` (`five_hour` or `all`): once a window's use so far would pass 100% before its reset, its reset gives way to the time it runs out, `out in 1h23m`, in red, with the pulse and the glow.
+- `windowPopup`: in the desktop app, a card over a window's bar while the pointer is on it, with the percent used, the even pace, how far ahead of or behind it the use is, the projection, the run-out time and the reset.
+- The option pictures for `pace`, `paceWarn` and `windowPopup`.
+
 ## [1.6.2] - 2026-11-26
 
 ### Fixed

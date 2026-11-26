@@ -3,8 +3,8 @@ import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Reg
 
 import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
-import { band, configureDesign, fitDesktop, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, RULE_GLYPH, RULE_KEY, singleVariants, THEMES, timeIndex, weeklyVariants } from './builder'
-import type { BandInput, ButtonPosition, ContextBar, FlexRow, OptionSegment, WindowInput, WindowKind } from './builder'
+import { band, configureDesign, fitDesktop, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, RULE_GLYPH, RULE_KEY, singleVariants, THEMES, timeIndex, warnMin, weeklyVariants } from './builder'
+import type { BandInput, ButtonPosition, ContextBar, FlexRow, OptionSegment, PaceStyle, PaceWarn, WindowInput, WindowKind } from './builder'
 import type { Burst } from './color'
 import { desktopBand } from './desktop'
 import type { DesktopExtras } from './desktop'
@@ -50,7 +50,7 @@ const theme = atom({ plugin: 'neonmeter', key: 'theme' } as const, 'dark' as Neo
 const tick = atom({ plugin: 'neonmeter', key: 'tick' } as const, 0)
 const appearance = atom({ plugin: 'neonmeter', key: 'appearance' } as const, null as NeonMeterTheme | null)
 
-// The twenty-one userConfig options, parsed and clamped once per activation. A
+// The userConfig options, parsed and clamped once per activation. A
 // new session reads a changed option; a changed file hot-reloads the module.
 export type SegmentKind = OptionSegment
 
@@ -129,10 +129,17 @@ export type Options = {
   everyChat: boolean
   /** One `#RRGGBB` color for every frame; empty, each frame takes its percent's range color. */
   borderColor: string
+  /** How each window's bar shows its pace, the share of the window already gone: a tick, stripes, both, or the projection; `off` not at all. */
+  pace: 'off' | PaceStyle
+  /** Which windows show the time they run out in place of the reset, once the projection passes 100%: the 5-hour one, all, or none. */
+  paceWarn: 'off' | PaceWarn
+  /** Show a window's pace, projection and reset when the pointer is over its bar (desktop). */
+  windowPopup: boolean
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
 const BUTTON_POSITIONS: readonly ButtonPosition[] = ['start', 'context', 'end']
+const PACE_STYLES: readonly PaceStyle[] = ['tick', 'stripes', 'both', 'projection']
 
 const DEFAULTS: Options = {
   barColoring: 'level',
@@ -175,6 +182,9 @@ const DEFAULTS: Options = {
   borderPulse: true,
   everyChat: true,
   borderColor: '',
+  pace: 'off',
+  paceWarn: 'off',
+  windowPopup: false,
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -310,6 +320,10 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const everyChat = typeof options.everyChat === 'boolean' ? options.everyChat : DEFAULTS.everyChat
   const borderColor = options.borderColor === undefined || options.borderColor === '' ? DEFAULTS.borderColor : pick('borderColor', parseColor, DEFAULTS.borderColor, 'one color like "#FF073A", or empty')
 
+  const pace = (PACE_STYLES as readonly unknown[]).includes(options.pace) ? (options.pace as PaceStyle) : DEFAULTS.pace
+  const paceWarn = options.paceWarn === 'five_hour' || options.paceWarn === 'all' ? options.paceWarn : DEFAULTS.paceWarn
+  const windowPopup = typeof options.windowPopup === 'boolean' ? options.windowPopup : DEFAULTS.windowPopup
+
   const raw = listOf(options.segments) ?? DEFAULTS.segments
   const segments: SegmentKind[] = []
   const rejected: string[] = []
@@ -364,6 +378,9 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       borderPulse,
       everyChat,
       borderColor,
+      pace,
+      paceWarn,
+      windowPopup,
     },
     rejected,
     problems,
@@ -1018,6 +1035,9 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
     button: buttonShown(options, c) ? options.buttonPosition : null,
     buttonLabel: buttonAction(options.buttonPrompt, options.buttonLabel).label,
     ...(options.border === 'off' ? {} : { border: { show: options.border, at: options.borderAt, scope: options.borderScope, ...(options.borderColor ? { color: options.borderColor } : {}), ...(options.outline !== 'off' ? { outline: options.outline } : {}) } }),
+    ...(options.pace === 'off' ? {} : { pace: options.pace }),
+    ...(options.paceWarn === 'off' ? {} : { paceWarn: options.paceWarn }),
+    ...(options.windowPopup ? { windowCard: true } : {}),
   }
 }
 
@@ -1050,7 +1070,9 @@ export function changeKey(input: BandInput): string {
     input.stale,
     input.windows.map(w => {
       const share = input.resetColor === 'time' ? resetShare(w.kind, w.resetMin) : null
-      return [w.kind, w.label?.full ?? '', Math.round(w.pct), share === null ? null : timeIndex(share)]
+      // A window starting or ceasing to warn that it runs out is a change; the minutes it counts are not.
+      const warns = input.paceWarn ? warnMin(input.paceWarn, w) !== null : null
+      return warns === null ? [w.kind, w.label?.full ?? '', Math.round(w.pct), share === null ? null : timeIndex(share)] : [w.kind, w.label?.full ?? '', Math.round(w.pct), share === null ? null : timeIndex(share), warns]
     }),
     input.ctx ? [Math.round(input.ctx.pct), input.ctx.tokens === null ? null : fmtTok(input.ctx.tokens), fmtTok(input.ctx.window)] : null,
     // The breakdown's split, in whole percents of the window, and the button showing up.

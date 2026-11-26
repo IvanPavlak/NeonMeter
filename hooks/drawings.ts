@@ -29,7 +29,7 @@
 // the README's generator runs this very file; desktop.tsx
 // lays them out in the band.
 
-import type { ContextRow, FlexDot, FlexSlice, Palette, Span } from './builder'
+import type { ContextRow, FlexDot, FlexPace, FlexSlice, Palette, Span } from './builder'
 import type { Burst } from './color'
 import { pulseForeground } from './color'
 
@@ -189,6 +189,9 @@ function paints(ids: Map<string, string>, beat: NonNullable<Beat> | null): strin
 // gradient's stops through the blur's widths as the blur's own animation did.
 // ---------------------------------------------------------------------------
 
+/** The line of a hollow dot, a striped cell's. */
+export const HOLLOW_WIDTH = 2
+
 /** The disc a dot's halo blurs: the dot and a little more. */
 const HALO_DISC = DOT_RADIUS + 1.2
 /** How far a halo reaches: the disc and three deviations of the widest blur, past which it is nothing. */
@@ -288,9 +291,9 @@ const HALO_CLIP = `<clipPath id="hc" clipPathUnits="objectBoundingBox"><rect x="
  * element carries a `data-role` (`dot`, `dot-halo`) for a reader of the
  * markup; a live dot's `data-color` is its color, its fill the shared paint.
  */
-export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions): string {
+export function dotBarSvg(dots: readonly FlexDot[], o: DesktopOptions, tick?: number): string {
   for (const halos of ['pulse', 'still', 'none'] as const) {
-    const svg = dotBar(dots, o, halos)
+    const svg = dotBar(dots, o, halos, tick)
     if (svg.length <= DRAWING_BUDGET || halos === 'none') return svg
   }
   return ''
@@ -306,7 +309,7 @@ const DRAWING_BUDGET = 120_000
  * The dot bar, its halos pulsing, or, when its markup would pass
  * `DRAWING_BUDGET`, at rest (the dots still pulse), and past that crisp.
  */
-function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 'still' | 'none'): string {
+function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 'still' | 'none', tick?: number): string {
   const beat = beatOf(o, dots.some(d => d.live))
   if (halosAs === 'none') o = { ...o, glow: false }
   const w = dots.length * DOT_UNIT + 2 * PAD
@@ -329,11 +332,18 @@ function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 
       }
       body += `<circle data-role="dot-halo" cx="${cx}" cy="${cy}" r="${HALO_REACH}" fill="url(#${hg.id})" clip-path="url(#hc)"/>`
     }
+    if (d.hollow && filled) {
+      // A striped cell's dot: a ring of the dot's size, in the dot's paint.
+      const ring = `cx="${cx}" cy="${cy}" r="${DOT_RADIUS - HOLLOW_WIDTH / 2}" fill="none" stroke-width="${HOLLOW_WIDTH}"`
+      body += live ? `<circle data-role="dot-ring" ${ring} stroke="${paint(fills, color)}" data-color="${color}"/>` : `<circle data-role="dot-ring" ${ring} stroke="${color}"/>`
+      return
+    }
     body += live ? `<circle data-role="dot" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${paint(fills, color)}" data-color="${color}"/>` : `<circle data-role="dot" cx="${cx}" cy="${cy}" r="${DOT_RADIUS}" fill="${color}"/>`
   })
   let defs = halos.size ? HALO_CLIP : ''
   for (const hg of halos.values()) defs += haloGradient(hg.id, hg.color, hg.live && halosAs === 'pulse' ? beat : null)
   defs += paints(fills, beat)
+  if (tick !== undefined) body += tickRect(PAD + (Math.min(100, Math.max(0, tick)) / 100) * dots.length * DOT_UNIT, o)
   return open(w, h, beat, defs) + body + '</svg>'
 }
 
@@ -345,7 +355,7 @@ function dotBar(dots: readonly FlexDot[], o: DesktopOptions, halosAs: 'pulse' | 
  * slices pulse; a slice drawn `halo: false` (the context's autocompact
  * buffer) stays out of the halo.
  */
-export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): string {
+export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions, pace?: FlexPace): string {
   const beat = beatOf(o, slices.some(sl => sl.live))
   const bar = Math.max(1, o.dotCount) * DOT_UNIT
   const w = bar + 2 * PAD
@@ -382,13 +392,33 @@ export function smoothBarSvg(slices: readonly FlexSlice[], o: DesktopOptions): s
   // The tip reaches the pill's end in the last color, so a small percent fills its round dot.
   const tip = (role: string, to: number, color: string) => `<rect data-role="${role}-tip" x="${PAD}" y="${y}" width="${to.toFixed(2)}" height="${BAR_THICKNESS}" fill="${color}"/>`
   const glow = glowTo > 0 && o.glow ? `<g ${halo(anyLive, beat)}<g clip-path="url(#c)">${tip('slice-halo', glowPx, glowColor)}${glowRects}</g></g>` : ''
+  // The pace's stripes: cut out of the fill in the track's color, so the fill under them pulses as ever, or drawn
+  // in their own color on the track past the fill, under the fill's round end.
+  const st = pace?.stripe
+  const stripeColor = st ? (st.cut ? track : HEX.test(st.color) ? st.color.toUpperCase() : track) : ''
+  const stripeRect = st ? `<rect data-role="pace-stripe" data-cut="${st.cut}" x="${(PAD + st.from * px).toFixed(2)}" y="${y}" width="${(Math.max(0, st.to - st.from) * px).toFixed(2)}" height="${BAR_THICKNESS}" fill="url(#st)"/>` : ''
+  const stripeDefs = st ? `${stripePattern(stripeColor)}<clipPath id="t"><rect x="${PAD}" y="${y}" width="${bar}" height="${BAR_THICKNESS}" rx="${rx}"/></clipPath>` : ''
   return (
-    open(w, h, beat, filters(w, h, anyLive ? beat : null) + clip) +
+    open(w, h, beat, filters(w, h, anyLive ? beat : null) + clip + stripeDefs) +
     `<rect data-role="track" x="${PAD}" y="${y}" width="${bar}" height="${BAR_THICKNESS}" rx="${rx}" fill="${track}"/>` +
+    (st && !st.cut ? `<g clip-path="url(#t)">${stripeRect}</g>` : '') +
     glow +
-    (filledTo > 0 ? `<g clip-path="url(#c)">${tip('slice', filledPx, lastColor(slices, track))}${rects}</g>` : '') +
+    (filledTo > 0 ? `<g clip-path="url(#c)">${tip('slice', filledPx, lastColor(slices, track))}${rects}${st?.cut ? stripeRect : ''}</g>` : '') +
+    (pace?.tick !== undefined ? tickRect(PAD + (Math.min(100, Math.max(0, pace.tick)) / 100) * bar, o) : '') +
     '</svg>'
   )
+}
+
+/** The stripes' pattern: bands of `color` half the period wide, leaning as the bar's own stripes in the design do. */
+const STRIPE_PERIOD = 7
+function stripePattern(color: string): string {
+  return `<pattern id="st" width="${STRIPE_PERIOD}" height="${STRIPE_PERIOD}" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><rect width="${STRIPE_PERIOD / 2}" height="${STRIPE_PERIOD}" fill="${color}"/></pattern>`
+}
+
+/** The pace tick: a still notch in the text color across the bar at `x`, a little taller than the bar. */
+export const TICK_HEIGHT = 19.5
+function tickRect(x: number, o: DesktopOptions): string {
+  return `<rect data-role="pace-tick" x="${(x - RING_WIDTH / 2).toFixed(2)}" y="${(MIDLINE - TICK_HEIGHT / 2).toFixed(2)}" width="${RING_WIDTH}" height="${TICK_HEIGHT}" rx="${RING_WIDTH / 2}" fill="${o.palette.text}"/>`
 }
 
 /** The color of the last filled slice, what a bar's tip is painted. */

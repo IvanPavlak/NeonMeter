@@ -67,6 +67,9 @@ const DEFAULTS = {
   borderGlow: true,
   borderColor: '',
   outline: 'off',
+  pace: 'off',
+  paceWarn: 'off',
+  windowPopup: false,
 }
 
 // Every option a picture can show. The pulse options (`pulse`, `pulseMode`, `pulseCount`,
@@ -97,6 +100,9 @@ export const OPTIONS = [
   { key: 'borderScope', title: 'Border Scope (with Border: Always)', values: ['segment', 'band'], names: ['Each Segment', 'The Whole Band'], base: { border: 'always' } },
   { key: 'borderColor', title: 'Border Color (with Border: Always)', values: ['', '#FF073A'], names: ['Colored by Each Percent', 'One Color'], base: { border: 'always' } },
   { key: 'outline', title: 'Outline (Context at 93%)', values: ['off', 'single', 'sections'], names: ['Off', 'One Color', 'Each Section in Its Color'] },
+  { key: 'pace', title: 'Pace (5-hour Ahead of It, Weekly Behind)', values: ['off', 'tick', 'stripes', 'both', 'projection'], names: ['Off', 'A Tick at the Even Pace', 'Stripes between the Pace and the Fill', 'Stripes and Tick', 'Stripes to Where the Use Lands'] },
+  { key: 'paceWarn', title: 'Run-out Warning', values: ['off', 'five_hour', 'all'], names: ['Off', 'The 5-hour Window', 'Every Window'] },
+  { key: 'windowPopup', title: 'Window Pace on Hover (Desktop)', values: [false, true], names: ['Off', 'Shown over the Bar'], surfaces: ['desktop'], card: 'window' },
 ]
 
 const shown = v => (Array.isArray(v) ? v.join(',') : String(v))
@@ -125,6 +131,9 @@ function inputFor(o, ctx = CTX) {
     contextBar: o.contextBar,
     button: buttonShown(o, ctx) ? o.buttonPosition : null,
   }
+  if (o.pace !== 'off') input.pace = o.pace
+  if (o.paceWarn !== 'off') input.paceWarn = o.paceWarn
+  if (o.windowPopup) input.windowCard = true
   if (o.border !== 'off') input.border = { show: o.border, at: o.borderAt, scope: o.borderScope, ...(o.borderColor ? { color: o.borderColor } : {}), ...(o.outline !== 'off' ? { outline: o.outline } : {}) }
   // The default layout's first Weekly turn, or every turn of the single layout, as the hooks module takes them.
   return o.layout === 'single' ? B.singleVariants(input) : B.weeklyVariants(input).slice(0, 1)
@@ -223,13 +232,14 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
     }
     if (seg.frame) frameFrom(seg.frame)
     if (seg.kind === 'ctx') items.push({ kind: 'mark' })
+    if (seg.card && !items.some(it => it.kind === 'markWin')) items.push({ kind: 'markWin', card: seg.card })
     if (at === 'context' && seg.kind === 'ctx') {
       button()
       text(' ', T.text)
     }
     text(seg.label + ' ', T.text)
-    if (seg.dots) items.push({ kind: 'grow', svg: D.dotBarSvg(seg.dots, opts) })
-    else if (seg.bar) items.push({ kind: 'grow', svg: D.smoothBarSvg(seg.bar, opts) })
+    if (seg.dots) items.push({ kind: 'grow', svg: D.dotBarSvg(seg.dots, opts, seg.pace?.tick) })
+    else if (seg.bar) items.push({ kind: 'grow', svg: D.smoothBarSvg(seg.bar, opts, seg.pace) })
     if (seg.dots || seg.bar) text(' ', T.text)
     if (!seg.pct.live && seg.pct.color.toUpperCase() === T.text.toUpperCase()) text(seg.pct.text, T.text, { bold: true })
     else draw(D.pctSvg(seg.pct, opts))
@@ -245,7 +255,7 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
     button()
   }
   if (row.frame) frameTo()
-  const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : it.kind === 'space' ? it.w : it.kind === 'mark' || it.kind === 'button' || it.kind === 'frame' || it.kind === 'frameEnd' || it.kind === 'cutFrom' || it.kind === 'cutTo' ? 0 : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
+  const width = it => (it.kind === 'text' ? textWidth(it.t, it.bold) : it.kind === 'space' ? it.w : it.kind === 'mark' || it.kind === 'markWin' || it.kind === 'button' || it.kind === 'frame' || it.kind === 'frameEnd' || it.kind === 'cutFrom' || it.kind === 'cutTo' ? 0 : Number(/width="([\d.]+)"/.exec(it.svg)[1]) * SCALE)
   const fixed = items.filter(it => it.kind !== 'grow').reduce((n, it) => n + width(it), 0)
   const grows = items.filter(it => it.kind === 'grow').length
   const growW = grows ? Math.max(0, (rowW - fixed) / grows) : 0
@@ -256,6 +266,8 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   let under = ''
   let ctxX = null
   let buttonX = null
+  let winX = null
+  let winCard = null
   const open = []
   const cuts = []
   let cutFrom = 0
@@ -273,6 +285,9 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       buttonX = x
     } else if (it.kind === 'mark') {
       ctxX = x
+    } else if (it.kind === 'markWin') {
+      winX = x
+      winCard = it.card
     } else if (it.kind === 'space') {
       x += it.w
     } else if (it.kind === 'text') {
@@ -292,7 +307,7 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
       x += placed.w
     }
   }
-  return { out: under + out, ctxX, context: row.context ?? null, opts, buttonX, button: btn ?? null, outline: row.outline ?? null, cuts, frameOpts: { ...opts, glow: o.glow && o.borderGlow } }
+  return { out: under + out, ctxX, winX, window: winCard, context: row.context ?? null, opts, buttonX, button: btn ?? null, outline: row.outline ?? null, cuts, frameOpts: { ...opts, glow: o.glow && o.borderGlow } }
 }
 
 /**
@@ -400,7 +415,10 @@ function desktopBox(turns, o, theme, y, card = false) {
   const rows = turns.map((t, k) => desktopRow(t, o, theme, PAD + DESK_PAD, 0, W - 2 * PAD - 2 * DESK_PAD))
   const open = card === true && o.contextPopup ? rows.find(r => r.context && r.ctxX !== null) : null
   const pressed = card === 'button' ? rows.find(r => r.button && r.buttonX !== null) : null
-  const cardH = open ? open.context.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : pressed ? D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4 + 8 : 0
+  // A window's card hangs over its segment the same way, under `windowPopup`.
+  const hover = card === 'window' ? rows.find(r => r.window && r.winX !== null) : null
+  const over = open ? open.context : hover ? hover.window : null
+  const cardH = over ? over.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : pressed ? D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4 + 8 : 0
   const boxY = y + cardH
   const h = 2 * DESK_PAD + (turns.length - 1) * DESK_ROW + D.DISPLAY_HEIGHT
   let out = `<rect x="${PAD}" y="${boxY}" width="${W - 2 * PAD}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
@@ -413,6 +431,7 @@ function desktopBox(turns, o, theme, y, card = false) {
     if (first.outline) out += outlineMarkup(first.outline, first.cuts, first.frameOpts, PAD, boxY, W - 2 * PAD, h)
   }
   if (open) out += contextCard(open.context, open.opts, theme, open.ctxX, boxY - 8).out
+  if (hover) out += contextCard(hover.window, hover.opts, theme, hover.winX, boxY - 8).out
   if (pressed) out += buttonCard(pressed.button.label, theme, pressed.buttonX, boxY - 8)
   return { out, h: h + cardH }
 }

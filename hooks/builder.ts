@@ -246,6 +246,57 @@ export type BandInput = {
   buttonLabel?: string
   /** The frame; absent, none. */
   border?: BorderInput
+  /** How each window's bar shows its pace; absent, it does not. */
+  pace?: PaceStyle
+  /** Which windows trade their reset for the time the limit runs out, once the projection passes 100%; absent, none. */
+  paceWarn?: PaceWarn
+  /** Build each window's hover card (desktop). */
+  windowCard?: boolean
+}
+
+/**
+ * How a window's bar shows its pace, the share of the window already gone:
+ * `tick` marks that point on the bar; `stripes` draws the stretch between it
+ * and the fill striped, bright where the use is ahead of it and dim where it
+ * is behind; `both` draws the two; `projection` stripes from the fill to
+ * where the use lands at the reset if it goes on as it has.
+ */
+export type PaceStyle = 'tick' | 'stripes' | 'both' | 'projection'
+/** The windows that warn: the 5-hour one alone, or every window with a length. */
+export type PaceWarn = 'five_hour' | 'all'
+
+/** A window's pace: the share of it gone, where the use lands at the reset, and the minutes until it runs out before then. */
+export type Pace = { elapsed: number; projected: number | null; outMin: number | null }
+
+/** The share of a window that must be gone before its use is projected: earlier, a few minutes' use reads as a runaway. */
+export const PACE_MIN_ELAPSED = 10
+
+/**
+ * A window's pace from what the reading already holds, its percent and its
+ * reset: null for a window without a length (a spend limit) or a reset. The
+ * projection is linear, the use so far over the time so far, and is left out
+ * before `PACE_MIN_ELAPSED` of the window or without any use; `outMin` is set
+ * when it passes 100% before the reset.
+ */
+export function paceOf(kind: WindowKind, pct: number, resetMin: number | null | undefined): Pace | null {
+  if (resetShare(kind, resetMin) === null) return null
+  const length = WINDOW_MINUTES[kind as 'five_hour' | 'seven_day']
+  // Multiplied before it is divided, so 135 of 300 minutes is 45 and not a hair under it.
+  const elapsed = Math.min(100, Math.max(0, ((length - resetMin!) * 100) / length))
+  if (elapsed < PACE_MIN_ELAPSED || pct <= 0) return { elapsed, projected: null, outMin: null }
+  const projected = (pct / elapsed) * 100
+  let outMin: number | null = null
+  if (projected > 100 && pct < 100) {
+    const elapsedMin = (length * elapsed) / 100
+    outMin = Math.max(1, Math.round(((100 - pct) * elapsedMin) / pct))
+  }
+  return { elapsed, projected, outMin }
+}
+
+/** The minutes until a window runs out, when `paceWarn` has it warn; null otherwise. */
+export function warnMin(warn: PaceWarn | undefined, w: Pick<WindowInput, 'kind' | 'pct' | 'resetMin'>): number | null {
+  if (!warn || (warn === 'five_hour' && w.kind !== 'five_hour')) return null
+  return paceOf(w.kind, w.pct, w.resetMin)?.outMin ?? null
 }
 
 type Segment = {
@@ -262,6 +313,12 @@ type Segment = {
   window?: number
   /** The context bar's categories, when it is split by them. */
   parts?: Readonly<Record<ContextPartKey, number>> & { rows?: readonly ContextDetailRow[] }
+  /** The window's pace, when an option draws from it. */
+  pace?: Pace
+  /** How the bar shows the pace. */
+  paceStyle?: PaceStyle
+  /** Minutes until the window runs out, when it warns. */
+  warn?: number
 }
 
 type Pieces = { label: string; pct: string; extra: string }
@@ -371,6 +428,15 @@ function segmentsOf(s: BandInput): Segment[] {
       for (const w of s.windows) {
         const seg: Segment = { kind: w.kind, pct: w.pct, resetMin: w.resetMin, resetAt: w.resetAt, resetAs: w.resetAs, hasBar: w.kind !== 'spend_limit', stale: s.stale || w.stale === true }
         if (w.label) seg.label = w.label
+        if (s.pace || s.paceWarn || s.windowCard) {
+          const pace = paceOf(w.kind, w.pct, w.resetMin)
+          if (pace) {
+            seg.pace = pace
+            if (s.pace) seg.paceStyle = s.pace
+            const out = warnMin(s.paceWarn, w)
+            if (out !== null) seg.warn = out
+          }
+        }
         all.push(seg)
       }
     }
@@ -398,6 +464,8 @@ function piecesOf(seg: Segment, tier: Tier, isLast: boolean): Pieces {
   let extra = ''
   if (seg.kind === 'ctx') {
     if (barTier && seg.pct != null) extra = fmtTok(seg.tokens ?? 0) + '/' + fmtTok(seg.window ?? 0)
+  } else if (!seg.loading && seg.warn != null && tier !== 'micro') {
+    extra = (tier === 'full' ? 'out in ' : 'out ') + fmtDur(seg.warn)
   } else if (!seg.loading && seg.resetMin != null && tier !== 'micro') {
     extra = tier === 'full' && isClock(seg) ? (seg.resetAt ?? '') : (tier === 'full' ? 'in ' : '') + fmtDur(seg.resetMin)
   }
@@ -441,12 +509,82 @@ function timeColor(seg: Segment, T: Palette): { color: string; op: number; live:
   return seg.stale ? { color, op: 0.45, live: false } : { color, op: 1, live: true }
 }
 
+/** A run-out warning's color: the last range's, live like a percent; stale, it fades and holds still. */
+function warnColor(seg: Segment, T: Palette): { color: string; op: number; live: boolean } {
+  const color = T.ramp[T.ramp.length - 1]!
+  return seg.stale ? { color, op: 0.45, live: false } : { color, op: 1, live: true }
+}
+
+/**
+ * The pace's marks on a bar, in hundredths of it: the tick's place, and the
+ * striped stretch with its color. `cut` stripes lie on the fill (the use ahead
+ * of the pace: the fill's own colors, striped); the others on the track
+ * beyond it, in `color`, still: the room behind the pace, dim in the
+ * percent's color, or the projection, in the range color of where it lands.
+ */
+type PaceMark = { tick: number | null; stripe: { from: number; to: number; color: string; cut: boolean } | null }
+
+function paceMark(seg: Segment, T: Palette): PaceMark | null {
+  const pace = seg.pace
+  const style = seg.paceStyle
+  if (!pace || !style || seg.loading || seg.pct == null) return null
+  const pct = Math.min(100, Math.max(0, seg.pct))
+  const fade = seg.stale ? 0.45 : 1
+  const own = T.ramp[rampIndex(pct)]!
+  let stripe: PaceMark['stripe'] = null
+  if (style === 'projection') {
+    if (pace.projected !== null && pace.projected > pct) {
+      const to = Math.min(100, pace.projected)
+      stripe = { from: pct, to, color: mix(T.ramp[rampIndex(to)]!, T.bg, 0.6 * fade), cut: false }
+    }
+  } else if (style !== 'tick') {
+    if (pct > pace.elapsed) stripe = { from: pace.elapsed, to: pct, color: mix(own, T.bg, fade), cut: true }
+    else if (pct < pace.elapsed) stripe = { from: pct, to: pace.elapsed, color: mix(own, T.bg, 0.45 * fade), cut: false }
+  }
+  return { tick: style === 'tick' || style === 'both' ? pace.elapsed : null, stripe }
+}
+
+/** The terminal's pace tick, and the striped cell that goes with each bar cell (any other cell stripes as `╍`). */
+export const TICK_GLYPH = '┃'
+const STRIPE_GLYPHS: Readonly<Record<string, string>> = { '━': '╍', '█': '▒', '■': '□', '●': '○', '•': '◦' }
+export function stripeGlyph(): string {
+  return STRIPE_GLYPHS[CELL] ?? '╍'
+}
+
+/** One cell of a window's bar: `fill` and `track` as ever, `stripe` a striped one, on the fill (`live`) or past it. */
+type BarCell = { kind: 'fill' | 'stripe' | 'track'; color: string; live: boolean; op: number }
+
+/**
+ * A window's bar of `len` cells with the pace's stripes in it, and the cell
+ * the tick stands on (null without one). Without a pace mark these are
+ * `filledCells` and the track, unchanged.
+ */
+function barCells(seg: Segment, len: number, T: Palette, bars: BarColoring): { cells: BarCell[]; tick: number | null } {
+  const { colors, live, op } = filledCells(seg, len, T, bars)
+  const cells: BarCell[] = colors.map(color => ({ kind: 'fill', color, live, op }))
+  while (cells.length < len) cells.push({ kind: 'track', color: T.track, live: false, op: 1 })
+  const mark = paceMark(seg, T)
+  if (!mark) return { cells, tick: null }
+  const f = colors.length
+  const at = (p: number) => Math.max(0, Math.min(len, Math.round((p / 100) * len)))
+  if (mark.stripe?.cut) {
+    for (let i = Math.min(at(mark.stripe.from), f); i < f; i++) cells[i] = { ...cells[i]!, kind: 'stripe' }
+  } else if (mark.stripe) {
+    for (let i = f; i < at(mark.stripe.to); i++) cells[i] = { kind: 'stripe', color: mark.stripe.color, live: false, op: 1 }
+  }
+  return { cells, tick: mark.tick === null || len <= 0 ? null : Math.min(len - 1, Math.floor((mark.tick / 100) * len)) }
+}
+
 /**
  * The field after a percent, with its leading space: under `resetColor: time`
  * a window's reset takes its time color (`timeColor`); every other field, the
  * context's tokens included, is plain text.
  */
 function extraSpan(T: Palette, seg: Segment, text: string, color: ResetColor | undefined): Span {
+  if (seg.warn != null) {
+    const wc = warnColor(seg, T)
+    return sp(T, ' ' + text, wc.color, { live: wc.live, op: wc.op })
+  }
   if (color === 'time' && seg.kind !== 'ctx' && seg.resetMin != null) {
     const tc = timeColor(seg, T)
     return sp(T, ' ' + text, tc.color, { live: tc.live, op: tc.op })
@@ -570,20 +708,21 @@ function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarCo
     if (len - cells.length > 0) out.push(sp(T, rep(CELL, len - cells.length), T.track))
     return
   }
-  const { colors, live, op } = filledCells(seg, len, T, bars)
-  // Cells of one color become one span, so a bar is a few spans, not one per cell.
+  const { cells: row, tick } = barCells(seg, len, T, bars)
+  if (tick !== null) row[tick] = { kind: 'track', color: T.text, live: false, op: 1 }
+  // Cells of one look become one span, so a bar is a few spans, not one per cell.
   let run = ''
-  let runColor: string | null = null
-  for (const c of colors) {
-    if (c !== runColor && run && runColor) {
-      out.push(sp(T, run, runColor, { live, op }))
-      run = ''
-    }
-    runColor = c
-    run += CELL
+  let at: BarCell | null = null
+  const flush = () => {
+    if (run && at) out.push(at.kind === 'track' && at.color === T.track ? sp(T, run, T.track) : sp(T, run, at.color, { live: at.live, op: at.op }))
+    run = ''
   }
-  if (run && runColor) out.push(sp(T, run, runColor, { live, op }))
-  if (len - colors.length > 0) out.push(sp(T, rep(CELL, len - colors.length), T.track))
+  row.forEach((c, i) => {
+    if (at && (c.color !== at.color || c.live !== at.live || c.op !== at.op)) flush()
+    at = c
+    run += i === tick ? TICK_GLYPH : c.kind === 'stripe' ? stripeGlyph() : CELL
+  })
+  flush()
 }
 
 /**
@@ -813,8 +952,15 @@ export function textOf(spans: readonly Span[]): string {
 /** One stretch of a desktop bar: `grow` of 100, in `color`; `live` pulses; `halo: false` draws it without a halo (the autocompact buffer). */
 export type FlexSlice = { grow: number; color: string; live?: boolean; halo?: false }
 
-/** One dot of a desktop dot bar; `halo: false` draws it without a halo. */
-export type FlexDot = { color: string; live?: boolean; halo?: false }
+/** One dot of a desktop dot bar; `halo: false` draws it without a halo; `hollow` draws a ring, a striped cell's dot. */
+export type FlexDot = { color: string; live?: boolean; halo?: false; hollow?: true }
+
+/**
+ * The pace's marks on a desktop bar, in hundredths of it: the tick's place,
+ * and the striped stretch: `cut` stripes are cut out of the fill, the others
+ * drawn in `color` on the track.
+ */
+export type FlexPace = { tick?: number; stripe?: { from: number; to: number; color: string; cut: boolean } }
 
 export type FlexSegment = {
   kind: SegmentKind
@@ -832,6 +978,10 @@ export type FlexSegment = {
   extraSpan?: Span
   /** The frame around this segment, under `border` scope `segment`. */
   frame?: Frame
+  /** The pace's marks on the bar, under `pace`. */
+  pace?: FlexPace
+  /** The window's hover card, under `windowPopup`: its pace, projection and reset, a row each. */
+  card?: ContextRow[]
 }
 
 /**
@@ -896,9 +1046,50 @@ function dotsOf(seg: Segment, len: number, T: Palette, bars: BarColoring): FlexD
     while (out.length < len) out.push({ color: T.track })
     return out
   }
-  const { colors, live, op } = filledCells(seg, len, T, bars)
-  const out: FlexDot[] = colors.map(c => (live ? { color: mix(c, T.bg, op), live: true } : { color: mix(c, T.bg, op) }))
-  while (out.length < len) out.push({ color: T.track })
+  return barCells(seg, len, T, bars).cells.map(c => {
+    if (c.kind === 'track') return { color: T.track }
+    const dot: FlexDot = c.live ? { color: mix(c.color, T.bg, c.op), live: true } : { color: mix(c.color, T.bg, c.op) }
+    if (c.kind === 'stripe') {
+      dot.hollow = true
+      // A ring past the fill is room, not use: it does not glow.
+      if (!c.live) dot.halo = false
+    }
+    return dot
+  })
+}
+
+/** The pace's marks as the desktop draws them, or null when the bar has none. */
+function flexPace(seg: Segment, T: Palette): FlexPace | null {
+  const mark = paceMark(seg, T)
+  if (!mark || (mark.tick === null && !mark.stripe)) return null
+  const out: FlexPace = {}
+  if (mark.tick !== null) out.tick = mark.tick
+  if (mark.stripe && mark.stripe.to > mark.stripe.from) out.stripe = mark.stripe
+  return out
+}
+
+/**
+ * A window's hover card: its use, the even pace, how far ahead of or behind
+ * it the use is, where it lands at the reset, when it runs out if it does,
+ * and the reset. The colored rows glow; none pulses, the card is a reading.
+ */
+function windowRows(seg: Segment, label: string, T: Palette): ContextRow[] | null {
+  const pace = seg.pace
+  if (!pace || seg.loading || seg.pct == null) return null
+  const dim = mix(T.text, T.bg, 0.7)
+  const pct = Math.round(seg.pct)
+  const even = Math.round(pace.elapsed)
+  const plain = (key: string, text: string): ContextRow => ({ key, text, color: dim, live: false, halo: false, dot: false })
+  const colored = (key: string, text: string, color: string): ContextRow => ({ key, text, color, live: false, halo: true })
+  const out: ContextRow[] = [{ key: 'title', text: `${label.trim()} limit: ${pct}% used`, color: T.text, live: false, halo: false, dot: false }]
+  out.push(plain('even', `Even pace now: ${even}%`))
+  const delta = pct - even
+  if (delta > 0) out.push(colored('delta', `Ahead of pace: +${delta}%`, T.ramp[4]!))
+  else if (delta < 0) out.push(colored('delta', `Behind pace: ${delta}%`, T.ramp[0]!))
+  else out.push(plain('delta', 'On pace'))
+  if (pace.projected !== null) out.push(colored('projected', `Projected at reset: ${Math.round(pace.projected)}%`, T.ramp[rampIndex(Math.min(100, pace.projected))]!))
+  if (pace.outMin !== null) out.push(colored('out', `Runs out: in ${fmtDur(pace.outMin)}`, T.ramp[T.ramp.length - 1]!))
+  if (seg.resetMin != null) out.push(plain('reset', `Resets: ${seg.resetAt ? seg.resetAt + ', ' : ''}in ${fmtDur(seg.resetMin)}`))
   return out
 }
 
@@ -973,6 +1164,8 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
     let extra = ''
     if (seg.kind === 'ctx') {
       if (seg.pct != null) extra = fmtTok(seg.tokens ?? 0) + '/' + fmtTok(seg.window ?? 0)
+    } else if (!seg.loading && seg.warn != null) {
+      extra = 'out in ' + fmtDur(seg.warn)
     } else if (!seg.loading && seg.resetMin != null) {
       extra = isClock(seg) ? (seg.resetAt ?? '') : 'in ' + fmtDur(seg.resetMin)
     }
@@ -987,9 +1180,20 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
     if (seg.hasBar && dotCount && dotCount > 0) out.dots = dotsOf(seg, dotCount, T, bars)
     const frame = s.border?.scope === 'segment' && !seg.loading && !outline ? frameOf(seg.pct, seg.stale === true, s.border, T) : null
     if (frame) out.frame = frame
-    if (extra && s.resetColor === 'time' && seg.kind !== 'ctx' && seg.resetMin != null) {
+    if (extra && seg.warn != null) {
+      const wc = warnColor(seg, T)
+      out.extraSpan = sp(T, extra, wc.color, { live: wc.live, op: wc.op })
+    } else if (extra && s.resetColor === 'time' && seg.kind !== 'ctx' && seg.resetMin != null) {
       const tc = timeColor(seg, T)
       out.extraSpan = sp(T, extra, tc.color, { live: tc.live, op: tc.op })
+    }
+    if (seg.hasBar) {
+      const pace = flexPace(seg, T)
+      if (pace) out.pace = pace
+    }
+    if (s.windowCard && seg.hasBar) {
+      const card = windowRows(seg, label, T)
+      if (card) out.card = card
     }
     return out
   })
@@ -1183,7 +1387,7 @@ export function fitFrames(row: FlexRow, bodyColumns: number): FlexRow {
 /** A window's countdown without its `in ` (`3h13m`), a clock time as it is; the context's tokens left out. */
 function compactExtra(seg: FlexSegment): FlexSegment {
   if (seg.kind === 'ctx') return { ...seg, extra: '' }
-  const extra = seg.extra.startsWith('in ') ? seg.extra.slice(3) : seg.extra
+  const extra = seg.extra.startsWith('in ') ? seg.extra.slice(3) : seg.extra.startsWith('out in ') ? 'out ' + seg.extra.slice(7) : seg.extra
   return seg.extraSpan ? { ...seg, extra, extraSpan: { ...seg.extraSpan, text: extra } } : { ...seg, extra }
 }
 
@@ -1201,7 +1405,7 @@ export function fitDesktop(row: FlexRow, bodyColumns: number): FlexRow {
     r => ({ ...r, segments: r.segments.map(seg => ({ ...seg, label: seg.short ?? seg.label })) }),
     r => ({ ...r, segments: r.segments.map(compactExtra) }),
     r => ({ ...r, stale: null, segments: r.segments.map(({ extraSpan: _s, ...seg }) => ({ ...seg, extra: '' })) }),
-    r => ({ ...r, segments: r.segments.map(({ dots: _d, ...seg }) => ({ ...seg, bar: null })) }),
+    r => ({ ...r, segments: r.segments.map(({ dots: _d, pace: _p, card: _c, ...seg }) => ({ ...seg, bar: null })) }),
   ]
   for (const step of steps) {
     if (fitsDesktop(out, bodyColumns)) return out

@@ -376,6 +376,36 @@
       "title": "Border color",
       "description": "One color like #FF073A for every border, on both themes; empty colors each border by its percent, as the bar and the percent are",
       "default": ""
+    },
+    "pace": {
+      "type": "string",
+      "title": "Pace",
+      "description": "How the 5-hour and weekly bars show the pace, the share of the window already gone: tick marks that point on the bar; stripes draws the stretch between it and the fill striped, bright where the use is ahead of it and dim where it is behind; both draws the two; projection stripes from the fill to where the use lands at the reset; off draws none",
+      "options": [
+        "off",
+        "tick",
+        "stripes",
+        "both",
+        "projection"
+      ],
+      "default": "off"
+    },
+    "paceWarn": {
+      "type": "string",
+      "title": "Run-out warning",
+      "description": "Once a window's use so far would pass 100% before its reset, show when it runs out (out in 1h23m) in place of the reset, in red: five_hour for the 5-hour window alone, all for the weekly limits too, off never",
+      "options": [
+        "off",
+        "five_hour",
+        "all"
+      ],
+      "default": "off"
+    },
+    "windowPopup": {
+      "type": "boolean",
+      "title": "Window pace on hover",
+      "description": "In the desktop app, show a window's use, the even pace, where it lands at the reset, when it runs out and the reset while the pointer is over its bar",
+      "default": false
     }
   }
 }

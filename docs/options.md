@@ -146,3 +146,24 @@ Each option below has a picture of its values, the desktop band above the termin
   <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/outline-dark.svg">
   <img src="../design/readme/options/outline-light.svg" alt="The outline option: off, one red border around the whole card, and the card's border in each section's color: orangered, dodgerblue and red" width="100%">
 </picture>
+
+<h3><code>pace</code>: <code>off</code>, <code>tick</code>, <code>stripes</code>, <code>both</code> or <code>projection</code></h3>
+<p>With 36% of the 5-hour window gone and 82% of it used, and 55% of the week gone and 18% used: a tick where an even pace would be; stripes between it and the fill, bright where the use is ahead and dim where it is behind; both; or stripes to where the use lands at the reset.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/pace-dark.svg">
+  <img src="../design/readme/options/pace-light.svg" alt="The pace option: off, a tick on each window bar at the even pace, stripes between the pace and the fill, stripes and tick, and stripes from the fill to the projection, each as the desktop band and the terminal band draw it" width="100%">
+</picture>
+
+<h3><code>paceWarn</code>: <code>off</code>, <code>five_hour</code> or <code>all</code></h3>
+<p>The 5-hour window would pass 100% before its reset, so its reset gives way to the time it runs out, in red.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/paceWarn-dark.svg">
+  <img src="../design/readme/options/paceWarn-light.svg" alt="The paceWarn option: the 5-hour reset as ever, and replaced by out in 23m in red" width="100%">
+</picture>
+
+<h3><code>windowPopup</code>: <code>false</code> or <code>true</code></h3>
+<p>The card the desktop app shows while the pointer is over a window's bar, drawn open over the 5-hour one.</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../design/readme/options/windowPopup-dark.svg">
+  <img src="../design/readme/options/windowPopup-light.svg" alt="The windowPopup option: the desktop band without a card, and with the 5-hour window's card open above it: its use, the even pace, how far ahead it is, the projection, when it runs out and the reset" width="100%">
+</picture>

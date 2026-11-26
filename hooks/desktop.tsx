@@ -193,10 +193,12 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
     if (button && at === 'context' && seg.kind === 'ctx') pieces.push(actionButton(button, els, x), gap('button-gap'))
     pieces.push(fixed(`label-${seg.kind}`, <Text color={THEME_KEYS.text}>{seg.label} </Text>))
     // The context bar's own Box is the breakdown card's anchor, as the app's own indicator opens its card over its bar.
-    const card = seg.kind === 'ctx' && x.popup && row.context?.length ? hoverCard(els, x, row.context.map(r => <Svg source={contextRowSvg(r, o)} alt={r.text} height={DISPLAY_HEIGHT} />)) : null
+    // A window's bar anchors its own card the same way, when the builder made one (`windowPopup`).
+    const cardRows = seg.kind === 'ctx' ? (x.popup ? row.context : undefined) : seg.card
+    const card = cardRows?.length ? hoverCard(els, x, cardRows.map(r => <Svg source={contextRowSvg(r, o)} alt={r.text} height={DISPLAY_HEIGHT} />)) : null
     if (seg.dots) {
       const filled = seg.dots.filter(d => HEX.test(d.color) && d.color.toUpperCase() !== o.palette.track.toUpperCase()).length
-      const svg = <Svg source={dotBarSvg(seg.dots, o)} alt={`${filled} of ${seg.dots.length} dots`} height={DISPLAY_HEIGHT} />
+      const svg = <Svg source={dotBarSvg(seg.dots, o, seg.pace?.tick)} alt={`${filled} of ${seg.dots.length} dots`} height={DISPLAY_HEIGHT} />
       pieces.push(
         <Box key={`dots-${seg.kind}`} flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" {...(card ? ({ position: 'relative' } as const) : {})}>
           {card ? [svg, card] : svg}
@@ -204,7 +206,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
       )
       pieces.push(gap(`gap-${seg.kind}`))
     } else if (seg.bar) {
-      const svg = <Svg source={smoothBarSvg(seg.bar, o)} alt={`${seg.kind} bar`} height={DISPLAY_HEIGHT} />
+      const svg = <Svg source={smoothBarSvg(seg.bar, o, seg.pace)} alt={`${seg.kind} bar`} height={DISPLAY_HEIGHT} />
       pieces.push(
         <Box key={`bar-${seg.kind}`} flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" {...(card ? ({ position: 'relative' } as const) : {})}>
           {card ? [svg, card] : svg}
