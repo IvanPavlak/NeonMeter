@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `dateFormat`: how every date is written, as a pattern of `D`, `DD`, `M`, `MM`, `MMM`, `YY` and `YYYY` with any punctuation between them. The default, `MMM D, YYYY`, is what the reset chip's card showed before (`Expires Dec 10, 2026`); `DD.MM.YYYY` reads `Expires 10.12.2026`. A pattern without a day and a month, or with other letters, is reported and the default used.
 
+## [1.8.0] - 2026-11-26
+
+### Added
+
+- `preset`: a named look, one option that sets a group of others over whatever they are set to, so switching looks is one option and the options it replaces stay saved for `off`. `rainbow`, the first, puts everything in the rainbow, running without a stop: `rainbow: circle`, `pulse` on under `pulseMode: always`, `glow` on, `resetColor: time`, `border: always`, `outline: single`, no `borderColor`, every glow and pulse of the button, the border and the reset chip on, the chip in the rainbow and circling. An option a preset does not name stays as set.
+
+### Changed
+
+- A stale segment in the rainbow takes the rainbow too, every color faded toward the ground as a stale range color is, and moves with the rest, where it kept its faded range color and held still. A per-model weekly window (`Fable`), which only the usage fetch refreshes, went stale between fetches and stood green and still in a band otherwise running in the rainbow. Its border follows, unless `borderColor` is set; the outline and the band's frame fade when the fullest segment is stale; a run-out warning stays red and fades as before. In the terminal a stale bar's cells and its percent take the colors, faded, and pulse.
+- The README, redesigned: a hero in the reader's own theme, dark or light, and six highlights, each with its picture, in place of the reset chip section. The highlights' pictures are drawn by `design/readme/options.mjs` from the plugin's own builder and drawings, and its `--check` verifies them with the option pictures.
+
 ## [1.7.1] - 2026-11-26
 
 ### Changed
@@ -218,7 +229,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.1...v1.6.2

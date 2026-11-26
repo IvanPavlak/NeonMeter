@@ -3,8 +3,9 @@
 // default (one row per Weekly turn: the all-models week, then Fable), the default layout at
 // 120 columns with ramp coloring and with `●` cells in either coloring, and the single
 // layout at 120 columns with level coloring, ramp coloring and `●` cells in either coloring
-// (one row per turn: 5-hour, Weekly, Fable, Context). Run from anywhere with Node 22.18 or later
-// (it imports hooks/builder.ts directly), then draw the graphics:
+// (one row per turn: 5-hour, Weekly, Fable, Context), and for the README's hero the default
+// row at 120 columns with the reset chip before it, counting one reset. Run from anywhere with
+// Node 22.18 or later (it imports hooks/builder.ts directly), then draw the graphics:
 //
 //     node design/readme/rows.mjs
 //     python design/readme/make.py
@@ -51,6 +52,9 @@ const allTurns = [
   { ...input, windows: [fiveHour, { ...weekly, label: { full: 'Weekly', short: '7d ' } }] },
   { ...input, windows: [fiveHour, { ...fable, label: { full: 'Fable ', short: 'Fab' } }] },
 ]
+// The default layout's turns with one limit reset held: the chip before everything else in the row (its hover card
+// is the desktop's, so it needs no lines here).
+const chipTurns = allTurns.map(t => ({ ...t, resets: { chips: [{ text: '+1', lines: [] }], color: 'rainbow' } }))
 // The single layout's turns, as the plugin's singleVariants makes them: one segment each, unpadded.
 const singleTurns = [
   { ...input, windows: [fiveHour], segments: ['five_hour'] },
@@ -76,6 +80,7 @@ for (const theme of ['dark', 'light']) {
   rows[`${theme}-120-single-ramp`] = draw(singleTurns, 120, theme, 'ramp')
   rows[`${theme}-120-single-dots`] = draw(singleTurns, 120, theme, 'level', '●')
   rows[`${theme}-120-single-dots-ramp`] = draw(singleTurns, 120, theme, 'ramp', '●')
+  rows[`${theme}-120-chip`] = draw(chipTurns, 120, theme)
 }
 
 const text = JSON.stringify(rows, null, 1) + '\n'

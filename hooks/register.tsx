@@ -149,7 +149,40 @@ export type Options = {
   dateFormat: string
   /** The rainbow theme, in place of the range colors: held `still`, breathing with the pulse (`breathe`) or running with it (`circle`); `off`, the range colors. */
   rainbow: 'off' | 'still' | 'breathe' | 'circle'
+  /** A named look that sets a group of options at once, over whatever they are set to (`PRESETS`); `off`, every option as set. */
+  preset: 'off' | PresetName
 }
+
+/**
+ * The presets: each a look by name, the options it sets and their values, as
+ * the manifest takes them. A preset wins over those options' own values, so
+ * one option switches the look and switching back to `off` returns every
+ * option to what it was set to; an option a preset does not name stays as set.
+ * A new look is one more entry here and its name in the manifest's choices.
+ */
+export const PRESETS = {
+  // Everything in the rainbow, running without a stop: the bars, the percents, the resets (colored, so the rainbow
+  // takes them), the button, the reset chip, and a border round every segment's card that never goes out.
+  rainbow: {
+    rainbow: 'circle',
+    pulse: true,
+    pulseMode: 'always',
+    glow: true,
+    resetColor: 'time',
+    border: 'always',
+    outline: 'single',
+    borderColor: '',
+    borderGlow: true,
+    borderPulse: true,
+    buttonGlow: true,
+    buttonPulse: true,
+    resetChipColor: 'rainbow',
+    resetChipGlow: true,
+    resetChipPulse: true,
+    resetChipMotion: 'circle',
+  },
+} as const satisfies Record<string, PluginOptions>
+export type PresetName = keyof typeof PRESETS
 
 /** A limit reset the account holds: its kind, and the day it expires (the end of that day, local time) when one is given. */
 export type HeldReset = { kind: ResetKind; expires: number | null }
@@ -329,6 +362,7 @@ const DEFAULTS: Options = {
   resetChipMotion: 'circle',
   dateFormat: DEFAULT_DATE_FORMAT,
   rainbow: 'off',
+  preset: 'off',
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -415,6 +449,9 @@ export function parseGlyph(value: unknown): string | null {
  */
 export function parseOptions(options: PluginOptions): { parsed: Options; rejected: string[]; problems: string[] } {
   const problems: string[] = []
+  // A preset's options replace the ones set, before anything is read.
+  const preset: Options['preset'] = typeof options.preset === 'string' && Object.hasOwn(PRESETS, options.preset) ? (options.preset as PresetName) : DEFAULTS.preset
+  if (preset !== 'off') options = { ...options, ...PRESETS[preset] }
   const pick = <T,>(key: string, parse: (v: unknown) => T | null, fallback: T, what: string): T => {
     if (options[key] === undefined) return fallback
     const value = parse(options[key])
@@ -539,6 +576,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       resetChipMotion,
       dateFormat,
       rainbow,
+      preset,
     },
     rejected,
     problems,
@@ -1379,8 +1417,9 @@ export const register: Register = (on, options) => {
 
     const palette = THEMES[t ?? 'dark']
     const input = inputOf(r, c, hv ?? DEFAULT_HEALTH, now, env.options)
-    // The terminal's rainbow: cells and percents in its colors; the desktop paints its own in the drawings.
-    if (env.options.rainbow !== 'off' && e.surface !== 'desktop') input.rainbow = { colors: rainbowOf(t ?? 'dark'), still: env.options.rainbow === 'still' }
+    // The terminal's rainbow: cells and percents in its colors. The desktop paints its own in the drawings, and takes
+    // from this only which stale segments to paint faded.
+    if (env.options.rainbow !== 'off') input.rainbow = { colors: rainbowOf(t ?? 'dark'), still: env.options.rainbow === 'still' }
     const burst = burstOf(env.bursts, bandKey, changeKey(input), now, env.options.pulseMs, env.options.pulseCount)
     const base = { pulse: env.options.pulse, pulseMs: env.options.pulseMs, pulseMode: env.options.pulseMode, burst, ground: palette.bg }
     const single = env.options.layout === 'single'

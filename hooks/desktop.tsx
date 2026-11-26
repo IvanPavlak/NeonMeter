@@ -12,6 +12,7 @@ import type { BoxProps, ButtonProps, ElementConstructor, RenderElement, SvgProps
 
 import type { FlexButton, FlexChip, Frame, FlexRow, FlexSegment } from './builder'
 import { THEME_KEYS } from './builder'
+import { mix } from './color'
 import type { DesktopOptions, OutlinePad } from './drawings'
 import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, outlineRingSvg, ROW_HEIGHT, pctSvg, resetChipSvg, resetSvg, smoothBarSvg } from './drawings'
 
@@ -46,6 +47,15 @@ export type DesktopExtras = {
 
 /** About what one of the app's columns measures across, in CSS pixels (measured: offsets land about 9 px apart). */
 const CELL_PX = 9
+
+/**
+ * The options a stale segment in the rainbow is drawn with: the same rainbow,
+ * every color faded toward the ground as a stale range color is. The builder
+ * hands such a segment over as a fresh one (`faded`), so it moves with the rest.
+ */
+export function fadedOptions(o: DesktopOptions): DesktopOptions {
+  return o.rainbow ? { ...o, rainbow: { ...o.rainbow, colors: o.rainbow.colors.map(c => mix(c, o.palette.bg, 0.45)) } } : o
+}
 
 /** A blank label: the button's Button draws nothing of its own over the ring, only the app's hover mark. */
 const BLANK = '  '
@@ -188,6 +198,8 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   const children: RenderElement[] = []
   // What the rainbow leaves in its own colors: a bar split by the context's categories, a run-out warning.
   const { rainbow: _rainbow, ...own } = o
+  const dimmed = fadedOptions(o)
+  const frameOptions = row.fadedFrame ? fadedOptions(x.frame) : x.frame
   let lastWin = -1
   row.segments.forEach((seg, n) => {
     if (seg.kind !== 'ctx') lastWin = n
@@ -216,6 +228,8 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
       into([n - 1, n], false, sep)
     }
     const pieces: RenderElement[] = []
+    // A stale segment in the rainbow takes it faded.
+    const so = seg.faded ? dimmed : o
     if (button && at === 'context' && seg.kind === 'ctx') pieces.push(actionButton(button, els, x), gap('button-gap'))
     pieces.push(fixed(`label-${seg.kind}`, <Text color={THEME_KEYS.text}>{seg.label} </Text>))
     // The context bar's own Box is the breakdown card's anchor, as the app's own indicator opens its card over its bar.
@@ -224,7 +238,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
     const card = cardRows?.length ? hoverCard(els, x, cardRows.map(r => <Svg source={contextRowSvg(r, o)} alt={r.text} height={DISPLAY_HEIGHT} />)) : null
     if (seg.dots) {
       const filled = seg.dots.filter(d => HEX.test(d.color) && d.color.toUpperCase() !== o.palette.track.toUpperCase()).length
-      const svg = <Svg source={dotBarSvg(seg.dots, seg.split ? own : o, seg.pace?.tick)} alt={`${filled} of ${seg.dots.length} dots`} height={DISPLAY_HEIGHT} />
+      const svg = <Svg source={dotBarSvg(seg.dots, seg.split ? own : so, seg.pace?.tick)} alt={`${filled} of ${seg.dots.length} dots`} height={DISPLAY_HEIGHT} />
       pieces.push(
         <Box key={`dots-${seg.kind}`} flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" {...(card ? ({ position: 'relative' } as const) : {})}>
           {card ? [svg, card] : svg}
@@ -232,7 +246,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
       )
       pieces.push(gap(`gap-${seg.kind}`))
     } else if (seg.bar) {
-      const svg = <Svg source={smoothBarSvg(seg.bar, seg.split ? own : o, seg.pace)} alt={`${seg.kind} bar`} height={DISPLAY_HEIGHT} />
+      const svg = <Svg source={smoothBarSvg(seg.bar, seg.split ? own : so, seg.pace)} alt={`${seg.kind} bar`} height={DISPLAY_HEIGHT} />
       pieces.push(
         <Box key={`bar-${seg.kind}`} flexDirection="row" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden" {...(card ? ({ position: 'relative' } as const) : {})}>
           {card ? [svg, card] : svg}
@@ -250,12 +264,12 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
         ),
       )
     } else {
-      pieces.push(fixed(`pct-${seg.kind}`, <Svg source={pctSvg(seg.pct, o)} alt={seg.pct.text} height={DISPLAY_HEIGHT} />))
+      pieces.push(fixed(`pct-${seg.kind}`, <Svg source={pctSvg(seg.pct, so)} alt={seg.pct.text} height={DISPLAY_HEIGHT} />))
     }
     if (seg.extra && seg.extraSpan) {
       // The gap is text and the reset a drawing, so the row reads as it does in plain text.
       pieces.push(gap(`extra-gap-${seg.kind}`))
-      pieces.push(fixed(`extra-${seg.kind}`, <Svg source={resetSvg(seg.extraSpan, seg.warns ? own : o)} alt={seg.extra} height={DISPLAY_HEIGHT} />))
+      pieces.push(fixed(`extra-${seg.kind}`, <Svg source={resetSvg(seg.extraSpan, seg.warns ? own : so)} alt={seg.extra} height={DISPLAY_HEIGHT} />))
     } else if (seg.extra) {
       pieces.push(fixed(`extra-${seg.kind}`, <Text color={THEME_KEYS.text}> {seg.extra}</Text>))
     }
@@ -270,7 +284,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
       )
     }
     if (seg.frame) {
-      const frame = framed(`frame-${seg.kind}`, seg.frame, pieces, els, x.frame, Boolean(seg.bar))
+      const frame = framed(`frame-${seg.kind}`, seg.frame, pieces, els, seg.faded ? fadedOptions(x.frame) : x.frame, Boolean(seg.bar))
       children.push(frame)
       into(n, true, frame)
     } else {
@@ -287,7 +301,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   if (row.outline) {
     // The row is as tall as its tallest piece: a frame's height while one shows, a drawing's otherwise.
     const tall = Boolean(row.frame) || row.segments.some(seg => seg.frame)
-    if (x.frame.rainbow && x.frame.rainbow.colors.length > 1 && row.outline.some(f => f.live)) {
+    if (frameOptions.rainbow && frameOptions.rainbow.colors.length > 1 && row.outline.some(f => f.live)) {
       // In the rainbow the outline is one drawing under the whole row (drawings.ts `outlineRingSvg`), in one section
       // that reaches the card's edges at both ends, as the first and the last section do in `outlined`.
       const tallness = outlineHeight(tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT, x.outlinePad)
@@ -297,7 +311,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
           <Box key="section-0" position="relative" flexDirection="row" alignItems="center" flexGrow={1} flexShrink={1} minWidth={0} marginLeft={-1} paddingLeft={1} marginRight={-1} paddingRight={1}>
             <Box position="absolute" top={0} bottom={0} left={0} right={0} flexDirection="row" alignItems="center">
               <Box flexGrow={1} flexShrink={1} minWidth={0}>
-                <Svg source={outlineRingSvg(wide, tallness, x.frame)} alt="border" height={(tallness * DISPLAY_HEIGHT) / ROW_HEIGHT} />
+                <Svg source={outlineRingSvg(wide, tallness, frameOptions)} alt="border" height={(tallness * DISPLAY_HEIGHT) / ROW_HEIGHT} />
               </Box>
             </Box>
             {children}
@@ -305,7 +319,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
         </Box>
       )
     }
-    const inner = outlined(sections, row.outline, els, x.frame, tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT, x.outlinePad)
+    const inner = outlined(sections, row.outline, els, frameOptions, tall ? FRAME_DISPLAY_HEIGHT : DISPLAY_HEIGHT, x.outlinePad)
     return (
       // Every section as tall as the row, so each one's stretch of the edges lands on the same line: centered in the
       // row, a text section is shorter than a drawing's, and its bottom edge drew a pixel lower (measured on macOS).
@@ -316,7 +330,7 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   }
   return (
     <Box key="band" flexDirection="row" width="100%" alignItems="center">
-      {row.frame ? framed('frame-band', row.frame, children, els, x.frame, true) : children}
+      {row.frame ? framed('frame-band', row.frame, children, els, frameOptions, true) : children}
     </Box>
   )
 }
