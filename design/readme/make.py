@@ -1,4 +1,5 @@
-"""Draws the README graphics: hero.svg (the band on both themes), palette.svg
+"""Draws the README graphics: hero.svg (the band on both themes, the documentation's), hero-dark.svg /
+hero-light.svg (the README's hero, one theme each, with the terminal band under the desktop's), palette.svg
 (the six ranges) title-dark.svg / title-light.svg (the glowing name and tagline) and
 terminal.svg (the terminal band in every look and at three widths on both themes, from the
 builder's own rows in terminal-rows.json). Pure SVG with the same glow the desktop band draws: a blurred
@@ -192,8 +193,15 @@ CHIP_ROOM = CHIP_W + 12
 _chip_n = 0
 
 
-def chip(x, y, T, name, text='+2'):
-    """The reset chip at `x`, centered on the row's line `y`, counting the resets held."""
+def chip(x, y, T, name, text='+2', color=None):
+    """The reset chip at `x`, centered on the row's line `y`, counting the resets held: in the rainbow, or in the one
+    `color` given (`resetChipColor`)."""
+    if color:
+        pill = (f'<rect x="{x}" y="{y - CHIP_H / 2}" width="{CHIP_W}" height="{CHIP_H}" rx="{CHIP_H / 2}" fill="none" '
+                f'stroke="{color}" stroke-width="{RING_W}"/>')
+        label = (f'<text x="{x + CHIP_W / 2}" y="{y + 4.5}" {FONT} font-size="12.5" font-weight="700" fill="{color}" '
+                 f'text-anchor="middle">{text}</text>')
+        return halo(pill) + pill + label
     global _chip_n
     _chip_n += 1
     r = T['ramp']
@@ -207,9 +215,9 @@ def chip(x, y, T, name, text='+2'):
     return f'<defs>{paint}</defs>' + halo(pill) + pill + label
 
 
-def chip_row(x, y, width, T, name, mode, windows):
+def chip_row(x, y, width, T, name, mode, windows, text='+2', color=None):
     """A band row with the reset chip before it, as `resetChips` draws it: the chip, then the row in the room left."""
-    return chip(x, y, T, name) + band_row(x + CHIP_ROOM, y, width - CHIP_ROOM, T, mode, windows)
+    return chip(x, y, T, name, text, color) + band_row(x + CHIP_ROOM, y, width - CHIP_ROOM, T, mode, windows)
 
 
 def glow_text(x, y, text, color, size=19.5, live=True, anchor='start'):
@@ -373,6 +381,54 @@ def hero():
     return '\n'.join(out)
 
 
+# What the hero's reset chip reads: one reset held.
+HERO_CHIP = '+1'
+HERO_LOOKS = [('level', 'Level Bars (Default)'), ('bars', 'Ramp Bars'), ('dots', 'Level Dots'), ('dots-ramp', 'Ramp Dots')]
+
+
+def hero_theme(name):
+    """The README's hero for one theme, shown to the reader whose system has that theme: one panel on a clear ground,
+    with the desktop band in its four looks, the single layout in the same four, two to a line, and the terminal
+    band at 120 columns from the builder's own row, scaled to the panel's width. Every row has the reset chip
+    before it, counting one reset (`resetChips`, off by default): in the rainbow on the level rows and in one color,
+    the theme's neon green, on the ramp rows (`resetChipColor`), the other way round from the button at the row's
+    end, which is one color on the level rows and every range's on the ramp rows."""
+    import json
+    T = THEMES[name]
+    W = 1200
+    left, inner = 44, W - 88
+    out = []
+    # The chip of every second look in one color, the range colors' neon green; the others in the rainbow.
+    chip_color = lambda k: T['ramp'][1] if k % 2 else None
+    y = 46
+    out.append(plain(left, y, f'Desktop App · {LAYOUT_ALL}', T['text'], size=16, weight=600))
+    for k, (mode, title) in enumerate(HERO_LOOKS):
+        title_y = y + 28 + k * 70
+        out.append(plain(left, title_y, title, T['dim'], size=14, weight=600))
+        out.append(chip_row(left, title_y + 26, inner, T, name, mode, [82, 18.2, 93], HERO_CHIP, chip_color(k)))
+    y += 28 + len(HERO_LOOKS) * 70 + 14
+    out.append(plain(left, y, f'Desktop App · {LAYOUT_SINGLE}', T['text'], size=16, weight=600))
+    gap = 44
+    half = (inner - gap) / 2
+    for k, (mode, title) in enumerate(HERO_LOOKS):
+        col_x = left + (k % 2) * (half + gap)
+        title_y = y + 28 + (k // 2) * 70
+        out.append(plain(col_x, title_y, title, T['dim'], size=14, weight=600))
+        out.append(chip(col_x, title_y + 26, T, name, HERO_CHIP, chip_color(k)) + single_row(col_x + CHIP_ROOM, title_y + 26, half - CHIP_ROOM, T, mode))
+    y += 28 + 2 * 70 + 14
+    out.append(plain(left, y, 'Terminal · 120 Columns', T['text'], size=16, weight=600))
+    rows = json.loads((HERE / 'terminal-rows.json').read_text(encoding='utf-8'))
+    border = '#30363D' if name == 'dark' else '#D0D7DE'
+    panel_h = 4 * CELL_H + 24
+    scale = inner / (120 * CELL_W + 16)
+    box = ''.join(terminal_box(rows[f'{name}-120-chip'], 120, 0, 0, T, border, panel_h, T['bg']))
+    out.append(f'<g transform="translate({left} {y + 18}) scale({scale:.4f})">{box}</g>')
+    H = round(y + 18 + panel_h * scale + 34)
+    return '\n'.join([f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', defs(),
+                      f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="14" fill="{T["panel"]}" stroke="{T["track"]}"/>']
+                     + out + ['</svg>'])
+
+
 def palette():
     W, H = 1200, 300
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', page_style(), defs(), page(W, H)]
@@ -483,11 +539,14 @@ def terminal_theme(theme, top, W):
 def terminal_panel(row, cols, what, y, T, border, panel_h):
     """One terminal panel at `y`: its label, the rule with [-], the cell row taking its turns, the input box's rule and
     the prompt."""
-    out = [ink(20, y + 14, f'{cols} columns · {what}', size=13, weight=600)]
-    px = 20
-    py = y + 24
+    return [ink(20, y + 14, f'{cols} columns · {what}', size=13, weight=600)] + terminal_box(row, cols, 20, y + 24, T, border, panel_h, T['panel'])
+
+
+def terminal_box(row, cols, px, py, T, border, panel_h, fill):
+    """One terminal box with its corner at `px`, `py`, on `fill`: the rule with [-], the cell row taking its turns, the
+    input box's rule and the prompt."""
     pw = cols * CELL_W + 16
-    out.append(f'<rect x="{px}" y="{py}" width="{pw}" height="{panel_h}" rx="6" fill="{T["panel"]}" stroke="{border}"/>')
+    out = [f'<rect x="{px}" y="{py}" width="{pw}" height="{panel_h}" rx="6" fill="{fill}" stroke="{border}"/>']
     tx = px + 8
     rule_y = py + CELL_H - 6
     out.append(f'<text x="{tx}" y="{rule_y}" {MONO} font-size="14" {cells(cols)} xml:space="preserve"><tspan fill="{border}">{"─" * (cols - 3)}</tspan><tspan fill="{T["dim"]}">[-]</tspan></text>')
@@ -517,4 +576,7 @@ if __name__ == '__main__':
     (HERE / 'title-dark.svg').write_text(title('dark'), encoding='utf-8', newline='\n')
     (HERE / 'title-light.svg').write_text(title('light'), encoding='utf-8', newline='\n')
     (HERE / 'terminal.svg').write_text(terminal(), encoding='utf-8', newline='\n')
-    print('wrote', HERE / 'hero.svg', HERE / 'palette.svg', HERE / 'title-dark.svg', HERE / 'title-light.svg', HERE / 'terminal.svg')
+    (HERE / 'hero-dark.svg').write_text(hero_theme('dark'), encoding='utf-8', newline='\n')
+    (HERE / 'hero-light.svg').write_text(hero_theme('light'), encoding='utf-8', newline='\n')
+    print('wrote', HERE / 'hero.svg', HERE / 'hero-dark.svg', HERE / 'hero-light.svg', HERE / 'palette.svg', HERE / 'title-dark.svg',
+          HERE / 'title-light.svg', HERE / 'terminal.svg')

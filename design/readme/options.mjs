@@ -3,6 +3,8 @@
 // draw it, on the dark and the light theme. Everything comes from the plugin's
 // own code: the rows from hooks/builder.ts, every bar, dot bar, percent and
 // colored reset from hooks/drawings.ts, so a picture cannot drift from the band.
+// The same code draws the README's highlights, one close-up per feature of its
+// grid, into design/readme/highlights/.
 // Run from anywhere with Node 22.18 or later (it imports the .ts files directly):
 //
 //     node design/readme/options.mjs
@@ -14,7 +16,7 @@
 // with textLength, so a viewer's font cannot push a drawing out of place; the
 // terminal row pins every span to its cells the same way.
 
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { register } from 'node:module'
 
 // The hooks import './color' and './builder' without an extension, as the engine resolves them; Node needs the `.ts`.
@@ -136,16 +138,13 @@ function buttonShown(o, ctx) {
 }
 
 /** The band input for a set of options: the account above, with each window's reset display. */
-function inputFor(o, ctx = CTX, theme = 'dark') {
-  const asFive = { ...FIVE, resetAs: o.fiveHourReset }
-  const week = { ...WEEK, resetAs: o.weeklyReset }
-  const fable = { ...FABLE, resetAs: o.weeklyReset }
+function inputFor(o, ctx = CTX, theme = 'dark', windows = [FIVE, WEEK, FABLE]) {
   const input = {
     auth: true,
     loading: false,
     stale: false,
     staleAge: '',
-    windows: [asFive, week, fable],
+    windows: windows.map(w => ({ ...w, resetAs: w.kind === 'five_hour' ? o.fiveHourReset : o.weeklyReset })),
     ctx,
     segments: o.segments,
     resetColor: o.resetColor,
@@ -223,11 +222,11 @@ function place(svg, x, y) {
  * out: fixed pieces, and the bars sharing what is left. Returns the markup and
  * where the Context segment starts, where the app hangs its breakdown card.
  */
-function desktopRow(turn, o, theme, x0, y, rowW) {
+function desktopRow(turn, o, theme, x0, y, rowW, cols = COLS) {
   const T = B.THEMES[theme]
   const dim = mix(T.text, T.bg, 0.55)
   const plain = B.flexRow(turn, theme, o.barColoring)
-  const count = B.desktopDotCount(plain, COLS)
+  const count = B.desktopDotCount(plain, cols)
   const row = B.flexRow(turn, theme, o.barColoring, o.desktopBars === 'dots' ? count : undefined)
   const own = { pulse: false, pulseMs: 800, pulseMode: 'responsive', burst: { gen: 0, elapsedMs: 0, totalMs: 0 }, glow: o.glow, palette: T, dotCount: count }
   // The rainbow paints what the percents color; a bar split by category and a run-out warning keep their own.
@@ -425,17 +424,20 @@ function chipCard(rows, opts, theme, x, bottom) {
 /**
  * The card the app shows over the button, naming what it does: one
  * line in the text color, its right edge at the button's when it would run
- * past the picture, its bottom at `bottom`.
+ * past the picture, its bottom at `bottom`. Between bounds narrower than the
+ * line, the card is as wide as they allow and the text is pinned to fit it.
  */
-function buttonCard(label, theme, x, bottom) {
-  const w = textWidth(label, false) + 2 * CARD_PAD
+function buttonCard(label, theme, x, bottom, from = PAD, to = W - PAD) {
+  const natural = textWidth(label, false) + 2 * CARD_PAD
+  const w = Math.min(natural, to - from)
+  const pinned = w < natural ? ` textLength="${(w - 2 * CARD_PAD).toFixed(2)}" lengthAdjust="spacing"` : ''
   const h = D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4
-  const left = Math.max(PAD, Math.min(x, W - PAD - w))
+  const left = Math.max(from, Math.min(x, to - w))
   const top = bottom - h
   const T = B.THEMES[theme]
   return (
     `<rect x="${left.toFixed(2)}" y="${top}" width="${w.toFixed(2)}" height="${h}" rx="8" fill="${CARD[theme].background}" stroke="${CARD[theme].border}"/>` +
-    `<text x="${(left + CARD_PAD).toFixed(2)}" y="${(top + h / 2 + TEXT_SIZE * 0.35).toFixed(2)}" ${SANS} font-size="${TEXT_SIZE}" fill="${T.text}">${esc(label)}</text>`
+    `<text x="${(left + CARD_PAD).toFixed(2)}" y="${(top + h / 2 + TEXT_SIZE * 0.35).toFixed(2)}" ${SANS} font-size="${TEXT_SIZE}" fill="${T.text}"${pinned}>${esc(label)}</text>`
   )
 }
 
@@ -466,9 +468,9 @@ const PANEL = {
  * prompt; with `card`, the breakdown card the app shows while the pointer is
  * over the Context segment, open above it. Returns the markup and its height.
  */
-function desktopBox(turns, o, theme, y, card = false) {
+function desktopBox(turns, o, theme, y, card = false, x = PAD, w = W - 2 * PAD, cols = COLS) {
   const P = PANEL[theme]
-  const rows = turns.map((t, k) => desktopRow(t, o, theme, PAD + DESK_PAD, 0, W - 2 * PAD - 2 * DESK_PAD))
+  const rows = turns.map((t, k) => desktopRow(t, o, theme, x + DESK_PAD, 0, w - 2 * DESK_PAD, cols))
   const open = card === true && o.contextPopup ? rows.find(r => r.context && r.ctxX !== null) : null
   const pressed = card === 'button' ? rows.find(r => r.button && r.buttonX !== null) : null
   // A window's card hangs over its segment the same way, under `windowPopup`.
@@ -479,19 +481,19 @@ function desktopBox(turns, o, theme, y, card = false) {
   const cardH = over ? over.length * CARD_ROW + 2 * CARD_PAD - (CARD_ROW - D.DISPLAY_HEIGHT) + 8 : pressed ? D.DISPLAY_HEIGHT + 2 * CARD_PAD - 4 + 8 : chip ? chipCardHeight(chip.chipRows) + 8 : 0
   const boxY = y + cardH
   const h = 2 * DESK_PAD + (turns.length - 1) * DESK_ROW + D.DISPLAY_HEIGHT
-  let out = `<rect x="${PAD}" y="${boxY}" width="${W - 2 * PAD}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
+  let out = `<rect x="${x}" y="${boxY}" width="${w}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
   turns.forEach((t, k) => {
-    out += desktopRow(t, o, theme, PAD + DESK_PAD, boxY + DESK_PAD + k * DESK_ROW, W - 2 * PAD - 2 * DESK_PAD).out
+    out += desktopRow(t, o, theme, x + DESK_PAD, boxY + DESK_PAD + k * DESK_ROW, w - 2 * DESK_PAD, cols).out
   })
   // The outline hugs the box, as the app's card; its sections follow the first turn's.
   if (o.outline !== 'off') {
-    const first = desktopRow(turns[0], o, theme, PAD + DESK_PAD, boxY + DESK_PAD, W - 2 * PAD - 2 * DESK_PAD)
-    if (first.outline) out += outlineMarkup(first.outline, first.cuts, first.frameOpts, PAD, boxY, W - 2 * PAD, h)
+    const first = desktopRow(turns[0], o, theme, x + DESK_PAD, boxY + DESK_PAD, w - 2 * DESK_PAD, cols)
+    if (first.outline) out += outlineMarkup(first.outline, first.cuts, first.frameOpts, x, boxY, w, h)
   }
   if (open) out += contextCard(open.context, open.opts, theme, open.ctxX, boxY - 8).out
   if (hover) out += contextCard(hover.window, hover.opts, theme, hover.winX, boxY - 8).out
-  if (chip) out += chipCard(chip.chipRows, chip.chipOpts, theme, PAD + DESK_PAD, boxY - 8)
-  if (pressed) out += buttonCard(pressed.button.label, theme, pressed.buttonX, boxY - 8)
+  if (chip) out += chipCard(chip.chipRows, chip.chipOpts, theme, x + DESK_PAD, boxY - 8)
+  if (pressed) out += buttonCard(pressed.button.label, theme, pressed.buttonX, boxY - 8, x, x + w)
   return { out, h: h + cardH }
 }
 
@@ -572,26 +574,154 @@ function picture(option, theme) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// The README's highlights: one close-up per feature for its grid, a crop of the desktop band one segment wide
+// at the band's own size, each state in a box of its own under a small label, drawn by the code above.
+// ---------------------------------------------------------------------------
+
+const TILES = new URL('./highlights/', import.meta.url)
+const TILE_W = 388
+const TILE_PAD = 4
+// The columns a tile's row counts its bar from: what 120 are to an option picture's row.
+const TILE_COLS = 42
+// A tile is shown about as wide as half the README, which is wider than it is drawn: its own size says so.
+const TILE_ZOOM = 1.5
+const LABEL_H = 17
+// The room over a tile's first label and under its last box.
+const TILE_TOP = 6
+const TILE_BOTTOM = 8
+
+// The context at 80%, where the button shows and the border does not yet.
+const CTX_HIGH = { pct: 80, tokens: 800000, window: 1000000, parts: { messages: 610000, systemTools: 40000, mcpTools: 100000, skills: 10000, other: 40000, buffer: 33000 } }
+// The 93% context with a card short enough for a tile: the title, the rows in use and the buffer.
+const CTX_CARD = { ...CTX, parts: { ...CTX.parts, rows: [['Messages', 700000], ['MCP tools', 120000], ['System tools', 40000], ['Skills', 10000], ['System prompt', 60000], ['Autocompact buffer', 33000, 'buffer']].map(([name, tokens, kind = 'used']) => ({ name, tokens, kind })) } }
+const FIVE_HIGH = { kind: 'five_hour', pct: 94, resetMin: 80, resetAt: '19:20' }
+
+// Each highlight: its height (the two of one line of the grid are as tall as each other, and their first labels and
+// last boxes stand on the same lines), then its states from top to bottom, every one the options it sets over the
+// defaults, the windows and the context it shows, and the hover card open over it. `ranges` is drawn by `rangesBox`, a bar for every range.
+export const HIGHLIGHTS = [
+  { key: 'ranges', height: 253, states: [{ label: 'SIX RANGES, FROM CALM TO FULL', ranges: [24, 55, 65, 75, 85, 96] }] },
+  { key: 'context', height: 253, states: [{ label: 'THE CONTEXT, BY WHAT FILLS IT', o: { segments: ['context'], border: 'off' }, ctx: CTX_CARD, card: true }] },
+  {
+    key: 'button',
+    height: 198,
+    states: [
+      { label: 'CONTEXT AT 42%', o: { segments: ['context'] }, ctx: CTX_MID },
+      { label: 'FROM 75% ON, A BUTTON', o: { segments: ['context'] }, ctx: CTX_HIGH, card: 'button' },
+    ],
+  },
+  {
+    key: 'border',
+    height: 198,
+    states: [
+      { label: 'BELOW 90%', o: { segments: ['five_hour'], button: 'off' }, windows: [FIVE] },
+      { label: 'FROM 90% ON, A BORDER', o: { segments: ['five_hour'], button: 'off' }, windows: [FIVE_HIGH] },
+    ],
+  },
+  {
+    key: 'pace',
+    height: 156,
+    states: [
+      { label: 'AHEAD OF AN EVEN PACE', o: { segments: ['five_hour'], button: 'off', pace: 'both', paceWarn: 'five_hour' }, windows: [FIVE] },
+      { label: 'BEHIND IT', o: { segments: ['seven_day'], button: 'off', pace: 'both' }, windows: [WEEK] },
+    ],
+  },
+  {
+    key: 'extras',
+    height: 156,
+    states: [
+      { label: 'TWO LIMIT RESETS HELD', o: { segments: ['five_hour'], button: 'off', resetChips: 'fable,weekly' }, windows: [FIVE] },
+      { label: 'THE RAINBOW THEME', o: { segments: ['five_hour'], button: 'off', resetChips: 'fable,weekly', rainbow: 'still' }, windows: [FIVE] },
+    ],
+  },
+]
+
+/** A box `h` tall with one bar and its percent for every range, each as the band draws a window at that percent. */
+function rangesBox(pcts, theme, y, h) {
+  const P = PANEL[theme]
+  const T = B.THEMES[theme]
+  const x = TILE_PAD
+  const w = TILE_W - 2 * TILE_PAD
+  const step = (h - 2 * DESK_PAD - D.DISPLAY_HEIGHT) / (pcts.length - 1)
+  // The percent's drawing is three characters wide; the bar takes the rest, in whole dots.
+  const pctW = (Math.ceil(3 * D.PCT_CHAR_WIDTH) + 2 * D.PAD) * SCALE
+  const barW = w - 2 * DESK_PAD - pctW
+  const own = { pulse: false, pulseMs: 800, pulseMode: 'responsive', burst: { gen: 0, elapsedMs: 0, totalMs: 0 }, glow: true, palette: T, dotCount: Math.floor((barW / SCALE - 2 * D.PAD) / D.DOT_UNIT) }
+  let out = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${P.box}" stroke="${P.line}"/>`
+  pcts.forEach((pct, k) => {
+    const row = B.flexRow({ auth: true, loading: false, stale: false, staleAge: '', windows: [{ kind: 'five_hour', pct }], ctx: null, segments: ['five_hour'] }, theme, 'level')
+    const seg = row.segments[0]
+    const at = Math.round(y + DESK_PAD + k * step)
+    out += place(D.smoothBarSvg(seg.bar, own), x + DESK_PAD, at).body
+    out += place(D.pctSvg(seg.pct, own), x + DESK_PAD + barW, at).body
+  })
+  return { out, h }
+}
+
+/**
+ * One highlight on a clear ground: its states from the tile's top to its bottom, each under its label, the room
+ * left over shared between them; a tile of one state fills its height, or stands at the top.
+ */
+function tile(highlight, theme) {
+  uid = 0
+  B.configureDesign({})
+  const P = PANEL[theme]
+  const room = highlight.height - TILE_TOP - TILE_BOTTOM
+  const draw = (state, y) => {
+    const o = { ...DEFAULTS, ...state.o }
+    return state.ranges
+      ? rangesBox(state.ranges, theme, y, room - LABEL_H)
+      : desktopBox(inputFor(o, state.ctx ?? CTX, theme, state.windows), o, theme, y, state.card ?? false, TILE_PAD, TILE_W - 2 * TILE_PAD, TILE_COLS)
+  }
+  // Measured first, then drawn where the shared room puts each state.
+  const taken = highlight.states.reduce((sum, state) => sum + LABEL_H + draw(state, 0).h, 0)
+  const gap = highlight.states.length > 1 ? (room - taken) / (highlight.states.length - 1) : 0
+  if (gap < 0 || taken > room) throw new Error(`the ${highlight.key} highlight needs ${taken + TILE_TOP + TILE_BOTTOM} of height`)
+  uid = 0
+  let y = TILE_TOP
+  let body = ''
+  highlight.states.forEach((state, k) => {
+    if (k > 0) y = Math.round(y + gap)
+    body += `<text x="${TILE_PAD}" y="${y + 11}" ${SANS} font-size="11" font-weight="600" letter-spacing="0.6" fill="${P.caption}">${esc(state.label)}</text>`
+    y += LABEL_H
+    const box = draw(state, y)
+    body += box.out
+    y += box.h
+  })
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${TILE_W * TILE_ZOOM}" height="${highlight.height * TILE_ZOOM}" viewBox="0 0 ${TILE_W} ${highlight.height}">` +
+    body +
+    '</svg>\n'
+  )
+}
+
 const files = {}
 for (const option of OPTIONS) for (const theme of ['dark', 'light']) files[`${option.key}-${theme}.svg`] = picture(option, theme)
+const tiles = {}
+for (const highlight of HIGHLIGHTS) for (const theme of ['dark', 'light']) tiles[`${highlight.key}-${theme}.svg`] = tile(highlight, theme)
 
 if (process.argv.includes('--check')) {
   let current = true
-  const have = new Set(readdirSync(OUT).filter(f => f.endsWith('.svg')))
-  for (const [name, svg] of Object.entries(files)) {
-    if (!have.has(name) || readFileSync(new URL(name, OUT), 'utf8').replace(/\r\n/g, '\n') !== svg) {
-      console.log(`${name} differs from the builder`)
+  for (const [dir, drawn] of [[OUT, files], [TILES, tiles]]) {
+    const have = new Set(existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.svg')) : [])
+    for (const [name, svg] of Object.entries(drawn)) {
+      if (!have.has(name) || readFileSync(new URL(name, dir), 'utf8').replace(/\r\n/g, '\n') !== svg) {
+        console.log(`${name} differs from the builder`)
+        current = false
+      }
+      have.delete(name)
+    }
+    for (const stray of have) {
+      console.log(`${stray} is not drawn by options.mjs`)
       current = false
     }
-    have.delete(name)
   }
-  for (const stray of have) {
-    console.log(`${stray} is not drawn by options.mjs`)
-    current = false
-  }
-  console.log(current ? 'the option pictures are current' : 'run node design/readme/options.mjs')
+  console.log(current ? 'the option pictures and the highlights are current' : 'run node design/readme/options.mjs')
   process.exit(current ? 0 : 1)
 }
-mkdirSync(OUT, { recursive: true })
-for (const [name, svg] of Object.entries(files)) writeFileSync(new URL(name, OUT), svg)
-console.log(`wrote ${Object.keys(files).length} pictures to design/readme/options/`)
+for (const [dir, drawn] of [[OUT, files], [TILES, tiles]]) {
+  mkdirSync(dir, { recursive: true })
+  for (const [name, svg] of Object.entries(drawn)) writeFileSync(new URL(name, dir), svg)
+}
+console.log(`wrote ${Object.keys(files).length} pictures to design/readme/options/ and ${Object.keys(tiles).length} to design/readme/highlights/`)
