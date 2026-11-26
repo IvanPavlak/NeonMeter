@@ -692,6 +692,8 @@ type Env = {
   rotateTimer: { timer: Timer; ms: number } | null
   /** True once the band was drawn on the desktop: only then is the appearance looked up. */
   onDesktop: boolean
+  /** True while the band above the prompt is this plugin's drawing: only then is its scrolling refused. */
+  drawn: boolean
   /** The desktop card's padding on this operating system, for the outline; null until looked up. */
   outlinePad: OutlinePad | null
   /** Options that were not valid and fell back to their default, logged once. */
@@ -723,6 +725,7 @@ const env: Env = {
   turn: 0,
   rotateTimer: null,
   onDesktop: false,
+  drawn: false,
   outlinePad: null,
   problems: [],
   bandKey: null,
@@ -1172,7 +1175,15 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // The band is one row and holds still. The desktop app's card has a few pixels to scroll (the outline reaches
+  // across its padding), and the wheel over the band moved the row by them, off its place and half out of the card.
+  on('ui.scroll', async ($, e, next) => {
+    if (e.component === 'AbovePrompt' && env.drawn) return { deny: 'the band does not scroll' }
+    return next(e)
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    env.drawn = false
     if (e.props.hasSurvey) return next(e)
     const bandKey = await resolveBandKey($)
     if (!env.options.everyChat && !(await showsBand($, bandKey))) return next(e)
@@ -1247,6 +1258,7 @@ export const register: Register = (on, options) => {
         card: CARD[dt],
         outlinePad: env.outlinePad,
       }
+      env.drawn = true
       return <Box width="100%">{desktopBand(row, { Box, Text, Svg, Button }, o, extras)}</Box>
     }
 
@@ -1264,6 +1276,7 @@ export const register: Register = (on, options) => {
     if (ruled) props.rules = rows.map(r => r.rule ?? [{ text: RULE.repeat(cols), color: RULE_COLOR }])
     // Every surface with a `Client` draws the band this way; the desktop returned above.
     const { Text, Client } = $.ui.resolve(e) as ElementTable<'terminal'>
+    env.drawn = true
     return (
       <Box flexDirection="column" width={cols}>
         {ruled ? null : (

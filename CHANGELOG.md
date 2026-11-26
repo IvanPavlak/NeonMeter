@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- The band holds still under the mouse wheel. In the desktop app its card has a few pixels to scroll, and a wheel tick over the band moved the row by them, off its place and half out of the card. The band now refuses its own scrolling; a survey in the band and every pane scroll as before.
+
 ## [1.6.1] - 2026-10-30
 
 ### Changed
