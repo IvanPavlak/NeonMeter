@@ -10,10 +10,10 @@
 
 import type { BoxProps, ButtonProps, ElementConstructor, RenderElement, SvgProps, TextProps } from 'claude-code'
 
-import type { FlexButton, Frame, FlexRow, FlexSegment } from './builder'
+import type { FlexButton, FlexChip, Frame, FlexRow, FlexSegment } from './builder'
 import { THEME_KEYS } from './builder'
 import type { DesktopOptions, OutlinePad } from './drawings'
-import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, pctSvg, resetSvg, smoothBarSvg } from './drawings'
+import { buttonSvg, contextRowSvg, DISPLAY_HEIGHT, dotBarSvg, FRAME_CAP, FRAME_DISPLAY_HEIGHT, frameCapSvg, frameEdgesSvg, frameSpacerSvg, HEX, OUTLINE_CAP, outlineCapSvg, outlineEdgesSvg, outlineHeight, pctSvg, resetChipSvg, resetSvg, smoothBarSvg } from './drawings'
 
 export type { DesktopOptions } from './drawings'
 
@@ -32,6 +32,8 @@ export type DesktopExtras = {
   button: DesktopOptions
   /** The frame's pulse and glow: the band's, less what `borderPulse` and `borderGlow` turn off. */
   frame: DesktopOptions
+  /** The reset chips' pulse and glow: the band's, less what `resetChipPulse` and `resetChipGlow` turn off. */
+  chip: DesktopOptions
   /** Show the context breakdown while the pointer is over the Context segment. */
   popup: boolean
   /** The hover cards' ground and border, in the app's appearance. */
@@ -65,6 +67,17 @@ function actionButton(c: FlexButton, els: DesktopElements, x: DesktopExtras): Re
         </Button>
       </Box>
       {hoverCard(els, x, [<Text color={THEME_KEYS.text}>{c.label}</Text>])}
+    </Box>
+  )
+}
+
+/** A reset chip: its drawing, and a card naming the reset while the pointer is over it. It takes no press. */
+function resetChip(c: FlexChip, n: number, els: DesktopElements, x: DesktopExtras): RenderElement {
+  const { Box, Text, Svg } = els
+  return (
+    <Box key={`reset-${n}`} position="relative" flexShrink={0}>
+      <Svg source={resetChipSvg(c, x.chip)} alt={c.lines[0] ?? c.text} height={DISPLAY_HEIGHT} />
+      {hoverCard(els, x, c.lines.map(line => <Text color={THEME_KEYS.text}>{line}</Text>))}
     </Box>
   )
 }
@@ -178,10 +191,10 @@ export function desktopBand(row: FlexRow, els: DesktopElements, o: DesktopOption
   // The same pieces by section, for the outline: each segment's, each separator's, and the button with its neighbour.
   const sections: Section[] = []
   const into = (owner: Section['owner'], grow: boolean, ...items: RenderElement[]) => sections.push({ owner, grow, els: items })
-  if (button && at === 'start') {
-    children.push(actionButton(button, els, x), gap('button-gap'))
-    for (const piece of children) into(0, false, piece)
-  }
+  // The reset chips come first, before the button at the start.
+  ;(row.resets ?? []).forEach((c, n) => children.push(resetChip(c, n, els, x), gap(`reset-gap-${n}`)))
+  if (button && at === 'start') children.push(actionButton(button, els, x), gap('button-gap'))
+  for (const piece of children) into(0, false, piece)
   row.segments.forEach((seg: FlexSegment, n) => {
     // A frame marks where its segment ends: beside one, the separator is room alone.
     if (n > 0) {

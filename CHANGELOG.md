@@ -11,7 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The pace of each window, off by default. `pace` marks the 5-hour bar and every weekly bar with where an even use of the limit would stand now, the share of the window already gone: `tick` a still notch at that point, `stripes` the stretch between it and the fill (bright on the fill where the use is ahead of the pace, dim past it where it is behind), `both` the two, `projection` stripes from the fill to where the use lands at the reset. In the terminal the tick is `┃` and a striped cell `╍`; in the desktop app the stripes are drawn in the bar and striped dots are rings.
 - `paceWarn` (`five_hour` or `all`): once a window's use so far would pass 100% before its reset, its reset gives way to the time it runs out, `out in 1h23m`, in red, with the pulse and the glow.
 - `windowPopup`: in the desktop app, a card over a window's bar while the pointer is on it, with the percent used, the even pace, how far ahead of or behind it the use is, the projection, the run-out time and the reset.
-- The option pictures for `pace`, `paceWarn` and `windowPopup`.
+- Reset chips, off by default: `resetChips` lists the limit resets you hold (`fable:2027-03-09,weekly:2026-12-10`), and each is a `+1` chip before everything else in the row, in the rainbow or one color (`resetChipColor`), with a halo (`resetChipGlow`) and the band's pulse, the rainbow turning once per cycle (`resetChipPulse`). In the desktop app the pointer on a chip names the reset, what it refills and when it expires. The list is kept by hand, since the usage endpoint does not report resets, and a chip takes no click.
+- The option pictures for `pace`, `paceWarn`, `windowPopup`, `resetChips`, `resetChipColor` and `resetChipGlow`.
 
 ## [1.6.2] - 2026-11-26
 

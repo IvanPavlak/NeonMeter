@@ -188,6 +188,8 @@ export type Span = {
   live?: boolean
   /** The button's cell: a press on it compacts the conversation. */
   button?: boolean
+  /** A reset chip's cell. */
+  chip?: boolean
 }
 
 /** A segment's label in place of the kind's own, for each tier width. */
@@ -252,7 +254,51 @@ export type BandInput = {
   paceWarn?: PaceWarn
   /** Build each window's hover card (desktop). */
   windowCard?: boolean
+  /** The limit resets held, a chip each at the start of the row; absent or empty, none. */
+  resets?: ResetChips
 }
+
+/**
+ * The limit resets the account holds, as the `resetChips` option lists them:
+ * each a `+1` chip before everything else in the row, and the lines its hover
+ * card says (its name, what it refills, when it expires). `color` is
+ * `rainbow`, every chip in the six rainbow colors, or one `#RRGGBB` color.
+ */
+export type ResetChips = { chips: { lines: string[] }[]; color: string }
+
+/** What a chip reads. */
+export const CHIP_TEXT = '+1'
+
+/** The rainbow a chip is drawn in: the range colors from the last to the first, without the second green, then violet. */
+export const VIOLET: Record<Theme, string> = { dark: '#B24BFF', light: '#8A2BE2' }
+export function rainbowOf(theme: Theme): string[] {
+  const r = THEMES[theme].ramp
+  return [r[5]!, r[4]!, r[3]!, r[1]!, r[0]!, VIOLET[theme]]
+}
+
+/** A chip's colors: the rainbow, or the one color set. */
+function chipColors(resets: ResetChips, theme: Theme): string[] {
+  return resets.color === 'rainbow' ? rainbowOf(theme) : [resets.color]
+}
+
+/**
+ * The chips' cells, the terminal's: `+1` and a space each, its two characters
+ * taking the rainbow's colors in turn (so two chips run through four of them),
+ * or the one color set; bold and live, they pulse with the row.
+ */
+function chipSpans(resets: ResetChips, theme: Theme, T: Palette): Span[] {
+  const colors = chipColors(resets, theme)
+  const out: Span[] = []
+  resets.chips.forEach((_, i) => {
+    if (colors.length === 1) out.push({ text: CHIP_TEXT, color: colors[0]!, bold: true, live: true, chip: true })
+    else Array.from(CHIP_TEXT).forEach((ch, k) => out.push({ text: ch, color: colors[(i * 2 + k) % colors.length]!, bold: true, live: true, chip: true }))
+    out.push(sp(T, ' ', T.text))
+  })
+  return out
+}
+
+/** The columns the chips take at the start of the terminal row. */
+const CHIP_COLS = CHIP_TEXT.length + 1
 
 /**
  * How a window's bar shows its pace, the share of the window already gone:
@@ -862,7 +908,9 @@ export function band(s: BandInput, cols: number, theme: Theme, bars: BarColoring
   if (!segs.length) return null
   // The button takes its cell and a space.
   const button = s.button && s.ctx && s.ctx.tokens != null ? buttonSpan(s.ctx, T) : null
-  const width = button ? Math.max(1, cols - 2) : cols
+  // The reset chips stand before everything else, each its cells and a space.
+  const lead = s.resets?.chips.length ? s.resets.chips.length * CHIP_COLS : 0
+  const width = Math.max(1, cols - (button ? 2 : 0) - lead)
   const starts: number[] = []
   let spans = layoutBars(segs, 'full', s, width, T, bars, starts)
   let tier: Tier = 'full'
@@ -881,8 +929,9 @@ export function band(s: BandInput, cols: number, theme: Theme, bars: BarColoring
   const ctxAt = segs.findIndex(seg => seg.kind === 'ctx')
   // The button's cell and its space (two columns) shift every segment from where it goes on.
   const shiftFrom = button ? (s.button === 'start' ? 0 : s.button === 'context' && ctxAt >= 0 ? ctxAt : segs.length) : -1
-  const columns = segmentColumns(spans, starts).map(([a, b], i): [number, number] => (shiftFrom >= 0 && i >= shiftFrom ? [a + 2, b + 2] : [a, b]))
+  const columns = segmentColumns(spans, starts).map(([a, b], i): [number, number] => (shiftFrom >= 0 && i >= shiftFrom ? [a + 2 + lead, b + 2 + lead] : [a + lead, b + lead]))
   if (button) spans = placeButton(spans, s.button!, button, T, starts[ctxAt])
+  if (lead) spans = [...chipSpans(s.resets!, theme, T), ...spans]
   const out: Band = { tier, spans }
   const rule = s.border ? ruleOf(cols, frameStretches(segs, columns, s, T, cols)) : null
   if (rule) out.rule = rule
@@ -1014,7 +1063,12 @@ export type FlexRow = {
   frame?: Frame
   /** The outline around the band's card: each segment's color for its stretch, in segment order (one color for all under `single`). */
   outline?: Frame[]
+  /** The reset chips, before everything else in the row. */
+  resets?: FlexChip[]
 }
+
+/** A reset chip as the desktop draws it: its text, its colors (six for the rainbow, one otherwise) and its hover card's lines. */
+export type FlexChip = { text: string; colors: string[]; lines: string[] }
 
 function slicesOf(seg: Segment, T: Palette, bars: BarColoring): FlexSlice[] {
   if (seg.loading) return [{ grow: 100, color: T.neutral, live: true }]
@@ -1204,6 +1258,7 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   if (frame) row.frame = frame
   const ring = s.button && s.ctx ? buttonRing(s.ctx, T, bars) : null
   if (ring) row.button = { position: s.button!, ring, label: `${s.buttonLabel ?? HANDOFF_LABEL} (${Math.round(s.ctx!.pct)}% of the context used)` }
+  if (s.resets?.chips.length) row.resets = s.resets.chips.map(c => ({ text: CHIP_TEXT, colors: chipColors(s.resets!, theme), lines: c.lines }))
   // The hover card hangs on the Context segment, whichever way its bar is colored.
   if (s.ctx?.parts && s.ctx.tokens != null && usedOf(s.ctx.parts) > 0 && segs.some(seg => seg.kind === 'ctx')) row.context = contextRows(s.ctx.parts, s.ctx.window, T, s.ctx.tokens)
   return row
@@ -1347,7 +1402,7 @@ export function desktopDotCount(row: FlexRow, bodyColumns: number): number {
  * and beside a frame the separator is one space.
  */
 function desktopText(row: FlexRow): { text: number; bars: number } {
-  let text = (row.stale ? row.stale.text.length + 2 : 0) + (row.button ? 3 : 0) + (row.frame ? FRAME_CHARS : 0)
+  let text = (row.stale ? row.stale.text.length + 2 : 0) + (row.button ? 3 : 0) + (row.frame ? FRAME_CHARS : 0) + (row.resets?.length ?? 0) * CHIP_CHARS
   row.segments.forEach((seg, i) => {
     if (seg.frame) text += FRAME_CHARS
     if (i > 0) text += seg.frame || row.segments[i - 1]!.frame ? 1 : 3
@@ -1365,6 +1420,8 @@ function desktopText(row: FlexRow): { text: number; bars: number } {
 
 /** The characters a frame's room at either end takes in the desktop row. */
 const FRAME_CHARS = 6
+/** The characters a reset chip and its gap take in the desktop row. */
+const CHIP_CHARS = 5
 
 /** Whether the desktop row's text, and four characters for each bar, fit a band `bodyColumns` wide. */
 function fitsDesktop(row: FlexRow, bodyColumns: number): boolean {

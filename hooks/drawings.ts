@@ -29,7 +29,7 @@
 // the README's generator runs this very file; desktop.tsx
 // lays them out in the band.
 
-import type { ContextRow, FlexDot, FlexPace, FlexSlice, Palette, Span } from './builder'
+import type { ContextRow, FlexChip, FlexDot, FlexPace, FlexSlice, Palette, Span } from './builder'
 import type { Burst } from './color'
 import { pulseForeground } from './color'
 
@@ -497,6 +497,49 @@ export function buttonSvg(ring: readonly FlexSlice[], o: DesktopOptions): string
   }
   const glow = arcs && o.glow ? `<g ${halo(beat !== null, beat)}${glows}</g>` : ''
   return open(w, h, beat, o.glow ? filters(w, h, beat) : '') + `<circle data-role="ring-track" ${circle} stroke="${track}"/>` + glow + arcs + '</svg>'
+}
+
+/**
+ * A reset chip's geometry, in the drawing's own pixels: a pill around its text,
+ * as tall as the button's ring is wide, with room around it for the halo.
+ */
+export const CHIP_HEIGHT = 2 * RING_RADIUS + RING_WIDTH
+export const CHIP_FONT_SIZE = 16.5
+export const CHIP_CHAR_WIDTH = 10.4
+export const CHIP_INSET = 8
+export const CHIP_PAD = 9
+
+/**
+ * A reset chip: its text in a pill, both in one paint under a halo of the
+ * pill. With six colors the paint is the rainbow, a gradient across the pill
+ * that turns once per pulse cycle while the band pulses and lies still
+ * otherwise; with one, that color, brightening as a frame does. Every part
+ * carries a `data-role` (`chip`, `chip-text`, `chip-halo`).
+ */
+export function resetChipSvg(chip: FlexChip, o: DesktopOptions): string {
+  const beat = beatOf(o, true)
+  const inner = Math.ceil(chip.text.length * CHIP_CHAR_WIDTH) + 2 * CHIP_PAD
+  const w = inner + 2 * CHIP_INSET
+  const h = ROW_HEIGHT
+  const y = MIDLINE - CHIP_HEIGHT / 2
+  const colors = chip.colors.map(c => (HEX.test(c) ? c.toUpperCase() : o.palette.track))
+  const rainbow = colors.length > 1
+  let defs = o.glow ? filters(w, h, beat) : ''
+  let pulse: ((attr: string) => string) | null = null
+  if (rainbow) {
+    const turn = beat ? `<animateTransform attributeName="gradientTransform" type="rotate" from="0 ${w / 2} ${MIDLINE}" to="360 ${w / 2} ${MIDLINE}" dur="${beat.ms}ms" ${beat.timing}/>` : ''
+    const stops = colors.map((c, i) => `<stop offset="${+(i / (colors.length - 1)).toFixed(3)}" stop-color="${c}"/>`).join('')
+    defs += `<linearGradient id="rb" gradientUnits="userSpaceOnUse" x1="${CHIP_INSET}" y1="0" x2="${w - CHIP_INSET}" y2="0">${stops}${turn}</linearGradient>`
+  } else if (beat) {
+    pulse = (attr: string) => animate(attr, colors[0]!, peakOf(colors[0]!), beat)
+  }
+  const paintOf = rainbow ? 'url(#rb)' : colors[0]!
+  const pill = `x="${CHIP_INSET}" y="${y.toFixed(2)}" width="${inner}" height="${CHIP_HEIGHT.toFixed(2)}" rx="${(CHIP_HEIGHT / 2).toFixed(2)}" fill="none" stroke="${paintOf}" stroke-width="${RING_WIDTH}"`
+  const strokePulse = pulse ? pulse('stroke') : ''
+  const fillPulse = pulse ? pulse('fill') : ''
+  const glow = o.glow ? `<g data-role="chip-halo" ${halo(beat !== null, beat)}<rect ${pill}>${strokePulse}</rect></g>` : ''
+  const text = `<text data-role="chip-text" x="${w / 2}" y="${(MIDLINE + CHIP_FONT_SIZE * BASELINE_DROP).toFixed(1)}" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="${CHIP_FONT_SIZE}" font-weight="700" fill="${paintOf}">${esc(chip.text)}${fillPulse}</text>`
+  return open(w, h, beat, defs) + glow + `<rect data-role="chip" ${pill}>${strokePulse}</rect>` + text + '</svg>'
 }
 
 /** A breakdown row's character width at `PCT_FONT_SIZE`, generous so the drawing ends past its text. */

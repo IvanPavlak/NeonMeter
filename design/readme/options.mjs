@@ -70,6 +70,9 @@ const DEFAULTS = {
   pace: 'off',
   paceWarn: 'off',
   windowPopup: false,
+  resetChips: '',
+  resetChipColor: 'rainbow',
+  resetChipGlow: true,
 }
 
 // Every option a picture can show. The pulse options (`pulse`, `pulseMode`, `pulseCount`,
@@ -103,6 +106,9 @@ export const OPTIONS = [
   { key: 'pace', title: 'Pace (5-hour Ahead of It, Weekly Behind)', values: ['off', 'tick', 'stripes', 'both', 'projection'], names: ['Off', 'A Tick at the Even Pace', 'Stripes between the Pace and the Fill', 'Stripes and Tick', 'Stripes to Where the Use Lands'] },
   { key: 'paceWarn', title: 'Run-out Warning', values: ['off', 'five_hour', 'all'], names: ['Off', 'The 5-hour Window', 'Every Window'] },
   { key: 'windowPopup', title: 'Window Pace on Hover (Desktop)', values: [false, true], names: ['Off', 'Shown over the Bar'], surfaces: ['desktop'], card: 'window' },
+  { key: 'resetChips', title: 'Reset Chips', values: ['', 'fable:2027-03-09,weekly:2026-12-10'], names: ['None', 'A Fable Reset and a Weekly Reset Held'] },
+  { key: 'resetChipColor', title: 'Reset Chip Color', values: ['rainbow', '#B24BFF'], names: ['Rainbow', 'One Color'], base: { resetChips: 'fable,weekly' } },
+  { key: 'resetChipGlow', title: 'Reset Chip Glow (Desktop)', values: [true, false], names: ['Glow On', 'Glow Off'], surfaces: ['desktop'], base: { resetChips: 'fable,weekly' } },
 ]
 
 const shown = v => (Array.isArray(v) ? v.join(',') : String(v))
@@ -134,6 +140,9 @@ function inputFor(o, ctx = CTX) {
   if (o.pace !== 'off') input.pace = o.pace
   if (o.paceWarn !== 'off') input.paceWarn = o.paceWarn
   if (o.windowPopup) input.windowCard = true
+  // One chip per entry of the list; the pictures hold no card, so the lines are the names alone.
+  const held = o.resetChips.split(',').map(e => e.trim().split(':')[0]).filter(Boolean)
+  if (held.length) input.resets = { chips: held.map(kind => ({ lines: [kind] })), color: o.resetChipColor }
   if (o.border !== 'off') input.border = { show: o.border, at: o.borderAt, scope: o.borderScope, ...(o.borderColor ? { color: o.borderColor } : {}), ...(o.outline !== 'off' ? { outline: o.outline } : {}) }
   // The default layout's first Weekly turn, or every turn of the single layout, as the hooks module takes them.
   return o.layout === 'single' ? B.singleVariants(input) : B.weeklyVariants(input).slice(0, 1)
@@ -210,6 +219,10 @@ function desktopRow(turn, o, theme, x0, y, rowW) {
   const btn = row.button
   const button = () => items.push({ kind: 'button' }) && draw(D.buttonSvg(btn.ring, { ...opts, glow: o.glow && o.buttonGlow }))
   const at = btn ? (btn.position === 'context' && !row.segments.some(s => s.kind === 'ctx') ? 'end' : btn.position) : null
+  for (const chip of row.resets ?? []) {
+    draw(D.resetChipSvg(chip, { ...opts, glow: o.glow && o.resetChipGlow }))
+    text(' ', T.text)
+  }
   if (at === 'start') {
     button()
     text(' ', T.text)

@@ -4,7 +4,7 @@ import type { ContextCategory, ElementTable, EngineInterface, PluginOptions, Reg
 import type { NeonMeterContext, NeonMeterContextParts, NeonMeterHealth, NeonMeterReading, NeonMeterTheme, NeonMeterWindow } from '../types'
 import type { BandProps } from './band'
 import { band, configureDesign, fitDesktop, CONTEXT_PARTS, DEFAULT_BOUNDS, DEFAULT_CELL, DEFAULT_PART_COLORS, DEFAULT_RAMPS, DEFAULT_TIME_BOUNDS, flexRow, fmtAge, fmtResetAt, fmtTok, desktopDotCount, resetShare, RULE_GLYPH, RULE_KEY, singleVariants, THEMES, timeIndex, warnMin, weeklyVariants } from './builder'
-import type { BandInput, ButtonPosition, ContextBar, FlexRow, OptionSegment, PaceStyle, PaceWarn, WindowInput, WindowKind } from './builder'
+import type { BandInput, ButtonPosition, ContextBar, FlexRow, OptionSegment, PaceStyle, PaceWarn, ResetChips, WindowInput, WindowKind } from './builder'
 import type { Burst } from './color'
 import { desktopBand } from './desktop'
 import type { DesktopExtras } from './desktop'
@@ -135,6 +135,76 @@ export type Options = {
   paceWarn: 'off' | PaceWarn
   /** Show a window's pace, projection and reset when the pointer is over its bar (desktop). */
   windowPopup: boolean
+  /** The limit resets held, a chip each at the start of the row: `fable:2027-03-09,weekly:2026-12-10`; empty, none. */
+  resetChips: HeldReset[]
+  /** `rainbow`, or one `#RRGGBB` color for every chip. */
+  resetChipColor: string
+  /** Draw the chips' halo (desktop); the `glow` option off draws none either way. */
+  resetChipGlow: boolean
+  /** Pulse the chips with the band, the rainbow turning; the `pulse` option off holds them still either way. */
+  resetChipPulse: boolean
+}
+
+/** A limit reset the account holds: its kind, and the day it expires (the end of that day, local time) when one is given. */
+export type HeldReset = { kind: ResetKind; expires: number | null }
+export type ResetKind = 'five_hour' | 'weekly' | 'full' | 'fable'
+
+/** Each kind as the option names it, as the app names it, and what the app says it refills. */
+const RESET_KINDS: Readonly<Record<string, ResetKind>> = { five_hour: 'five_hour', '5-hour': 'five_hour', '5h': 'five_hour', weekly: 'weekly', seven_day: 'weekly', full: 'full', fable: 'fable' }
+const RESET_NAMES: Readonly<Record<ResetKind, [string, string]>> = {
+  five_hour: ['5-hour reset', 'Refills your 5-hour limit.'],
+  weekly: ['Weekly reset', 'Refills your weekly limit.'],
+  full: ['Full reset', 'Refills every limit, on every model.'],
+  fable: ['Fable reset', 'Refills your Fable allowance and gives back what Fable used on your weekly limit.'],
+}
+
+/**
+ * The held resets from `"fable:2027-03-09,weekly:2026-12-10"`: a kind, and after a
+ * colon the day it expires. One entry is one reset, so two of a kind are two
+ * entries. Null when an entry names no kind or no day; empty text is none.
+ */
+export function parseResets(value: unknown): HeldReset[] | null {
+  if (Array.isArray(value)) value = value.join(',')
+  if (typeof value !== 'string') return null
+  const out: HeldReset[] = []
+  for (const entry of value.split(',').map(e => e.trim()).filter(e => e !== '')) {
+    const [name, day, ...rest] = entry.split(':').map(p => p.trim())
+    const kind = RESET_KINDS[(name ?? '').toLowerCase()]
+    if (!kind || rest.length) return null
+    if (day === undefined) {
+      out.push({ kind, expires: null })
+      continue
+    }
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day)
+    if (!m) return null
+    const expires = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 59).getTime()
+    if (!Number.isFinite(expires)) return null
+    out.push({ kind, expires })
+  }
+  return out
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
+
+/**
+ * The chips the band draws at `now`: one per held reset that has not expired,
+ * with its hover card's lines. Null when none is left.
+ */
+export function resetChipsOf(held: readonly HeldReset[], color: string, now: number): ResetChips | null {
+  const chips = held
+    .filter(r => r.expires === null || r.expires >= now)
+    .map(r => {
+      const [name, what] = RESET_NAMES[r.kind]
+      const lines = [name, what]
+      if (r.expires !== null) {
+        const d = new Date(r.expires)
+        const days = Math.floor((r.expires - now) / 86_400_000)
+        lines.push(`Expires ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} (${days === 0 ? 'today' : days === 1 ? 'in 1 day' : `in ${days} days`}).`)
+      }
+      lines.push('Use it in Settings > Usage.')
+      return { lines }
+    })
+  return chips.length ? { chips, color } : null
 }
 
 const SEGMENT_KINDS: readonly SegmentKind[] = ['five_hour', 'seven_day', 'spend', 'context']
@@ -185,6 +255,10 @@ const DEFAULTS: Options = {
   pace: 'off',
   paceWarn: 'off',
   windowPopup: false,
+  resetChips: [],
+  resetChipColor: 'rainbow',
+  resetChipGlow: true,
+  resetChipPulse: true,
 }
 
 function clamp(value: unknown, fallback: number, min: number, max: number): number {
@@ -323,6 +397,10 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const pace = (PACE_STYLES as readonly unknown[]).includes(options.pace) ? (options.pace as PaceStyle) : DEFAULTS.pace
   const paceWarn = options.paceWarn === 'five_hour' || options.paceWarn === 'all' ? options.paceWarn : DEFAULTS.paceWarn
   const windowPopup = typeof options.windowPopup === 'boolean' ? options.windowPopup : DEFAULTS.windowPopup
+  const resetChips = options.resetChips === undefined || options.resetChips === '' ? DEFAULTS.resetChips : pick('resetChips', parseResets, DEFAULTS.resetChips, 'held resets like "fable:2027-03-09,weekly:2026-12-10" (five_hour, weekly, full or fable, each with an optional day it expires)')
+  const resetChipColor = options.resetChipColor === undefined || options.resetChipColor === '' || options.resetChipColor === 'rainbow' ? DEFAULTS.resetChipColor : pick('resetChipColor', parseColor, DEFAULTS.resetChipColor, 'rainbow, or one color like "#B24BFF"')
+  const resetChipGlow = typeof options.resetChipGlow === 'boolean' ? options.resetChipGlow : DEFAULTS.resetChipGlow
+  const resetChipPulse = typeof options.resetChipPulse === 'boolean' ? options.resetChipPulse : DEFAULTS.resetChipPulse
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
   const segments: SegmentKind[] = []
@@ -381,6 +459,10 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       pace,
       paceWarn,
       windowPopup,
+      resetChips,
+      resetChipColor,
+      resetChipGlow,
+      resetChipPulse,
     },
     rejected,
     problems,
@@ -1038,7 +1120,15 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
     ...(options.pace === 'off' ? {} : { pace: options.pace }),
     ...(options.paceWarn === 'off' ? {} : { paceWarn: options.paceWarn }),
     ...(options.windowPopup ? { windowCard: true } : {}),
+    ...resetsInput(options, now),
   }
+}
+
+/** The band's reset chips at `now`, as an input field; nothing when none is held or left. */
+function resetsInput(options: Options, now: number): { resets?: ResetChips } {
+  if (!options.resetChips.length) return {}
+  const resets = resetChipsOf(options.resetChips, options.resetChipColor, now)
+  return resets ? { resets } : {}
 }
 
 /**
@@ -1078,6 +1168,8 @@ export function changeKey(input: BandInput): string {
     // The breakdown's split, in whole percents of the window, and the button showing up.
     input.ctx?.parts && input.ctx.window > 0 ? CONTEXT_PARTS.map(k => Math.round((input.ctx!.parts![k] / input.ctx!.window) * 100)) : null,
     input.button ?? null,
+    // A chip expiring is a change; without chips the key is the one it always was.
+    ...(input.resets ? [input.resets.chips.length] : []),
   ])
 }
 
@@ -1265,6 +1357,7 @@ export const register: Register = (on, options) => {
         onPress: () => pressButton($),
         button: { ...o, pulse: o.pulse && env.options.buttonPulse, glow: o.glow && env.options.buttonGlow },
         frame: { ...o, pulse: o.pulse && env.options.borderPulse, glow: o.glow && env.options.borderGlow },
+        chip: { ...o, pulse: o.pulse && env.options.resetChipPulse, glow: o.glow && env.options.resetChipGlow },
         popup: env.options.contextPopup,
         card: CARD[dt],
         outlinePad: env.outlinePad,
@@ -1277,6 +1370,7 @@ export const register: Register = (on, options) => {
     // With `buttonPulse` off the button's cell holds still while the rest of the row pulses; `borderPulse`, the frames on the rule.
     if (!env.options.buttonPulse) for (const r of rows) r.spans = r.spans.map(sp => (sp.button ? { ...sp, live: false } : sp))
     if (!env.options.borderPulse) for (const r of rows) if (r.rule) r.rule = r.rule.map(sp => ({ ...sp, live: false }))
+    if (!env.options.resetChipPulse) for (const r of rows) r.spans = r.spans.map(sp => (sp.chip ? { ...sp, live: false } : sp))
     const row = rows[0]
     if (!row) return next(e)
     const props: BandProps = { ...base, layout: 'cells', spans: row.spans }

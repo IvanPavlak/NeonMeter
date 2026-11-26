@@ -406,6 +406,30 @@
       "title": "Window pace on hover",
       "description": "In the desktop app, show a window's use, the even pace, where it lands at the reset, when it runs out and the reset while the pointer is over its bar",
       "default": false
+    },
+    "resetChips": {
+      "type": "string",
+      "title": "Reset chips",
+      "description": "The limit resets you hold, each drawn as a +1 chip before everything else in the row: a comma-separated list of five_hour, weekly, full or fable, each with an optional day it expires after a colon, such as fable:2027-03-09,weekly:2026-12-10 (the plugin cannot read them from your account; a reset past its day is left out); empty draws none",
+      "default": ""
+    },
+    "resetChipColor": {
+      "type": "string",
+      "title": "Reset chip color",
+      "description": "rainbow draws every chip in the six rainbow colors, turning while the band pulses; one color like #B24BFF draws them in that color",
+      "default": "rainbow"
+    },
+    "resetChipGlow": {
+      "type": "boolean",
+      "title": "Reset chip glow",
+      "description": "Draw the chips' halo in the desktop app; glow off draws none either way",
+      "default": true
+    },
+    "resetChipPulse": {
+      "type": "boolean",
+      "title": "Reset chip pulse",
+      "description": "Pulse the chips with the band, the rainbow turning once per cycle; pulse off holds them still either way",
+      "default": true
     }
   }
 }
