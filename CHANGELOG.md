@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-26
+
 ### Added
 
 - The pace of each window, off by default. `pace` marks the 5-hour bar and every weekly bar with where an even use of the limit would stand now, the share of the window already gone: `tick` a still notch at that point, `stripes` the stretch between it and the fill (bright on the fill where the use is ahead of the pace, dim past it where it is behind), `both` the two, `projection` stripes from the fill to where the use lands at the reset. In the terminal the tick is `┃` and a striped cell `╍`; in the desktop app the stripes are drawn in the bar and striped dots are rings.
@@ -206,7 +208,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.5.0...v1.6.0
