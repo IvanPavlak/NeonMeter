@@ -256,7 +256,7 @@ export type BandInput = {
   windowCard?: boolean
   /** The limit resets held, a chip each at the start of the row; absent or empty, none. */
   resets?: ResetChips
-  /** The rainbow theme in the terminal: the window bars' cells and the percents' characters take these colors in turn, still or live. Absent, the range colors. */
+  /** The rainbow theme: in the terminal the window bars' cells and the percents' characters take these colors in turn, still or live; on the desktop, which paints its own rainbow, it marks the stale segments to paint faded. Absent, the range colors. */
   rainbow?: { colors: readonly string[]; still: boolean }
 }
 
@@ -792,10 +792,11 @@ function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarCo
     return
   }
   const { cells: row, tick } = barCells(seg, len, T, bars)
-  // In the rainbow every live cell takes the next color, whatever its percent.
+  // In the rainbow every live cell takes the next color, whatever its percent. A stale segment's filled cells
+  // (the faded ones) take it too, and keep their fade.
   const rb = seg.rainbow
-  if (rb && !seg.stale) row.forEach((c, i) => {
-    if (c.kind !== 'track' && c.live) row[i] = { ...c, color: rb.colors[i % rb.colors.length]!, live: !rb.still }
+  if (rb) row.forEach((c, i) => {
+    if (c.kind !== 'track' && (c.live || (seg.stale && c.op < 1))) row[i] = { ...c, color: rb.colors[i % rb.colors.length]!, live: !rb.still }
   })
   if (tick !== null) row[tick] = { kind: 'track', color: T.text, live: false, op: 1 }
   // Cells of one look become one span, so a bar is a few spans, not one per cell.
@@ -821,14 +822,15 @@ function pushBar(out: Span[], seg: Segment, len: number, T: Palette, bars: BarCo
 function pushPct(out: Span[], T: Palette, seg: Segment, text: string): void {
   const pc = pctColor(seg, T)
   const rb = seg.rainbow
-  if (!rb || !pc.live || seg.loading) {
+  // A stale percent takes the rainbow too, faded as it is.
+  if (!rb || seg.loading || seg.pct == null || !(pc.live || seg.stale)) {
     out.push(sp(T, text, pc.color, { live: pc.live, op: pc.op, bold: true }))
     return
   }
   let k = 0
   for (const ch of Array.from(text)) {
     if (ch === ' ') out.push(sp(T, ch, pc.color, { bold: true }))
-    else out.push(sp(T, ch, rb.colors[k++ % rb.colors.length]!, { live: !rb.still, bold: true }))
+    else out.push(sp(T, ch, rb.colors[k++ % rb.colors.length]!, { live: !rb.still, op: pc.op, bold: true }))
   }
 }
 
@@ -1090,6 +1092,8 @@ export type FlexSegment = {
   split?: true
   /** The field after the percent is a run-out warning: it stays red in the rainbow. */
   warns?: true
+  /** A stale segment in the rainbow: built as a fresh one, for the desktop to paint in the rainbow faded as a stale color is. */
+  faded?: true
 }
 
 /**
@@ -1124,6 +1128,8 @@ export type FlexRow = {
   outline?: Frame[]
   /** The reset chips, before everything else in the row. */
   resets?: FlexChip[]
+  /** The band's frame or its outline belongs to a stale segment in the rainbow: built live, for the desktop to paint in the faded rainbow. */
+  fadedFrame?: true
 }
 
 /** A reset chip as the desktop draws it: its text, its colors (six for the rainbow, one otherwise) and its hover card's rows, an expiry in its color under a halo. */
@@ -1274,9 +1280,18 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   segs.forEach((seg, i) => {
     if (seg.kind !== 'ctx') lastWin = i
   })
+  // In the rainbow a stale segment is built as a fresh one and marked `faded`: the desktop paints it in the rainbow,
+  // faded as a stale color is, and it moves with the rest. Its frame too, unless `borderColor` keeps it out of the rainbow.
+  const fadedIn = (seg: Segment) => Boolean(seg.rainbow && seg.stale && !seg.loading && seg.pct != null)
+  const fresh = (seg: Segment): Segment => (fadedIn(seg) ? { ...seg, stale: false } : seg)
+  const framed = s.border?.color ? segs : segs.map(fresh)
+  const best = fullest(segs)
+  const fadedFrame = !s.border?.color && best !== null && fadedIn(best)
   // The outline frames the whole band: while it shows, neither the segments nor the row draw a frame of their own.
-  const outline = outlineOf(segs, s.border, T)
-  const segments: FlexSegment[] = segs.map(seg => {
+  const outline = outlineOf(framed, s.border, T)
+  const segments: FlexSegment[] = segs.map((old, n) => {
+    const faded = fadedIn(old)
+    const seg = fresh(old)
     const label = seg.label ? seg.label.full : LABELS.full[seg.kind]
     const pctText = seg.loading ? '…' : seg.pct == null ? '--' : Math.round(seg.pct) + '%'
     const pc = pctColor(seg, T)
@@ -1297,11 +1312,17 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
       extra,
     }
     if (seg.hasBar && dotCount && dotCount > 0) out.dots = dotsOf(seg, dotCount, T, bars)
-    const frame = s.border?.scope === 'segment' && !seg.loading && !outline ? frameOf(seg.pct, seg.stale === true, s.border, T) : null
+    if (faded) {
+      out.faded = true
+      // What stays out of the rainbow (a projection's rings past the fill) fades as it does on a stale bar.
+      if (out.dots) out.dots = out.dots.map(d => (d.live || d.color.toUpperCase() === T.track.toUpperCase() ? d : { ...d, color: mix(d.color, T.bg, 0.45) }))
+    }
+    const frame = s.border?.scope === 'segment' && !seg.loading && !outline ? frameOf(seg.pct, framed[n]!.stale === true, s.border, T) : null
     if (frame) out.frame = frame
     if (seg.hasBar && partSlices(seg, T)) out.split = true
     if (extra && seg.warn != null) {
-      const wc = warnColor(seg, T)
+      // A run-out warning keeps its red in the rainbow, so a stale one fades as ever.
+      const wc = warnColor(old, T)
       out.warns = true
       out.extraSpan = sp(T, extra, wc.color, { live: wc.live, op: wc.op })
     } else if (extra && s.resetColor === 'time' && seg.kind !== 'ctx' && seg.resetMin != null) {
@@ -1309,11 +1330,11 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
       out.extraSpan = sp(T, extra, tc.color, { live: tc.live, op: tc.op })
     }
     if (seg.hasBar) {
-      const pace = flexPace(seg, T)
+      const pace = flexPace(old, T)
       if (pace) out.pace = pace
     }
     if (s.windowCard && seg.hasBar) {
-      const card = windowRows(seg, label, T, s.resetColor)
+      const card = windowRows(old, label, T, s.resetColor)
       if (card) out.card = card
     }
     return out
@@ -1321,8 +1342,9 @@ export function flexRow(s: BandInput, theme: Theme, bars: BarColoring, dotCount?
   const staleTxt = s.stale && s.auth && !s.loading && lastWin >= 0 ? sp(T, 'stale ' + s.staleAge, T.text, { italic: true, op: 0.7 }) : null
   const row: FlexRow = { segments, text: T.text, separator: mix(T.text, T.bg, 0.4), stale: staleTxt }
   if (outline) row.outline = outline
-  const frame = s.border?.scope === 'band' && !outline ? bandFrame(segs, s.border, T) : null
+  const frame = s.border?.scope === 'band' && !outline ? bandFrame(framed, s.border, T) : null
   if (frame) row.frame = frame
+  if (fadedFrame && (outline || frame)) row.fadedFrame = true
   const ring = s.button && s.ctx ? buttonRing(s.ctx, T, bars) : null
   if (ring) row.button = { position: s.button!, ring, label: `${s.buttonLabel ?? HANDOFF_LABEL} (${Math.round(s.ctx!.pct)}% of the context used)` }
   if (s.resets?.chips.length) row.resets = s.resets.chips.map(c => ({ text: c.text ?? CHIP_TEXT, colors: chipColors(s.resets!, theme), rows: chipRows(c.lines, T, chipColors(s.resets!, theme)), ...(s.resets!.motion ? { motion: s.resets!.motion } : {}) }))

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `preset`: a named look, one option that sets a group of others over whatever they are set to, so switching looks is one option and the options it replaces stay saved for `off`. `rainbow`, the first, puts everything in the rainbow, running without a stop: `rainbow: circle`, `pulse` on under `pulseMode: always`, `glow` on, `resetColor: time`, `border: always`, `outline: single`, no `borderColor`, every glow and pulse of the button, the border and the reset chip on, the chip in the rainbow and circling. An option a preset does not name stays as set.
+
+### Changed
+
+- A stale segment in the rainbow takes the rainbow too, every color faded toward the ground as a stale range color is, and moves with the rest, where it kept its faded range color and held still. A per-model weekly window (`Fable`), which only the usage fetch refreshes, went stale between fetches and stood green and still in a band otherwise running in the rainbow. Its border follows, unless `borderColor` is set; the outline and the band's frame fade when the fullest segment is stale; a run-out warning stays red and fades as before. In the terminal a stale bar's cells and its percent take the colors, faded, and pulse.
+
 ## [1.7.1] - 2026-11-26
 
 ### Changed

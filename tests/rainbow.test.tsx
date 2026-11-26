@@ -4,6 +4,8 @@ import type { BandInput } from '../hooks/builder'
 import { band, flexRow, rainbowOf, textOf as textOfSpans, THEMES } from '../hooks/builder'
 import type { DesktopOptions, Rainbow } from '../hooks/drawings'
 import { buttonSvg, contextRowSvg, dotBarSvg, frameCapSvg, frameEdgesSvg, outlineCapSvg, outlineEdgesSvg, OUTLINE_INSET, OUTLINE_RADIUS, outlineRingSvg, pctSvg, RAINBOW_PERIOD, smoothBarSvg } from '../hooks/drawings'
+import { mix } from '../hooks/color'
+import { fadedOptions } from '../hooks/desktop'
 import { parseOptions } from '../hooks/register'
 import { mountBand, setup, spansOf, start } from './kit'
 
@@ -103,9 +105,64 @@ describe('desktop', () => {
     expect(dotBarSvg(dots, with_('circle', { glow: false }))).not.toContain('<filter')
   })
 
-  test('a stale bar keeps its faded range color: the rainbow is for what is live', () => {
+  test('a drawing with nothing live keeps its own colors: the rainbow is for what is live', () => {
     const stale = flexRow(input({ stale: true, staleAge: '5m' }), 'dark', 'level')!.segments[0]!.bar!
     expect(smoothBarSvg(stale, with_('circle'))).not.toContain('id="rb"')
+  })
+
+  test('a stale segment in the rainbow is built as a fresh one and marked, so it takes the rainbow faded and moves with the rest', () => {
+    const rainbow = { colors: COLORS, still: false }
+    // The Fable window alone is old, as when the fetch that reports it is behind: the window beside it stays fresh.
+    const windows = [
+      { kind: 'five_hour' as const, pct: 62, resetMin: 165 },
+      { kind: 'seven_day' as const, pct: 50, resetMin: 4536, resetAs: 'countdown' as const, label: { full: 'Fable', short: 'Fab' }, stale: true },
+    ]
+    const row = flexRow(input({ windows, rainbow, resetColor: 'time', border: { show: 'always', at: 90, scope: 'segment' } }), 'dark', 'level', 20)!
+    const [five, fable] = row.segments
+    expect([five!.faded ?? false, fable!.faded ?? false]).toEqual([false, true])
+    // Live and in its full range color, as the fresh segment beside it: the fade is the paint's.
+    expect(fable!.pct.live).toBe(true)
+    expect(fable!.bar!.filter(sl => sl.live).length).toBe(1)
+    expect(fable!.dots!.some(d => d.live)).toBe(true)
+    expect(fable!.extraSpan!.live).toBe(true)
+    expect(fable!.frame).toEqual({ color: T.ramp[1], live: true })
+    // Without the rainbow it is the faded, still segment it always was.
+    const plain = flexRow(input({ windows, resetColor: 'time' }), 'dark', 'level')!.segments[1]!
+    expect(plain.faded).toBeUndefined()
+    expect(plain.pct.live).toBeUndefined()
+    // Its paint: the same six colors, each faded toward the ground as a stale range color is.
+    const dim = fadedOptions(with_('circle'))
+    expect(dim.rainbow!.colors).toEqual(COLORS.map(c => mix(c, T.bg, 0.45)))
+    expect(dim.rainbow!.motion).toBe('circle')
+    const svg = smoothBarSvg(fable!.bar!, dim)
+    expect(svg).toMatch(/data-role="slice"[^>]*fill="url\(#rb\)"/)
+    expect(svg).toContain(`stop-color="${mix(COLORS[0]!, T.bg, 0.45)}"`)
+    expect(svg).toContain('animateTransform')
+    // Off, there is nothing to fade.
+    expect(fadedOptions(base)).toBe(base)
+  })
+
+  test('a frame in the one color set stays out of the rainbow, so a stale one fades and holds still as ever', () => {
+    const rainbow = { colors: COLORS, still: false }
+    const border = { show: 'always' as const, at: 90, scope: 'segment' as const, color: '#FF073A' }
+    const seg = flexRow(input({ stale: true, staleAge: '5m', rainbow, border }), 'dark', 'level')!.segments[0]!
+    expect(seg.faded).toBe(true)
+    expect(seg.frame).toEqual({ color: mix('#FF073A', T.bg, 0.45), live: false })
+  })
+
+  test('the outline and the frame of the band fade with the fullest segment when it is stale', () => {
+    const rainbow = { colors: COLORS, still: false }
+    // The context, never stale, at 20%: the 5-hour window at 62% is the fullest.
+    const ctx = { pct: 20, tokens: 40000, window: 200000 }
+    const outlined = flexRow(input({ stale: true, staleAge: '5m', ctx, rainbow, border: { show: 'always', at: 90, scope: 'segment', outline: 'single' } }), 'dark', 'level')!
+    expect(outlined.fadedFrame).toBe(true)
+    expect(outlined.outline!.every(f => f.live)).toBe(true)
+    const banded = flexRow(input({ stale: true, staleAge: '5m', ctx, rainbow, border: { show: 'always', at: 90, scope: 'band' } }), 'dark', 'level')!
+    expect(banded.fadedFrame).toBe(true)
+    expect(banded.frame!.live).toBe(true)
+    // Fresh, or with the fresh context the fullest, nothing fades.
+    expect(flexRow(input({ ctx, rainbow, border: { show: 'always', at: 90, scope: 'band' } }), 'dark', 'level')!.fadedFrame).toBeUndefined()
+    expect(flexRow(input({ stale: true, staleAge: '5m', rainbow, border: { show: 'always', at: 90, scope: 'band' } }), 'dark', 'level')!.fadedFrame).toBeUndefined()
   })
 
   test('a bar split by category and a run-out warning are marked, so the band leaves them their own colors', () => {
@@ -187,6 +244,16 @@ describe('terminal', () => {
     expect(pct.map(s => [s.text, s.color, s.bold, s.live])).toEqual([['6', colors[0], true, true], ['2', colors[1], true, true], ['%', colors[2], true, true]])
     const still = band(input({ rainbow: { colors, still: true } }), 120, 'dark', 'level')!
     expect(still.spans.filter(s => s.text === '━' && s.color !== T.track).every(s => !s.live)).toBe(true)
+  })
+
+  test('a stale bar and its percent take the colors too, faded, and pulse with the rest', () => {
+    const colors = COLORS
+    const dim = colors.map(c => mix(c, T.bg, 0.45))
+    const row = band(input({ stale: true, staleAge: '5m', rainbow: { colors, still: false } }), 120, 'dark', 'level')!
+    const first = row.spans.findIndex(s => s.text === '━' && s.live)
+    expect(row.spans.slice(first, first + 6).map(s => s.color)).toEqual(dim)
+    const pct = row.spans.filter(s => ['6', '2', '%'].includes(s.text)).slice(0, 3)
+    expect(pct.map(s => [s.text, s.color, s.live])).toEqual([['6', dim[0], true], ['2', dim[1], true], ['%', dim[2], true]])
   })
 
   test('the option reaches the band the engine draws', { options: { rainbow: 'breathe' } }, async ($, on) => {
