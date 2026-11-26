@@ -442,6 +442,12 @@
       ],
       "default": "circle"
     },
+    "dateFormat": {
+      "type": "string",
+      "title": "Date format",
+      "description": "How every date is written, such as the day a reset expires in the reset chip's card: a pattern of D, DD, M, MM, MMM (Dec), YY and YYYY with any punctuation between them, such as DD.MM.YYYY (10.12.2026), YYYY-MM-DD or D MMM YYYY; it needs a day and a month",
+      "default": "MMM D, YYYY"
+    },
     "rainbow": {
       "type": "string",
       "title": "Rainbow",

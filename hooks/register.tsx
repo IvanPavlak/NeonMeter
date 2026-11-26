@@ -145,6 +145,8 @@ export type Options = {
   resetChipPulse: boolean
   /** How the chip moves while the band pulses: `circle` turns its rainbow, `breathe` brightens it in place, `still` holds it. */
   resetChipMotion: ChipMotion
+  /** How every date is written, as a pattern of `D`, `DD`, `M`, `MM`, `MMM`, `YY` and `YYYY`: `MMM D, YYYY` (`Dec 10, 2026`), `DD.MM.YYYY` (`10.12.2026`). */
+  dateFormat: string
   /** The rainbow theme, in place of the range colors: held `still`, breathing with the pulse (`breathe`) or running with it (`circle`); `off`, the range colors. */
   rainbow: 'off' | 'still' | 'breathe' | 'circle'
   /** A named look that sets a group of options at once, over whatever they are set to (`PRESETS`); `off`, every option as set. */
@@ -240,16 +242,50 @@ export function wrapText(text: string, width: number): string[] {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
 
+/** How a date is written unless `dateFormat` says otherwise: `Dec 10, 2026`. */
+export const DEFAULT_DATE_FORMAT = 'MMM D, YYYY'
+const DATE_TOKENS = /YYYY|YY|MMM|MM|M|DD|D/g
+
+/**
+ * A date pattern such as `DD.MM.YYYY`, or null: the tokens `D`, `DD`, `M`,
+ * `MM`, `MMM`, `YY` and `YYYY` with anything but letters between them, a day
+ * and a month among them, at most 20 characters so a card's line stays whole.
+ */
+export function parseDateFormat(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const pattern = value.trim()
+  if (pattern === '' || pattern.length > 20) return null
+  if (/\p{L}/u.test(pattern.replace(DATE_TOKENS, ''))) return null
+  const tokens = pattern.match(DATE_TOKENS) ?? []
+  return tokens.some(t => t[0] === 'D') && tokens.some(t => t[0] === 'M') ? pattern : null
+}
+
+/** The local day of `ms` written as `pattern` says: `10.12.2026` for `DD.MM.YYYY`. */
+export function fmtDate(ms: number, pattern: string = DEFAULT_DATE_FORMAT): string {
+  const d = new Date(ms)
+  const two = (n: number) => String(n).padStart(2, '0')
+  const parts: Record<string, string> = {
+    YYYY: String(d.getFullYear()),
+    YY: two(d.getFullYear() % 100),
+    MMM: MONTHS[d.getMonth()]!,
+    MM: two(d.getMonth() + 1),
+    M: String(d.getMonth() + 1),
+    DD: two(d.getDate()),
+    D: String(d.getDate()),
+  }
+  return pattern.replace(DATE_TOKENS, t => parts[t]!)
+}
+
 /**
  * The chip the band draws at `now`: one, counting the held resets that have
  * not expired (`+2`), with its hover card's lines: a title, then for each
  * reset its name, what it refills (in lines short enough for the card) and,
- * under them, when it expires, which
+ * under them, when it expires (the day written as `dateFormat` says), which
  * the card colors by how close that is; the one that expires first on top
  * and those without a day last, in the list's order among equals. Null when
  * none is left.
  */
-export function resetChipsOf(held: readonly HeldReset[], color: string, now: number, motion: ChipMotion = 'circle'): ResetChips | null {
+export function resetChipsOf(held: readonly HeldReset[], color: string, now: number, motion: ChipMotion = 'circle', dateFormat: string = DEFAULT_DATE_FORMAT): ResetChips | null {
   const left = held
     .map((r, i) => ({ r, i }))
     .filter(({ r }) => r.expires === null || r.expires >= now)
@@ -264,9 +300,8 @@ export function resetChipsOf(held: readonly HeldReset[], color: string, now: num
     for (const part of wrapText(what, CARD_LINE)) lines.push({ text: part })
     if (r.expires === null) continue
     lines.push(gap)
-    const d = new Date(r.expires)
     const days = Math.floor((r.expires - now) / 86_400_000)
-    lines.push({ text: `Expires ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${days === 0 ? 'today' : days === 1 ? 'in 1 day' : `in ${days} days`}`, left: Math.min(100, ((r.expires - now) / (EXPIRY_HORIZON_DAYS * 86_400_000)) * 100) })
+    lines.push({ text: `Expires ${fmtDate(r.expires, dateFormat)}, ${days === 0 ? 'today' : days === 1 ? 'in 1 day' : `in ${days} days`}`, left: Math.min(100, ((r.expires - now) / (EXPIRY_HORIZON_DAYS * 86_400_000)) * 100) })
   }
   lines.push(gap, { text: left.length === 1 ? 'Use it in Settings > Usage.' : 'Use them in Settings > Usage.', dim: true })
   return { chips: [{ text: `+${left.length}`, lines }], color, ...(motion === 'circle' ? {} : { motion }) }
@@ -325,6 +360,7 @@ const DEFAULTS: Options = {
   resetChipGlow: true,
   resetChipPulse: true,
   resetChipMotion: 'circle',
+  dateFormat: DEFAULT_DATE_FORMAT,
   rainbow: 'off',
   preset: 'off',
 }
@@ -473,6 +509,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
   const resetChipGlow = typeof options.resetChipGlow === 'boolean' ? options.resetChipGlow : DEFAULTS.resetChipGlow
   const resetChipPulse = typeof options.resetChipPulse === 'boolean' ? options.resetChipPulse : DEFAULTS.resetChipPulse
   const resetChipMotion = options.resetChipMotion === 'breathe' || options.resetChipMotion === 'still' ? options.resetChipMotion : DEFAULTS.resetChipMotion
+  const dateFormat = options.dateFormat === undefined || options.dateFormat === '' ? DEFAULTS.dateFormat : pick('dateFormat', parseDateFormat, DEFAULTS.dateFormat, 'a date pattern of D, DD, M, MM, MMM, YY and YYYY with a day and a month, such as "DD.MM.YYYY"')
   const rainbow = options.rainbow === 'still' || options.rainbow === 'breathe' || options.rainbow === 'circle' ? options.rainbow : DEFAULTS.rainbow
 
   const raw = listOf(options.segments) ?? DEFAULTS.segments
@@ -537,6 +574,7 @@ export function parseOptions(options: PluginOptions): { parsed: Options; rejecte
       resetChipGlow,
       resetChipPulse,
       resetChipMotion,
+      dateFormat,
       rainbow,
       preset,
     },
@@ -1203,7 +1241,7 @@ function inputOf(r: NeonMeterReading | null, c: NeonMeterContext | null, h: Neon
 /** The band's reset chips at `now`, as an input field; nothing when none is held or left. */
 function resetsInput(options: Options, now: number): { resets?: ResetChips } {
   if (!options.resetChips.length) return {}
-  const resets = resetChipsOf(options.resetChips, options.resetChipColor, now, options.resetChipMotion)
+  const resets = resetChipsOf(options.resetChips, options.resetChipColor, now, options.resetChipMotion, options.dateFormat)
   return resets ? { resets } : {}
 }
 
