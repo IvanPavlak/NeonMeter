@@ -243,6 +243,14 @@ describe('desktop', () => {
     expect(row.segments[2]!.card).toBeUndefined()
     // A reading, not a meter: no row pulses.
     expect(row.segments[0]!.card!.every(r => !r.live)).toBe(true)
+    // The reset is plain by default; under resetColor: time it takes the color it has in the band (55% of the
+    // 5-hour window still to run: the fourth time range, yellow), under a halo with its dot.
+    const reset = (more: Partial<BandInput>) => flexRow(input({ windowCard: true, ...more }), 'dark', 'level')!.segments[0]!.card!.find(r => r.key === 'reset')!
+    expect(reset({})).toMatchObject({ halo: false, dot: false })
+    const timed = flexRow(input({ windowCard: true, resetColor: 'time' }), 'dark', 'level')!
+    expect(reset({ resetColor: 'time' })).toMatchObject({ text: 'Resets: 14:45, in 2h45m', color: timed.segments[0]!.extraSpan!.color, halo: true, live: false })
+    expect(reset({ resetColor: 'time' }).color).toBe('#FFF01F')
+    expect(reset({ resetColor: 'time' }).dot).toBeUndefined()
     // The card alone marks nothing on the bar.
     expect(row.segments[0]!.pace).toBeUndefined()
   })

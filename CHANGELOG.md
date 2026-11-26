@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-11-26
+
+### Changed
+
+- The window's hover card (`windowPopup`) draws its `Resets:` line in the reset's time color under `resetColor: time`, as the band draws the reset beside the percent: blue when the reset is close, red when it is far off, by `timeRanges`, under the halo and faded when stale. Under `resetColor: plain` it stays plain.
+
 ## [1.7.0] - 2026-11-26
 
 ### Added
@@ -208,7 +214,8 @@ The first release.
 - The approved design canvas under `design/`, matching the shipped defaults, with a playground, the palette and every state on both themes.
 - Tests against the engine's own test kit, including all fifty golden rows of the design specification, and a CI workflow that validates and tests on every push against a pinned Claude Code release.
 
-[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/IvanPavlak/NeonMeter/compare/v1.6.0...v1.6.1
