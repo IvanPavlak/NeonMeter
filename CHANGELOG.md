@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- The outline in the desktop app on Windows, and the band moving under the mouse wheel. The outline was placed for 13 CSS pixels of padding above and below the band; the app pads its card by 10 there too, so the drawings stood 3 pixels past the card, the lines on its clipped edge, and a wheel tick over the band scrolled the row by those pixels, the top line out of the card. The outline now reaches across 10 pixels on both systems: its lines sit just inside the card, and the band has nothing to scroll.
+- The outline in the desktop app on Windows, and the band moving under the mouse wheel. The outline was placed for 13 CSS pixels of padding above and below the band; the app pads its card by 10 there too, so the drawings stood 3 pixels past the card, the lines on its clipped edge, and a wheel tick over the band scrolled the row by those pixels, the top line out of the card. The outline now reaches across 10 pixels on both systems and runs along the card's own edge on every side, and the band has nothing to scroll.
 
 ## [1.6.1] - 2026-10-30
 

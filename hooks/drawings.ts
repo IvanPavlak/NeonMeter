@@ -581,7 +581,7 @@ export function frameSpacerSvg(w: number): string {
 // clips what a plugin draws to the card: so the band's first and last pieces
 // reach one cell out, to the card's edges, and hold the caps, and every
 // drawing is the row's height and the padding above and below it, overflowing
-// the row equally both ways, so its lines land just inside the card's edge.
+// the row equally both ways, so its lines land along the card's edge.
 // Each piece of the band draws its own stretch of the top and bottom edges,
 // beside the caps and never under them (two drawings of one line never meet
 // pixel for pixel), so under `outline: sections` each takes its own color;
@@ -599,8 +599,11 @@ export const OUTLINE_PAD = { windows: 10, mac: 10 } as const
 export type OutlinePad = (typeof OUTLINE_PAD)[keyof typeof OUTLINE_PAD]
 /** The card's corner radius, in the drawings' own pixels (about 10 CSS pixels, as the app rounds its card). */
 export const OUTLINE_RADIUS = 15
-/** Where the line runs, inset from the drawing's edge so the card's clip leaves all of it. */
-export const OUTLINE_INSET = 4
+/**
+ * Where the line runs: half its width in from the drawing's edge, so it lies along the card's own edge, all of it
+ * inside the clip. Its halo shows inward alone; the card cuts the rest.
+ */
+export const OUTLINE_INSET = FRAME_WIDTH / 2
 /** A cap's width: the corner and a little edge, narrow enough to fit the narrowest piece that can end the band (the button, with its cell of padding). */
 export const OUTLINE_CAP = 36
 
@@ -623,7 +626,8 @@ export function outlineCapSvg(side: 'left' | 'right', f: FrameLook, h: number, o
   const t = OUTLINE_INSET
   const b = h - OUTLINE_INSET
   const x = OUTLINE_INSET
-  const r = Math.min(OUTLINE_RADIUS, (b - t) / 2)
+  // The line's corner, inside the card's by the inset, so it follows the card's corner around.
+  const r = Math.min(OUTLINE_RADIUS - OUTLINE_INSET, (b - t) / 2)
   const run = w + 3 * GLOW.peakBlur
   const d = `M${run} ${t}H${x + r}A${r} ${r} 0 0 0 ${x} ${t + r}V${b - r}A${r} ${r} 0 0 0 ${x + r} ${b}H${run}`
   const filter = o.glow ? outlineFilter('fg', -run, 3 * run, h, 1, beat) : ''
